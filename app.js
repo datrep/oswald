@@ -1,3 +1,5 @@
+//AUDIT IS NOT WORKING, TODO:// 
+
 // app.js wasnt supposed to be called to set up routes, routes have been ported to /routes
 //find out why thats the case
 
@@ -8,7 +10,10 @@ const dotenv = require("dotenv");
 const tagRoutes = require('./routes/tagRoutes');
 const userRoutes = require("./routes/userRoutes");
 const dbRoutes = require('./routes/dbRoutes');
-
+const edictRoutes = require('./routes/edictRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const auditRoutes = require('./routes/audit');
+const resourceRoutes = require('./routes/resourceRoutes');
 
 
 const app = express();
@@ -31,8 +36,19 @@ app.use("/images", imageRoutes
 app.use('/tags', tagRoutes);
 app.use("/api/users", userRoutes);
 
-app.use('/api/db', dbRoutes); // e.g., endpoint will be /api/db/tables
+// endpoint will be /api/db/tables
+app.use('/api/db', dbRoutes);
 
+// endpoint will be /api/edicts
+app.use('/api/edicts', edictRoutes);
+
+// endpoint will be /api/tasks
+app.use('/api/tasks', taskRoutes);
+
+app.use('/api/resources', resourceRoutes);
+
+
+app.use('/api/audit', auditRoutes);
 
 // Start server
 app.listen(port, () => {

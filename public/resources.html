@@ -1,0 +1,28 @@
+<!-- resources.html -->
+<h1>Resources</h1>
+<div id="resources-container"></div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const edictId = urlParams.get('edict');
+
+async function fetchResources() {
+    try {
+        const res = await fetch(`/api/resources/edict/${edictId}`);
+        const resources = await res.json();
+        const container = document.getElementById('resources-container');
+        container.innerHTML = '';
+
+        resources.forEach(r => {
+            const div = document.createElement('div');
+            div.innerHTML = `<p><a href="${r.resourcePath}" target="_blank">${r.resourcePath.split('/').pop()}</a> - ${r.description || ''}</p>`;
+            container.appendChild(div);
+        });
+    } catch (err) {
+        console.error(err);
+        alert('Failed to fetch resources');
+    }
+}
+
+fetchResources();
+</script>

@@ -71,8 +71,11 @@ CREATE TABLE Tasks (
     priority INT NULL,
     state INT NULL,
     assignedToUserId INT NULL,
-    FOREIGN KEY (assignedToUserId) REFERENCES Users(id) ON DELETE SET NULL
+    edictId INT NULL,
+    FOREIGN KEY (assignedToUserId) REFERENCES Users(id) ON DELETE SET NULL,
+    FOREIGN KEY (edictId) REFERENCES Edicts(id) ON DELETE SET NULL
 );
+GO
 
 PRINT 'Creating EdictResources table...';
 CREATE TABLE EdictResources (
@@ -111,9 +114,9 @@ INSERT INTO Edicts (name, plannedStart, plannedEnd, info, priority, state) VALUE
 GO
 
 PRINT 'Inserting sample tasks...';
-INSERT INTO Tasks (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId) VALUES
-('Task One', GETDATE(), DATEADD(day, 3, GETDATE()), 'First test task', 1, 2, 1),
-('Task Two', DATEADD(day, 2, GETDATE()), DATEADD(day, 5, GETDATE()), 'Second test task', 2, 1, 1);
+INSERT INTO Tasks (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId,edictId) VALUES
+('Task One', GETDATE(), DATEADD(day, 3, GETDATE()), 'First test task', 1, 2, 1,1),
+('Task Two', DATEADD(day, 2, GETDATE()), DATEADD(day, 5, GETDATE()), 'Second test task', 2, 1, 1,2);
 GO
 
 PRINT 'Inserting sample resources for edicts...';
@@ -176,3 +179,5 @@ GO
 
 PRINT 'api_user login and database user created and granted permissions successfully.';
 GO
+
+EXEC sp_help 'Tasks'
