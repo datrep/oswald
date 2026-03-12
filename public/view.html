@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>View Image</title>
+  <link rel="stylesheet" href="index.css" />
+  <style>
+    /* Override grid for content: single image only */
+    #content {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      /* no grid, just center */
+    }
+
+    #content img {
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Copy app-header and main-menu from index.html -->
+<div id="app-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+  <a href="/">
+    <img src="images/site logo.png" alt="site" style="height: 40px; object-fit: contain;" />
+  </a>
+  <h1 style="margin: 0;">SomeBoard</h1>
+</div>
+
+<div id="main-menu">
+  <a id="nav-my-account" href="/profile">My Account</a>
+  <a id="nav-posts" href="/index.html" class="current">Posts</a>
+  <a id="nav-artists" href="/artists">Artists</a>
+  <a id="nav-tags" href="/tags">Tags</a>
+  <a id="nav-comments" href="/comments">Comments (does not work)</a>
+</div>
+
+<!-- Container with vertical info menu and content area -->
+<div id="container" style="margin-top: 20px; display: flex; gap: 20px; min-height: 60vh;">
+  
+  <div id="image-menu" style="min-width: 250px; background: #f0f0f0; padding: 15px; border-radius: 8px;">
+    <h2 id="image-title"></h2>
+
+    <!--Image details--> 
+    <p><strong>Description:</strong> <span id="image-description"></span></p>
+    <p><strong>Uploader:</strong> <span id="image-uploader"></span></p>
+    <p><strong>Uploaded:</strong> <span id="image-date"></span></p>
+    <p><strong>Resolution:</strong> <span id="image-size"></span></p>
+    <p><strong>File Size:</strong> <span id="image-filesize"></span></p>
+    <p><strong>Status:</strong> <span id="image-status"></span></p>
+    <!-- Tags -->
+    
+    <!-- Tags section -->
+    <div id="image-tags" style="margin-top: 1em;"></div>
+
+
+
+    <!-- Action buttons-->
+    <div id="image-actions" style="margin-top: 1em; display: flex; gap: 1em;">
+    <button id="edit-button">Edit</button>
+    <button id="delete-button" style="color: red;">Delete</button>
+    </div>
+    
+    
+
+    <div id="image-comments" style="margin-top: 1em;"> <!-- dud -->
+      <h3>Comments</h3>
+      <div id="comments-list">
+        <!-- Comments will be dynamically inserted here -->
+      </div>
+      <textarea id="new-comment" placeholder="Add a comment..." rows="3"></textarea>
+      <button id="submit-comment">Submit Comment</button>
+
+
+
+
+
+</div>
+
+  </div>
+
+
+  <div id="content">
+    <!-- Image inserted here -->
+  </div>
+
+</div>
+
+<script src="view-script.js"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon/favicon.ico">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+<div id="app-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+  <a href="/">
+    <img src="images/site logo.png" alt="site" style="height: 40px; object-fit: contain;" />
+  </a>
+  <h1 style="margin: 0;">SomeBoard</h1>
+</div>
+
+<div id="main-menu">
+  <a id="nav-sign-up" href="/signup.html">Sign Up</a>
+  <a id="nav-log-in" href="/login.html">Log in</a>
+  <a id="nav-my-account" href="/profile.html" style="display: none;">My Account</a>
+  <a id="nav-edit-profile" href="/edit.html" style="display: none;">Edit Profile</a>
+  <a id="nav-logout" href="/logout.html" style="display: none;">Logout</a>
+  <a id="nav-posts" href="/index.html">Posts</a>
+  <a id="nav-artists" href="/artists">Artists</a>
+  <a id="nav-tags" href="/tags">Tags</a>
+  <a id="nav-comments" href="/comments">Comments (does not work)</a>
+</div>
+
+
+<h2>Login</h2>
+<form id="login-form">
+  <input type="text" id="username" placeholder="Username" required>
+  <input type="password" id="password" placeholder="Password" required>
+  <button type="submit">Login</button>
+</form>
+<p id="login-message"></p>
+
+<script>
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    const res = await fetch('/api/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+    document.getElementById('login-message').textContent = data.message || data.error;
+
+    if (res.ok) {
+      localStorage.setItem('token', data.token);
+      window.location.href = '/profile.html';
+    }
+  });
+</script>
+<script>
+  const token = localStorage.getItem('token');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const show = id => document.getElementById(id)?.style && (document.getElementById(id).style.display = '');
+    const hide = id => document.getElementById(id)?.style && (document.getElementById(id).style.display = 'none');
+
+    if (token) {
+      hide('nav-sign-up');
+      hide('nav-log-in');
+      show('nav-my-account');
+      show('nav-edit-profile');
+      show('nav-logout');
+    } else {
+      show('nav-sign-up');
+      show('nav-log-in');
+      hide('nav-my-account');
+      hide('nav-edit-profile');
+      hide('nav-logout');
+    }
+  });
+</script>
+
+</body>
+</html>
+
+

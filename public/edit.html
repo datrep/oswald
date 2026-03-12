@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Edit Profile</title>
+  <link rel="icon" href="/favicon/favicon.ico">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+<div id="app-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+  <a href="/">
+    <img src="images/site logo.png" alt="site" style="height: 40px; object-fit: contain;" />
+  </a>
+  <h1 style="margin: 0;">SomeBoard</h1>
+</div>
+
+<div id="main-menu">
+  <a id="nav-sign-up" href="/signup.html">Sign Up</a>
+  <a id="nav-log-in" href="/login.html">Log in</a>
+  <a id="nav-my-account" href="/profile.html" style="display: none;">My Account</a>
+  <a id="nav-edit-profile" href="/edit.html" style="display: none;">Edit Profile</a>
+  <a id="nav-logout" href="/logout.html" style="display: none;">Logout</a>
+  <a id="nav-posts" href="/index.html">Posts</a>
+  <a id="nav-artists" href="/artists">Artists</a>
+  <a id="nav-tags" href="/tags">Tags</a>
+  <a id="nav-comments" href="/comments">Comments (does not work)</a>
+</div>
+
+<h2>Edit Profile</h2>
+<form id="editForm">
+  <input type="text" name="username" placeholder="New Username" required><br>
+  <input type="password" name="password" placeholder="New Password" required><br>
+  <button type="submit">Save Changes</button>
+</form>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('You must be logged in to edit your profile.');
+    window.location.href = '/login.html';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Navbar visibility
+    const show = id => document.getElementById(id)?.style && (document.getElementById(id).style.display = '');
+    const hide = id => document.getElementById(id)?.style && (document.getElementById(id).style.display = 'none');
+
+    if (token) {
+      hide('nav-sign-up');
+      hide('nav-log-in');
+      show('nav-my-account');
+      show('nav-edit-profile');
+      show('nav-logout');
+    }
+
+    // Handle form
+    document.getElementById('editForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const body = Object.fromEntries(formData.entries());
+
+      const res = await fetch('/api/users/edit', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      alert(data.message || data.error);
+      if (res.ok) window.location.href = 'profile.html';
+    });
+  });
+</script>
+
+</body>
+</html>
+
+
