@@ -1,6 +1,9 @@
 ﻿-- RESET DATABASE
 USE master;
 GO
+ 
+
+drop view tables;
 
 IF DB_ID('DB_Oswald') IS NOT NULL
 BEGIN
@@ -103,14 +106,14 @@ GO
 
 PRINT 'Inserting sample edicts...';
 INSERT INTO Edicts (name, plannedStart, plannedEnd, info, priority, state) VALUES
-('Initial Policy', GETDATE(), DATEADD(day, 7, GETDATE()), 1, 'This is the first edict', 1, 2),
-('Follow-up Policy', DATEADD(day, 1, GETDATE()), DATEADD(day, 14, GETDATE()), 0, 'Second policy for testing', 2, 1);
+('Initial Policy', GETDATE(), DATEADD(day, 7, GETDATE()), 'This is the first edict', 1, 2),
+('Follow-up Policy', DATEADD(day, 1, GETDATE()), DATEADD(day, 14, GETDATE()), 'Second policy for testing', 2, 1);
 GO
 
 PRINT 'Inserting sample tasks...';
 INSERT INTO Tasks (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId) VALUES
-('Task One', GETDATE(), DATEADD(day, 3, GETDATE()), 1, 'First test task', 1, 2, 1),
-('Task Two', DATEADD(day, 2, GETDATE()), DATEADD(day, 5, GETDATE()), 0, 'Second test task', 2, 1, 1);
+('Task One', GETDATE(), DATEADD(day, 3, GETDATE()), 'First test task', 1, 2, 1),
+('Task Two', DATEADD(day, 2, GETDATE()), DATEADD(day, 5, GETDATE()), 'Second test task', 2, 1, 1);
 GO
 
 PRINT 'Inserting sample resources for edicts...';
@@ -133,44 +136,43 @@ USE DB_Oswald;
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';
 GO
 
+
 -- CREATE SQL LOGIN AND DATABASE USER
 
-PRINT 'Dropping existing SQL login (oswald_user) if it exists...';
+-- DROP EXISTING SQL LOGIN
+PRINT 'Dropping existing SQL login (api_user) if it exists...';
 USE master;
-IF EXISTS (SELECT * FROM sys.sql_logins WHERE name = 'oswald_user')
+GO
+IF EXISTS (SELECT * FROM sys.sql_logins WHERE name = 'api_user')
 BEGIN
-    DROP LOGIN oswald_user;
+    DROP LOGIN api_user;
     PRINT 'Old login dropped.';
 END
 GO
 
-USE DB_Oswald;
-PRINT 'Creating new SQL login (oswald_user)...';
-CREATE LOGIN oswald_user WITH PASSWORD = 'oswald_user';
+-- CREATE SQL 
+PRINT 'Creating new SQL login (api_user)...';
+CREATE LOGIN api_user WITH PASSWORD = 'api_user';
 GO
 
-PRINT 'Switching to Oswald database to create user mapped to login...';
+-- CREATE DATABASE USER AND GRANT ROLES
+PRINT 'Creating database user mapped to login in DB_Oswald...';
 USE DB_Oswald;
 GO
 
-PRINT 'Dropping existing database user (oswald_user) if exists...';
-USE DB_Oswald;
-IF EXISTS (SELECT * FROM sys.database_principals WHERE name = 'oswald_user')
+IF EXISTS (SELECT * FROM sys.database_principals WHERE name = 'api_user')
 BEGIN
-    DROP USER oswald_user;
-    PRINT 'Old user dropped.';
+    DROP USER api_user;
+    PRINT 'Old database user dropped.';
 END
 GO
 
-PRINT 'Creating database user for login...';
-CREATE USER oswald_user FOR LOGIN oswald_user;
+CREATE USER api_user FOR LOGIN api_user;
 GO
 
-PRINT 'Granting db_datareader and db_datawriter roles to oswald_user...';
-ALTER ROLE db_datareader ADD MEMBER oswald_user;
-ALTER ROLE db_datawriter ADD MEMBER oswald_user;
+ALTER ROLE db_datareader ADD MEMBER api_user;
+ALTER ROLE db_datawriter ADD MEMBER api_user;
 GO
 
-PRINT 'oswald_user login and database user created and granted permissions successfully.';
+PRINT 'api_user login and database user created and granted permissions successfully.';
 GO
-

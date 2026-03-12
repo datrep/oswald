@@ -7,11 +7,15 @@ const sql = require("mssql");
 const dotenv = require("dotenv");
 const tagRoutes = require('./routes/tagRoutes');
 const userRoutes = require("./routes/userRoutes");
+const dbRoutes = require('./routes/dbRoutes');
+
+
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 const imageRoutes = require("./routes/imageRoutes");
+
 
 app.use(express.json());
 app.use(express.static("public"));
@@ -27,10 +31,14 @@ app.use("/images", imageRoutes
 app.use('/tags', tagRoutes);
 app.use("/api/users", userRoutes);
 
+app.use('/api/db', dbRoutes); // e.g., endpoint will be /api/db/tables
+
+
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
