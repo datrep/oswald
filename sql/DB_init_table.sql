@@ -1,0 +1,176 @@
+﻿-- RESET DATABASE
+USE master;
+GO
+
+IF DB_ID('DB_Oswald') IS NOT NULL
+BEGIN
+    PRINT 'Dropping existing DB_Oswald database...';
+    ALTER DATABASE DB_Oswald SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE DB_Oswald;
+END
+
+PRINT 'Creating DB_Oswald database...';
+CREATE DATABASE DB_Oswald;
+GO
+
+USE DB_Oswald;
+GO
+
+-- DROP EXISTING TABLES IN CORRECT ORDER
+PRINT 'Dropping existing tables if they exist (in correct dependency order)...';
+
+IF OBJECT_ID('dbo.AuditLogs', 'U') IS NOT NULL DROP TABLE dbo.AuditLogs;
+IF OBJECT_ID('dbo.EdictResources', 'U') IS NOT NULL DROP TABLE dbo.EdictResources;
+IF OBJECT_ID('dbo.Tasks', 'U') IS NOT NULL DROP TABLE dbo.Tasks;
+IF OBJECT_ID('dbo.Edicts', 'U') IS NOT NULL DROP TABLE dbo.Edicts;
+IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
+
+PRINT 'Existing tables dropped.';
+GO
+
+-- CREATE TABLES
+
+PRINT 'Creating Edicts table...';
+CREATE TABLE Edicts (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    name NVARCHAR(255) NOT NULL,
+    createdAt DATETIME DEFAULT GETDATE(),
+    plannedStart DATETIME NOT NULL,
+    plannedEnd DATETIME NOT NULL,
+    active AS (CASE WHEN GETDATE() >= plannedStart AND GETDATE() <= plannedEnd THEN 1 ELSE 0 END),
+    info NVARCHAR(MAX),
+    priority INT NULL,
+    state INT NULL,
+    assignedToEdictId INT NULL,
+    FOREIGN KEY (assignedToEdictId) REFERENCES Edicts(id) ON DELETE NO ACTION
+);
+
+PRINT 'Creating Users table...';
+CREATE TABLE Users (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    username NVARCHAR(50) NOT NULL UNIQUE,
+    passwordHash NVARCHAR(255) NOT NULL,
+    createdAt DATETIME DEFAULT GETDATE(),
+    updatedAt DATETIME DEFAULT GETDATE()
+);
+GO
+
+
+PRINT 'Creating Tasks table...';
+CREATE TABLE Tasks (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    name NVARCHAR(255) NOT NULL,
+    createdAt DATETIME DEFAULT GETDATE(),
+    plannedStart DATETIME NOT NULL,
+    plannedEnd DATETIME NOT NULL,
+    active AS (CASE WHEN GETDATE() >= plannedStart AND GETDATE() <= plannedEnd THEN 1 ELSE 0 END),
+    info NVARCHAR(MAX),
+    priority INT NULL,
+    state INT NULL,
+    assignedToUserId INT NULL,
+    FOREIGN KEY (assignedToUserId) REFERENCES Users(id) ON DELETE SET NULL
+);
+
+PRINT 'Creating EdictResources table...';
+CREATE TABLE EdictResources (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    edictId INT NOT NULL,
+    resourcePath NVARCHAR(255) NOT NULL,
+    description NVARCHAR(255) NULL,
+    FOREIGN KEY (edictId) REFERENCES Edicts(id) ON DELETE NO ACTION
+);
+GO
+
+PRINT 'Creating AuditLogs table...';
+CREATE TABLE AuditLogs (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    edictId INT NULL,
+    taskId INT NULL,
+    eventType NVARCHAR(50) NOT NULL,
+    notes NVARCHAR(MAX) NULL,
+    createdAt DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (edictId) REFERENCES Edicts(id) ON DELETE SET NULL,
+    FOREIGN KEY (taskId) REFERENCES Tasks(id) ON DELETE SET NULL
+);
+GO
+
+-- SEED SAMPLE DATA
+
+PRINT 'Inserting sample user...';
+INSERT INTO Users (username, passwordHash) VALUES
+('oswald_admin', '$2b$10$abcdefgh1234567890ijklmnopqrstuv'); -- sample hashed password
+GO
+
+PRINT 'Inserting sample edicts...';
+INSERT INTO Edicts (name, plannedStart, plannedEnd, info, priority, state) VALUES
+('Initial Policy', GETDATE(), DATEADD(day, 7, GETDATE()), 1, 'This is the first edict', 1, 2),
+('Follow-up Policy', DATEADD(day, 1, GETDATE()), DATEADD(day, 14, GETDATE()), 0, 'Second policy for testing', 2, 1);
+GO
+
+PRINT 'Inserting sample tasks...';
+INSERT INTO Tasks (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId) VALUES
+('Task One', GETDATE(), DATEADD(day, 3, GETDATE()), 1, 'First test task', 1, 2, 1),
+('Task Two', DATEADD(day, 2, GETDATE()), DATEADD(day, 5, GETDATE()), 0, 'Second test task', 2, 1, 1);
+GO
+
+PRINT 'Inserting sample resources for edicts...';
+INSERT INTO EdictResources (edictId, resourcePath, description) VALUES
+(1, '/resources/policy-doc-1.pdf', 'Main document for initial policy'),
+(1, '/resources/policy-diagram-1.png', 'Diagram attached to initial policy'),
+(2, '/resources/policy-doc-2.pdf', 'Follow-up policy document');
+GO
+
+PRINT 'Inserting sample audit logs...';
+INSERT INTO AuditLogs (edictId, taskId, eventType, notes) VALUES
+(1, NULL, 'created', 'Edict created by admin'),
+(NULL, 1, 'created', 'Task created for Oswald admin'),
+(1, NULL, 'hardReminderTriggered', 'Reminder triggered for initial policy');
+GO
+
+-- Confirm tables created
+PRINT 'Verifying all base tables:';
+USE DB_Oswald;
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';
+GO
+
+-- CREATE SQL LOGIN AND DATABASE USER
+
+PRINT 'Dropping existing SQL login (oswald_user) if it exists...';
+USE master;
+IF EXISTS (SELECT * FROM sys.sql_logins WHERE name = 'oswald_user')
+BEGIN
+    DROP LOGIN oswald_user;
+    PRINT 'Old login dropped.';
+END
+GO
+
+USE DB_Oswald;
+PRINT 'Creating new SQL login (oswald_user)...';
+CREATE LOGIN oswald_user WITH PASSWORD = 'oswald_user';
+GO
+
+PRINT 'Switching to Oswald database to create user mapped to login...';
+USE DB_Oswald;
+GO
+
+PRINT 'Dropping existing database user (oswald_user) if exists...';
+USE DB_Oswald;
+IF EXISTS (SELECT * FROM sys.database_principals WHERE name = 'oswald_user')
+BEGIN
+    DROP USER oswald_user;
+    PRINT 'Old user dropped.';
+END
+GO
+
+PRINT 'Creating database user for login...';
+CREATE USER oswald_user FOR LOGIN oswald_user;
+GO
+
+PRINT 'Granting db_datareader and db_datawriter roles to oswald_user...';
+ALTER ROLE db_datareader ADD MEMBER oswald_user;
+ALTER ROLE db_datawriter ADD MEMBER oswald_user;
+GO
+
+PRINT 'oswald_user login and database user created and granted permissions successfully.';
+GO
+

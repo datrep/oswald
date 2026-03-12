@@ -10,7 +10,7 @@ Write-Host " Moving to project directory..."
 Set-Location -Path "$PSScriptRoot"
 
 Write-Host " Initializing the SQL database..."
-sqlcmd -S localhost -E -i "sql\BEDinittable.sql"
+sqlcmd -S localhost -E -i "sql\DB_init_table.sql"
 
 # Install required npm packages
 Write-Host " Installing required npm packages..."
@@ -24,7 +24,7 @@ Write-Host " Running SQL script to initialize database..."
 $server = "localhost"
 $dbUser = "imagesapi_user"  # change if different user
 $dbPassword = "imagesapi_user"  # change accordingly
-$sqlScriptPath = Join-Path $PSScriptRoot "sql\BEDinittable.sql"
+$sqlScriptPath = Join-Path $PSScriptRoot "sql\DB_init_table.sql"
 
 $sqlcmdArgs = @(
   "-S", $server
