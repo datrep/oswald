@@ -1,5 +1,5 @@
 const sql = require("mssql");
-const dbConfig = require("../dbConfig");
+const dbConfig = require("../utils/dbConfig");
 const imageModel = require("../models/imageModel");
 const fs = require("fs");
 const path = require("path");

@@ -1,0 +1,1 @@
+// Main JS entry point for global scripts

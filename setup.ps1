@@ -1,4 +1,6 @@
-# chatgpt
+# the setup will destroy any and all logged infomation when it runs. please delete this when out of production
+# or if you want to keep it, make sure to backup the database before running this script. 
+# it will delete all data in the database and reinitialize it with the provided SQL script. use with caution.
 
 
 #setup for starting project
@@ -34,4 +36,5 @@ $sqlcmdArgs = @(
 )
 
 Write-Host " Starting the server..."
-node .\app.js
+# Start the server
+node .\server.js

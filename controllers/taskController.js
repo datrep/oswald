@@ -1,24 +1,10 @@
-const sql = require('mssql');
-const dbConfig = require('../dbConfig');
-
-let pool;
-async function getPool() {
-    if (!pool) {
-        pool = await sql.connect(dbConfig);
-    }
-    return pool;
-}
+const { getAllTasks: modelGetAllTasks, getTaskById: modelGetTaskById, createTask: modelCreateTask, updateTask: modelUpdateTask, deleteTask: modelDeleteTask, getTasksByEdict: modelGetTasksByEdict } = require('../models/taskModel');
 
 // GET all tasks
-exports.getAllTasks = async (req, res) => {
+async function getAllTasks(req, res) {
     try {
-        const pool = await sql.connect(dbConfig);
-
-        const result = await pool.request()
-            .query(`SELECT * FROM Tasks ORDER BY createdAt DESC`);
-
-        res.json(result.recordset);
-
+        const tasks = await modelGetAllTasks();
+        res.json(tasks);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to fetch tasks" });
@@ -27,19 +13,12 @@ exports.getAllTasks = async (req, res) => {
 
 
 // GET task by id
-exports.getTaskById = async (req, res) => {
-
+async function getTaskById(req, res) {
     const id = req.params.id;
 
     try {
-        const pool = await sql.connect(dbConfig);
-
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT * FROM Tasks WHERE id = @id`);
-
-        res.json(result.recordset[0]);
-
+        const task = await modelGetTaskById(id);
+        res.json(task);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to fetch task" });
@@ -48,8 +27,7 @@ exports.getTaskById = async (req, res) => {
 
 
 // CREATE task
-exports.createTask = async (req, res) => {
-
+async function createTask(req, res) {
     const { //NO ACTIVE, IT IS A COMPUTED FIELD BASED ON PLANNED START AND PLANNED END
         name,
         plannedStart,
@@ -62,40 +40,17 @@ exports.createTask = async (req, res) => {
     } = req.body;
 
     try {
-
-        const pool = await sql.connect(dbConfig);
-
-        await pool.request()
-            .input('name', sql.NVarChar, name)
-            .input('plannedStart', sql.DateTime, plannedStart)
-            .input('plannedEnd', sql.DateTime, plannedEnd)
-            .input('info', sql.NVarChar, info)
-            .input('priority', sql.Int, priority)
-            .input('state', sql.Int, state)
-            .input('assignedToUserId', sql.Int, assignedToUserId)
-            .input('edictId', sql.Int, edictId)
-
-            .query(`
-            INSERT INTO Tasks
-            (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId, edictId)
-            VALUES
-            (@name, @plannedStart, @plannedEnd, @info, @priority, @state, @assignedToUserId, @edictId)
-            `)
-
+        await modelCreateTask(name, plannedStart, plannedEnd, info, priority, state, assignedToUserId, edictId);
         res.json({ message: "Task created successfully" });
-
     } catch (err) {
-
         console.error(err);
         res.status(500).json({ error: "Failed to create task" });
-
     }
 };
 
 
 // UPDATE task
-exports.updateTask = async (req, res) => {
-
+async function updateTask(req, res) {
     const id = req.params.id;
 
     const { //NO ACTIVE, IT IS A COMPUTED FIELD BASED ON PLANNED START AND PLANNED END
@@ -110,80 +65,51 @@ exports.updateTask = async (req, res) => {
     } = req.body;
 
     try {
-
-        const pool = await sql.connect(dbConfig);
-
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('name', sql.NVarChar, name)
-            .input('plannedStart', sql.DateTime, plannedStart)
-            .input('plannedEnd', sql.DateTime, plannedEnd)
-            .input('info', sql.NVarChar, info)
-            .input('priority', sql.Int, priority)
-            .input('state', sql.Int, state)
-            .input('assignedToUserId', sql.Int, assignedToUserId)
-            .input('edictId', sql.Int, edictId)
-
-            .query(`
-            UPDATE Tasks
-            SET
-                name = @name,
-                plannedStart = @plannedStart,
-                plannedEnd = @plannedEnd,
-                info = @info,
-                priority = @priority,
-                state = @state,
-                assignedToUserId = @assignedToUserId,
-                edictId = @edictId
-             WHERE id = @id
-            `)      
-
+        await modelUpdateTask(id, name, plannedStart, plannedEnd, info, priority, state, assignedToUserId, edictId);
         res.json({ message: "Task updated successfully" });
-
     } catch (err) {
-
         console.error(err);
         res.status(500).json({ error: "Failed to update task" });
-
     }
 };
 
 
 // DELETE task
-exports.deleteTask = async (req, res) => {
-
+async function deleteTask(req, res) {
     const id = req.params.id;
 
     try {
-
-        const pool = await sql.connect(dbConfig);
-
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query(`DELETE FROM Tasks WHERE id = @id`);
-
+        await modelDeleteTask(id);
         res.json({ message: "Task deleted successfully" });
-
     } catch (err) {
-
         console.error(err);
         res.status(500).json({ error: "Failed to delete task" });
-
     }
 };
+
 // GET /api/tasks/edict/:edictId
-exports.getTasksByEdict = async (req, res) => {
+async function getTasksByEdict(req, res) {
     try {
         const { edictId } = req.params;
-        const pool = await getPool();
+        const parsedEdictId = Number.parseInt(edictId, 10);
 
-        const result = await pool.request()
-            .input('edictId', sql.Int, edictId)
-            .query(`SELECT * FROM Tasks WHERE edictId = @edictId ORDER BY plannedStart`);
+        if (!Number.isInteger(parsedEdictId)) {
+            return res.status(400).json({ error: 'Invalid edictId. Expected an integer.' });
+        }
 
-        res.json(result.recordset);
+        const tasks = await modelGetTasksByEdict(parsedEdictId);
+        res.json(tasks);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch tasks', details: err.message });
     }
+};
+
+module.exports = {
+    getAllTasks,
+    getTaskById,
+    createTask,
+    updateTask,
+    deleteTask,
+    getTasksByEdict
 };

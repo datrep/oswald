@@ -1,17 +1,11 @@
-const sql = require('mssql');
-const dbConfig = require('../dbConfig');
+const { getAllEdicts: modelGetAllEdicts, getEdictById: modelGetEdictById, getTasksByEdict: modelGetTasksByEdict, createEdict: modelCreateEdict, updateEdict: modelUpdateEdict, deleteEdict: modelDeleteEdict } = require('../models/edictModel');
 
 
 // GET all edicts
-exports.getAllEdicts = async (req, res) => {
+async function getAllEdicts (req, res) {
     try {
-        const pool = await sql.connect(dbConfig);
-
-        const result = await pool.request()
-            .query(`SELECT * FROM Edicts ORDER BY createdAt DESC`);
-
-        res.json(result.recordset);
-
+        const edicts = await modelGetAllEdicts();
+        res.json(edicts);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to fetch edicts" });
@@ -20,18 +14,12 @@ exports.getAllEdicts = async (req, res) => {
 
 
 // GET edict by id
-exports.getEdictById = async (req, res) => {
+async function getEdictById(req, res) {
     const id = req.params.id;
 
     try {
-        const pool = await sql.connect(dbConfig);
-
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT * FROM Edicts WHERE id = @id`);
-
-        res.json(result.recordset[0]);
-
+        const edict = await modelGetEdictById(id);
+        res.json(edict);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to fetch edict" });
@@ -39,16 +27,11 @@ exports.getEdictById = async (req, res) => {
 };
 
 // GET /api/tasks/edict/:edictId
-exports.getTasksByEdict = async (req, res) => {
+async function getTasksByEdict(req, res) {
     try {
         const { edictId } = req.params;
-        const pool = await getPool();
-
-        const result = await pool.request()
-            .input('edictId', sql.Int, edictId)
-            .query(`SELECT * FROM Tasks WHERE edictId = @edictId ORDER BY plannedStart`);
-
-        res.json(result.recordset);
+        const tasks = await modelGetTasksByEdict(edictId);
+        res.json(tasks);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch tasks', details: err.message });
@@ -57,29 +40,12 @@ exports.getTasksByEdict = async (req, res) => {
 
 
 // CREATE edict
-exports.createEdict = async (req, res) => {
-
+async function createEdict(req, res) {
     const { name, plannedStart, plannedEnd, info, priority, state } = req.body;
 
     try {
-        const pool = await sql.connect(dbConfig);
-
-        await pool.request()
-            .input('name', sql.NVarChar, name)
-            .input('plannedStart', sql.DateTime, plannedStart)
-            .input('plannedEnd', sql.DateTime, plannedEnd)
-            .input('info', sql.NVarChar, info)
-            .input('priority', sql.Int, priority)
-            .input('state', sql.Int, state)
-            .query(`
-                INSERT INTO Edicts
-                (name, plannedStart, plannedEnd, info, priority, state)
-                VALUES
-                (@name, @plannedStart, @plannedEnd, @info, @priority, @state)
-            `);
-
+        await modelCreateEdict(name, plannedStart, plannedEnd, info, priority, state);
         res.json({ message: "Edict created successfully" });
-
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to create edict" });
@@ -88,36 +54,13 @@ exports.createEdict = async (req, res) => {
 
 
 // UPDATE edict
-exports.updateEdict = async (req, res) => {
-
+async function updateEdict(req, res)  {
     const id = req.params.id;
     const { name, plannedStart, plannedEnd, info, priority, state } = req.body;
 
     try {
-        const pool = await sql.connect(dbConfig);
-
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('name', sql.NVarChar, name)
-            .input('plannedStart', sql.DateTime, plannedStart)
-            .input('plannedEnd', sql.DateTime, plannedEnd)
-            .input('info', sql.NVarChar, info)
-            .input('priority', sql.Int, priority)
-            .input('state', sql.Int, state)
-            .query(`
-                UPDATE Edicts
-                SET
-                    name = @name,
-                    plannedStart = @plannedStart,
-                    plannedEnd = @plannedEnd,
-                    info = @info,
-                    priority = @priority,
-                    state = @state
-                WHERE id = @id
-            `);
-
+        await modelUpdateEdict(id, name, plannedStart, plannedEnd, info, priority, state);
         res.json({ message: "Edict updated successfully" });
-
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to update edict" });
@@ -126,31 +69,24 @@ exports.updateEdict = async (req, res) => {
 
 
 // DELETE edict
-exports.deleteEdict = async (req, res) => {
-
+async function  deleteEdict (req, res) {
     const id = req.params.id;
 
     try {
-
-        const pool = await sql.connect(dbConfig);
-
-        // delete resources first
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query(`DELETE FROM EdictResources WHERE edictId = @id`);
-
-        // delete edict
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query(`DELETE FROM Edicts WHERE id = @id`);
-
+        await modelDeleteEdict(id);
         res.json({ message: "Edict deleted successfully" });
-
     } catch (err) {
-
         console.error(err);
         res.status(500).json({ error: "Failed to delete edict" });
-
     }
+};
+
+module.exports = {
+    getAllEdicts,
+    getEdictById,
+    getTasksByEdict,
+    createEdict,
+    updateEdict,
+    deleteEdict
 };
 

@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const sql = require('mssql');
 const dbConfig = require('../dbConfig');
 
-exports.registerUser = async (req, res) => {
+async function registerUser(req, res) {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -41,7 +41,7 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-exports.loginUser = async (req, res) => {
+async function loginUser(req, res) {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -69,7 +69,7 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-exports.updateUser = async (req, res) => {
+async function updateUser(req, res) {
   const { username, password } = req.body;
   const userID = req.user.userID;
 
@@ -93,7 +93,7 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-exports.deleteUser = async (req, res) => {
+async function deleteUser(req, res) {
   const userID = req.user.userID;
 
   try {
@@ -109,7 +109,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-exports.getUserInfo = async (req, res) => {
+async function getUserInfo(req, res) {
   const { userID } = req.user;
 
   try {
@@ -130,3 +130,10 @@ exports.getUserInfo = async (req, res) => {
   }
 };
 
+module.exports = {
+  registerUser,
+  loginUser,
+  updateUser,
+  deleteUser,
+  getUserInfo
+};

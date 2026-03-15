@@ -1,17 +1,48 @@
 <!-- tasks.html -->
 <h1>Tasks</h1>
+<button id="back-to-edicts" type="button">Back to Edicts</button>
 <div id="tasks-container"></div>
 
 <script>
 const urlParams = new URLSearchParams(window.location.search);
 const edictId = urlParams.get('edict');
+const container = document.getElementById('tasks-container');
+document.getElementById('back-to-edicts').addEventListener('click', () => {
+    redirectToEdicts();
+});
+
+function showMessage(message) {
+    container.innerHTML = `<p>${message}</p>`;
+}
+
+function redirectToEdicts() {
+    window.location.href = '/edicts.html';
+}
+
+function isValidEdictId(value) {
+    return /^\d+$/.test(value || '');
+}
 
 async function fetchTasks() {
+    if (!isValidEdictId(edictId)) {
+        redirectToEdicts();
+        return;
+    }
+
     try {
         const res = await fetch(`/api/tasks/edict/${edictId}`);
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
         const tasks = await res.json();
-        const container = document.getElementById('tasks-container');
         container.innerHTML = '';
+
+        if (!Array.isArray(tasks) || tasks.length === 0) {
+            showMessage('No tasks found for this edict.');
+            return;
+        }
 
         tasks.forEach(task => {
             const div = document.createElement('div');
@@ -24,7 +55,7 @@ async function fetchTasks() {
         });
     } catch (err) {
         console.error(err);
-        alert('Failed to fetch tasks');
+        showMessage('Failed to fetch tasks.');
     }
 }
 
