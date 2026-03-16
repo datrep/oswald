@@ -44,7 +44,14 @@ const { getPool } = require('./config/db');
 
     // Middleware
     app.use(express.json());
-    app.use(express.static("public"));
+    app.use(express.static("public")); // CSS, JS, images, HTML
+    app.use(express.static("public/pages")); // static chunks of the newer page layouts
+
+    // Prevent browsers/clients from caching API responses so refreshed data always reflects the database.
+    app.use('/api', (req, res, next) => {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      next();
+    });
 
     // pre-forked routes
     app.use('/api/db', dbRoutes);

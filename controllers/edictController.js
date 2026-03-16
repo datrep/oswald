@@ -3,11 +3,13 @@ const { getAllEdicts: modelGetAllEdicts, getEdictById: modelGetEdictById, getTas
 
 // GET all edicts
 async function getAllEdicts (req, res) {
+    console.log("[API] GET /api/edicts triggered");
     try {
         const edicts = await modelGetAllEdicts();
+        console.log(`Retrieved ${edicts.length} edicts`);
         res.json(edicts);
     } catch (err) {
-        console.error(err);
+        console.error("[API] GET /api/edicts failed", err);
         res.status(500).json({ error: "Failed to fetch edicts" });
     }
 };
@@ -90,3 +92,9 @@ module.exports = {
     deleteEdict
 };
 
+// GET /api/edicts
+// GET /api/edicts/:id
+// GET /api/tasks/edict/:edictId
+// POST /api/edicts
+// PUT /api/edicts/:id
+// DELETE /api/edicts/:id

@@ -3,15 +3,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Create a reusable connection pool
-let pool;
-async function getPool() {
-    if (!pool) {
-        pool = await sql.connect(dbConfig);
-    }
-    return pool;
-}
-
 // Configure storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -102,3 +93,7 @@ module.exports = {
     getResourcesByEdict,
     deleteResourceById
 };
+
+// POST /api/resources
+// GET /api/resources/:edictId
+// DELETE /api/resources/:id

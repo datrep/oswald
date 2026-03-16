@@ -33,3 +33,6 @@ module.exports = {
   getTableRows: getTableRowsHandler,
   getTables: getTablesHandler
 };
+
+// GET /api/db/tables
+// GET /api/db/:tableName

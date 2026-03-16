@@ -16,6 +16,7 @@ exports.createAuditLog = async (req, res) => {
 exports.getAllAuditLogs = async (req, res) => {
     try {
         const auditLogs = await getAllAuditLogs();
+        console.log(`Retrieved ${auditLogs.length} audit logs`);
         res.json(auditLogs);
     } catch (err) {
         console.error(err);
@@ -46,3 +47,8 @@ exports.getAuditLogsByTask = async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch audit logs for task', details: err.message });
     }
 };
+
+// GET /api/audit/task/:id
+// GET /api/audit/edict/:id
+// GET /api/audit
+// POST /api/audit

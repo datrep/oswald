@@ -1,2 +1,58 @@
-<!-- ...moved from index.html -->
-<!-- ...existing code from index.html -->
+<!--TODO: Implement task summary endpoint.-->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Policy Dashboard</title>
+<link rel="stylesheet" href="/css/main.css">
+</head>
+
+<body>
+
+<div class="layout">
+
+    <div class="sidebar">
+        <button id="add-policy">Add Policy</button>
+    </div>
+
+    <div class="content">
+
+        <h1>Policies</h1>
+
+        <div class="policy-header">
+            <span>Name</span>
+            <span>Start</span>
+            <span>End</span>
+            <span>Tasks</span>
+        </div>
+
+        <div id="policy-list"></div>
+
+    </div>
+
+</div>
+
+
+
+<script type="module" src="/js/pages/index.js"></script>
+
+<div class="layout">
+
+    <div class="sidebar">
+
+        <!--
+        ASSUMPTION:
+        Future controls can go here:
+        - delete policy
+        - duplicate policy
+        -->
+
+
+</div>
+
+<script type="module" src="/js/pages/policy.js"></script>
+
+</body>
+
+</html>
