@@ -1,107 +1,143 @@
-import * as api from "../api/api.js";
-
+import { apiGet } from "../api/api.js";
 
 const params = new URLSearchParams(window.location.search);
 const policyId = params.get("id");
 
+const titleEl = document.getElementById("policy-title");
 
-const taskModal = document.getElementById("task-modal");
-const resourceModal = document.getElementById("resource-modal");
+const nameEl = document.getElementById("policy-name");
+const startEl = document.getElementById("policy-start");
+const endEl = document.getElementById("policy-end");
+const priorityEl = document.getElementById("policy-priority");
+const stateEl = document.getElementById("policy-state");
+const infoEl = document.getElementById("policy-info");
 
-
-document.getElementById("add-task").onclick = () =>
-    taskModal.classList.remove("hidden");
-
-document.getElementById("close-task").onclick = () =>
-    taskModal.classList.add("hidden");
-
-
-document.getElementById("add-resource").onclick = () =>
-    resourceModal.classList.remove("hidden");
-
-document.getElementById("close-resource").onclick = () =>
-    resourceModal.classList.add("hidden");
+const taskListEl = document.getElementById("task-list");
+const resourceListEl = document.getElementById("resource-list");
 
 
+function formatDateInput(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    return date.toISOString().slice(0,16);
+}
 
-document.getElementById("task-form").onsubmit = async e => {
 
-    e.preventDefault();
+function formatDate(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    return date.toLocaleDateString();
+}
 
-    const data = Object.fromEntries(new FormData(e.target));
 
-    data.edictId = policyId;
+function formatState(state) {
+    const labels = {
+        1: "Draft",
+        2: "Published",
+        3: "Archived"
+    };
+    return labels[state] || state;
+}
 
-    /*
-    ASSUMPTION:
-    POST /api/tasks expects:
 
-    {
-      title,
-      description,
-      edictId
+async function loadPolicy() {
+
+    if (!policyId) {
+        titleEl.textContent = "Policy";
+        return;
     }
-    */
 
-    await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
+    try {
 
-    location.reload();
+        const policy = await apiGet(`/api/edicts/${policyId}`);
 
-};
+        titleEl.textContent = policy.name;
 
+        nameEl.value = policy.name || "";
+        startEl.value = formatDateInput(policy.plannedStart);
+        endEl.value = formatDateInput(policy.plannedEnd);
+        priorityEl.value = policy.priority ?? "";
+        stateEl.value = policy.state ?? "";
+        infoEl.value = policy.info ?? "";
 
-
-document.getElementById("resource-form").onsubmit = async e => {
-
-    e.preventDefault();
-
-    const data = Object.fromEntries(new FormData(e.target));
-
-    data.edictId = policyId;
-
-    /*
-    ASSUMPTION:
-    POST /api/resources expects:
-
-    {
-      name,
-      type,
-      path,
-      edictId
+    } catch (err) {
+        console.error("[UI] Failed to load policy", err);
     }
-    */
 
-    await fetch("/api/resources", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
+}
 
-    location.reload();
 
-};
+async function loadTasks() {
 
+    if (!policyId) return;
+
+    try {
+
+        const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
+
+        taskListEl.innerHTML = "";
+
+        tasks.forEach(task => {
+
+            const row = document.createElement("div");
+            row.className = "task-row";
+
+            row.innerHTML = `
+                <span>${task.name || "-"}</span>
+                <span>${formatDate(task.plannedStart)}</span>
+                <span>${formatDate(task.plannedEnd)}</span>
+                <span>${task.priority ?? "-"}</span>
+                <span>${formatState(task.state)}</span>
+                <span>${task.active ? "Yes" : "No"}</span>
+            `;
+
+            taskListEl.appendChild(row);
+
+        });
+
+    } catch (err) {
+        console.error("[UI] Failed to load tasks", err);
+    }
+
+}
+
+
+async function loadResources() {
+
+    if (!policyId) return;
+
+    try {
+
+        const resources = await apiGet(`/api/resources/edict/${policyId}`);
+
+        resourceListEl.innerHTML = "";
+
+        resources.forEach(resource => {
+
+            const row = document.createElement("div");
+            row.className = "resource-row";
+
+            row.innerHTML = `
+                <span>${resource.resourcePath}</span>
+                <span>${resource.description || ""}</span>
+            `;
+
+            resourceListEl.appendChild(row);
+
+        });
+
+    } catch (err) {
+        console.error("[UI] Failed to load resources", err);
+    }
+
+}
 
 
 async function init() {
 
-    const [
-        policy,
-        tasks,
-        resources,
-        audit
-    ] = await Promise.all([
-        api.getEdict(policyId),
-        api.getTasksByEdict(policyId),
-        api.getResourcesByEdict(policyId),
-        api.getAuditByEdict(policyId)
-    ]);
-
-    document.getElementById("policy-title").innerText = policy.name;
+    await loadPolicy();
+    await loadTasks();
+    await loadResources();
 
 }
 

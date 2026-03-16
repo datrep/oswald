@@ -1,87 +1,59 @@
 // Place for API call functions (fetch) to backend routes
 // please do not code fetch everywhere else
     
-// api.js
-// Central networking layer for all backend API calls
+// Generic request wrapper
 
-const API = "/api";
+async function request(method, url, data = null) {
 
-async function fetchJson(path, options = {}) {
-    const res = await fetch(path, { cache: "no-store", ...options });
-    return res.json();
+    const options = {
+        method,
+        headers: {}
+    };
+
+    if (data) {
+
+        if (data instanceof FormData) {
+            // multer upload
+            options.body = data;
+        } else {
+            // JSON request
+            options.headers["Content-Type"] = "application/json";
+            options.body = JSON.stringify(data);
+        }
+
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+
+        const text = await response.text();
+
+        throw new Error(`[API ERROR] ${method} ${url} -> ${response.status} ${text}`);
+    }
+
+    // some endpoints may return empty response
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+        return response.json();
+    }
+
+    return response.text();
 }
 
-/*
-ASSUMPTION:
-Backend returns JSON in the format:
-
-[
-  {
-    id: 1,
-    name: "Policy Name",
-    startDate: "...",
-    endDate: "..."
-  }
-]
-*/
-
-export async function getEdicts() {
-    console.log("Requesting edicts...");
-    return fetchJson(`${API}/edicts`);
+export async function apiGet(url) {
+    return request("GET", url);
 }
 
-export async function getEdict(id) {
-    return fetchJson(`${API}/edicts/${id}`);
+export async function apiPost(url, data) {
+    return request("POST", url, data);
 }
 
-export async function createEdict(data) {
-    const res = await fetchJson(`${API}/edicts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
-
-    return res;
+export async function apiPut(url, data) {
+    return request("PUT", url, data);
 }
 
-export async function deleteEdict(id) {
-    return fetch(`${API}/edicts/${id}`, {
-        method: "DELETE"
-    });
-}
-
-export async function getTasks() {
-    return fetchJson(`${API}/tasks`);
-}
-
-export async function getTasksByEdict(id) {
-    return fetchJson(`${API}/tasks/edict/${id}`);
-}
-
-export async function getResourcesByEdict(id) {
-    return fetchJson(`${API}/resources/edict/${id}`);
-}
-
-export async function getAuditByEdict(id) {
-    return fetchJson(`${API}/audit/edict/${id}`);
-}
-
-/*
-OPTIONAL PERFORMANCE ROUTE
-
-ASSUMPTION:
-You may add backend route:
-
-GET /api/tasks/summary
-
-return format:
-
-[
-  { edictId: 1, taskCount: 4 },
-  { edictId: 2, taskCount: 8 }
-]
-*/
-
-export async function getTaskSummary() {
-    return fetchJson(`${API}/tasks/summary`);
+export async function apiDelete(url) {
+    return request("DELETE", url);
 }

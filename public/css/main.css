@@ -35,14 +35,48 @@ body {
 
 /* Table header */
 
-.policy-header {
+.task-header {
 
     display: grid;
-    grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
 
     border-bottom: 1px solid #444;
     padding-bottom: 6px;
     margin-bottom: 10px;
+
+}
+
+
+/* Table header */
+
+.policy-header {
+
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+
+    border-bottom: 1px solid #444;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+
+}
+
+.resource-header {
+
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+
+    border-bottom: 1px solid #444;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+
+}
+
+.resource-row {
+
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+
+    gap: 10px;
 
 }
 
@@ -51,7 +85,18 @@ body {
 .policy-row {
 
     display: grid;
-    grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: repeat(7, 1fr);
+
+    padding: 6px 0;
+
+    border-bottom: 1px solid #333;
+
+}
+
+.task-row {
+
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
 
     padding: 6px 0;
 
@@ -81,6 +126,70 @@ button:hover {
 
     background: #555;
 
+}
+
+.add-policy-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.add-policy-form {
+    background: #1c1c1c;
+    border: 1px solid #444;
+    padding: 16px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.add-policy-form h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.muted {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    color: #ccc;
+}
+
+.form-group input {
+    padding: 6px 8px;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.form-actions button {
+    font-size: 0.9rem;
+}
+
+.form-feedback {
+    font-size: 0.8rem;
+    color: #4dff7a;
+    margin: 0;
+    min-height: 1rem;
 }
 
 .modal {

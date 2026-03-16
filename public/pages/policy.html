@@ -2,128 +2,98 @@
 <html>
 
 <head>
-
 <title>Policy</title>
-
 <link rel="stylesheet" href="/css/main.css">
-
 </head>
 
 <body>
 
 <div class="layout">
 
-<div class="sidebar">
+<div class="content">
 
-<button onclick="window.location.href='/'">Back</button>
+<h1 id="policy-title">Policy</h1>
+
+<!-- POLICY DETAILS -->
+
+<div class="policy-section">
+
+<h2>Policy Details</h2>
+
+<div class="policy-form">
+
+<label>Name</label>
+<input id="policy-name" type="text">
+
+<label>Planned Start</label>
+<input id="policy-start" type="datetime-local">
+
+<label>Planned End</label>
+<input id="policy-end" type="datetime-local">
+
+<label>Priority</label>
+<input id="policy-priority" type="number">
+
+<label>State</label>
+<select id="policy-state">
+<option value="1">Draft</option>
+<option value="2">Published</option>
+<option value="3">Archived</option>
+</select>
+
+<label>Description</label>
+<textarea id="policy-info"></textarea>
 
 </div>
 
+</div>
 
-<div class="content">
+<!-- TASKS -->
 
-<h1 id="policy-title"></h1>
-
-
-<section>
+<div class="policy-section">
 
 <h2>Tasks</h2>
 
+<div class="task-controls">
 <button id="add-task">Add Task</button>
+<button id="remove-task">Remove Task</button>
+</div>
+
+<div class="task-header">
+<span>Name</span>
+<span>Start</span>
+<span>End</span>
+<span>Priority</span>
+<span>State</span>
+<span>Active</span>
+</div>
 
 <div id="task-list"></div>
 
-</section>
+</div>
 
+<!-- RESOURCES -->
 
-<section>
+<div class="policy-section">
 
 <h2>Resources</h2>
 
+<div class="resource-controls">
 <button id="add-resource">Add Resource</button>
+</div>
+
+<div class="resource-header">
+<span>Path</span>
+<span>Description</span>
+</div>
 
 <div id="resource-list"></div>
 
-</section>
-
-
-<section>
-
-<h2>Audit Log</h2>
-
-<div id="audit-log"></div>
-
-</section>
-
 </div>
 
 </div>
 
-
-<!-- ADD TASK FORM -->
-
-<div id="task-modal" class="modal hidden">
-
-<form id="task-form">
-
-<h3>Create Task</h3>
-
-<!-- ASSUMPTION:
-backend task fields:
-title
-description
-edictId
--->
-
-<input name="title" placeholder="Task Title" required>
-
-<textarea name="description"></textarea>
-
-<button type="submit">Create</button>
-
-<button type="button" id="close-task">Cancel</button>
-
-</form>
-
 </div>
-
-
-<!-- ADD RESOURCE FORM -->
-
-<div id="resource-modal" class="modal hidden">
-
-<form id="resource-form">
-
-<h3>Add Resource</h3>
-
-<!-- ASSUMPTION:
-resource table fields:
-
-name
-type ("file" or "path")
-path
-edictId
--->
-
-<input name="name" placeholder="Resource Name" required>
-
-<select name="type">
-
-<option value="file">Attachment</option>
-<option value="path">Dynamic Path</option>
-
-</select>
-
-<input name="path" placeholder="File path or URL">
-
-<button type="submit">Add</button>
-
-<button type="button" id="close-resource">Cancel</button>
-
-</form>
-
-</div>
-
 
 <script type="module" src="/js/pages/policy.js"></script>
 
