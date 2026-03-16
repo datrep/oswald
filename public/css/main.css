@@ -1,1 +1,104 @@
 /* Main CSS file for global styles */
+
+body {
+
+    background: #111;
+    color: #eee;
+    font-family: Arial, sans-serif;
+
+    margin: 0;
+}
+
+.layout {
+
+    display: flex;
+
+}
+
+/* Sidebar */
+
+.sidebar {
+
+    width: 200px;
+    padding: 20px;
+
+}
+
+/* Content */
+
+.content {
+
+    flex: 1;
+    padding: 40px;
+
+}
+
+/* Table header */
+
+.policy-header {
+
+    display: grid;
+    grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
+
+    border-bottom: 1px solid #444;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+
+}
+
+/* Rows */
+
+.policy-row {
+
+    display: grid;
+    grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
+
+    padding: 6px 0;
+
+    border-bottom: 1px solid #333;
+
+}
+
+/* Hover */
+
+.policy-row:hover {
+
+    background: #222;
+
+}
+
+/* Buttons */
+
+button {
+
+    padding: 8px 12px;
+    background: #333;
+    color: white;
+    border: none;
+
+}
+button:hover {
+
+    background: #555;
+
+}
+
+.modal {
+
+position: fixed;
+top: 50%;
+left: 50%;
+
+transform: translate(-50%, -50%);
+
+background: #222;
+padding: 20px;
+border: 1px solid #444;
+
+}
+
+.hidden {
+
+display: none;
+
+}

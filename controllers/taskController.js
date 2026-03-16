@@ -113,3 +113,10 @@ module.exports = {
     deleteTask,
     getTasksByEdict
 };
+
+// GET /api/tasks
+// GET /api/tasks/:id
+// POST /api/tasks
+// PUT /api/tasks/:id
+// DELETE /api/tasks/:id
+// GET /api/tasks/edict/:edictId
