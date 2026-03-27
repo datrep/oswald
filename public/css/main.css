@@ -38,14 +38,23 @@ body {
 .task-header {
 
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
 
     border-bottom: 1px solid #444;
     padding-bottom: 6px;
     margin-bottom: 10px;
-
+    padding-top: 6px;
+    margin-top: 10px;
 }
 
+.task-select {
+
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    justify-self: start;
+    padding-left: 0;
+}
 
 /* Table header */
 
@@ -92,11 +101,21 @@ body {
     border-bottom: 1px solid #333;
 
 }
+.policy-main {
+
+    display: grid;
+    grid-template-columns: repeat(7 1fr);
+
+    padding: 6px 0;
+
+    border-bottom: 1px solid #333;
+
+}
 
 .task-row {
 
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(8, 1fr);
 
     padding: 6px 0;
 
@@ -211,3 +230,5 @@ border: 1px solid #444;
 display: none;
 
 }
+
+

@@ -2,113 +2,101 @@
 // index.js purpose to display all policies, and links to their individual pages
 
 // api/api.js
-import * as api from "../api/api.js";
+import { apiGet } from "../api/api.js";
 
-const modal = document.getElementById("policy-modal");
-const addBtn = document.getElementById("add-policy");
-const closeBtn = document.getElementById("close-policy-modal");
-const form = document.getElementById("policy-form");
+const policyCountEl = document.getElementById("policy-count");
+const policyListEl = document.getElementById("policy-list");
 
-addBtn.onclick = () => modal.classList.remove("hidden");
-
-closeBtn.onclick = () => modal.classList.add("hidden");
-
-
-form.onsubmit = async (e) => {
-
-    e.preventDefault();
-
-    const data = Object.fromEntries(new FormData(form));
-
-    /*
-    ASSUMPTION:
-    POST /api/edicts expects
-    {
-        name,
-        startDate,
-        endDate
-    }
-    */
-
-    await api.createEdict(data);
-
-    modal.classList.add("hidden");
-
-    init(); // reload dashboard
-
-};
-
-async function init() {
-
+function formatDate(value) {
+    if (!value) return "-";
     try {
-
-        const [edicts, tasks] = await Promise.all([ // sample rows can be found in sql/DB_init_table.sql
-            api.getEdicts(),
-            api.getTasks()
-        ]);
-
-        // Keep a reference to the raw payload so you can inspect every column in the browser (matches the SQL sample data above).
-        window.__oswaldRawEdicts = edicts;
-        window.__oswaldRawTasks = tasks;
-        console.group("Raw edicts table payload");
-        console.log(edicts);
-        console.groupEnd();
-        console.group("Raw tasks table payload");
-        console.log(tasks);
-        console.groupEnd();
-
-        renderPolicies(edicts, tasks);
-
-    } catch (err) {
-
-        console.error("Failed to load policies:", err);
-
+        const date = new Date(value);
+        return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+        return value;
     }
-
 }
 
-function renderPolicies(edicts, tasks) {
+function formatState(state) {
+    if (state === null || state === undefined) return "-";
+    const stateLabels = { 1: "Draft", 2: "Published", 3: "Archived" };
+    return stateLabels[state] || `State ${state}`;
+}
 
-    const container = document.getElementById("policy-list");
+// Render all policies
+async function renderPolicies(edicts) {
+    policyListEl.innerHTML = "";
+    policyCountEl.textContent = `Showing ${edicts.length} polic${edicts.length === 1 ? "y" : "ies"}`;
 
-    container.innerHTML = "";
+    if (edicts.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "policy-row";
+        empty.textContent = "No policies available";
+        policyListEl.appendChild(empty);
+        return;
+    }
 
-    edicts.forEach(e => {
+    // Preload tasks & resources in parallel for all policies
+    const tasksMap = {};
+    const resourcesMap = {};
 
-        const policyTasks = tasks.filter(t => t.edictId === e.id);
+    await Promise.all(edicts.map(async (edict) => {
+        try {
+            const [tasks, resources] = await Promise.all([
+                apiGet(`/api/tasks/edict/${edict.id}`),
+                apiGet(`/api/resources/edict/${edict.id}`)
+            ]);
+            tasksMap[edict.id] = tasks.length;
+            resourcesMap[edict.id] = resources.length;
+        } catch (err) {
+            console.warn(`[UI] Failed to load tasks/resources for edict ${edict.id}`, err);
+            tasksMap[edict.id] = 0;
+            resourcesMap[edict.id] = 0;
+        }
+    }));
 
-        /*
-        ASSUMPTION:
-        task table includes:
-        status field
-        status = "completed" when finished
-        */
-
-        const completed = policyTasks.filter(t => t.status === "completed").length;
-
+    edicts.forEach((edict) => {
         const row = document.createElement("div");
-
         row.className = "policy-row";
+        row.style.cursor = "pointer";
 
-        row.innerHTML = `
-            <span>${e.name}</span>
-            <span>${e.startDate || "-"}</span>
-            <span>${e.endDate || "-"}</span>
-            <span>${policyTasks.length}</span>
-            <span>${completed}</span>
-            <span>-</span>
+        // Include description inside the same row, below the main info
+        //policy-row not congruent with policy-main?
+        row.innerHTML = `\
+                <span>${edict.name || "-"}</span>
+                <span>${formatDate(edict.plannedStart)}</span>
+                <span>${formatDate(edict.plannedEnd)}</span>
+                <span>${tasksMap[edict.id]} / ${resourcesMap[edict.id]}</span>
+                <span>${edict.active ? "Yes" : "No"}</span>
+                <span>${edict.priority ?? "-"}</span>
+                <span>${formatState(edict.state)}</span>
+            ${edict.info ? `<div class="policy-info">Description: ${edict.info}</div>` : ""}
         `;
 
-        row.onclick = () => {
+        // Make row clickable
+        row.addEventListener("click", () => {
+            window.location.href = `/pages/policy.html?id=${edict.id}`;
+        });
 
-            window.location.href = `/policy.html?id=${e.id}`;
-
-        };
-
-        container.appendChild(row);
-
+        policyListEl.appendChild(row);
     });
-
 }
 
-init();
+async function initPolicies() {
+    try {
+        const edicts = await apiGet("/api/edicts");
+        // Sort newest first (by createdAt)
+        edicts.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        renderPolicies(edicts);
+    } catch (err) {
+        console.error("[UI] Failed to load policies", err);
+        policyCountEl.textContent = "Unable to load policies.";
+    }
+}
+
+// Add policy button listener
+document.getElementById("add-policy")?.addEventListener("click", () => {
+    window.location.href = "/pages/policy.html";
+});
+
+initPolicies();  

@@ -1,10 +1,9 @@
-use BEDProject
+use DB_Oswald
 
 -- List all rows and values from each table
-SELECT * FROM TitleView;
-DROP VIEW TitleView;
 
-SELECT * FROM Images;
-SELECT * FROM Tags;
-SELECT * FROM ImageTags;
+SELECT * FROM AuditLogs;
+SELECT * FROM EdictResources;
+SELECT * FROM Edicts;
 SELECT * FROM Users;
+SELECT * FROM Tasks;
