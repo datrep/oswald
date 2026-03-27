@@ -1,9 +1,15 @@
-import { apiGet } from "../api/api.js";
+// edictID on SQL is broken, pls fix. TODO://
+
+import { apiGet, apiPost, apiDelete } from "../api/api.js";
 
 const params = new URLSearchParams(window.location.search);
 const policyId = params.get("id");
 const isCreateMode = !policyId; 
 
+// unused elements from index page - will be used to show counts on policy cards TODO://
+const edictId = parseInt(policyId);
+
+let currentTasks = [];
 
 // auto gen Elements
 const titleEl = document.getElementById("policy-title");
@@ -27,6 +33,29 @@ const policyform = document.getElementById("policy-form");
 const taskListEl = document.getElementById("task-list");
 const resourceListEl = document.getElementById("resource-list");
 
+// Task modal elements
+// Guard the bindings and modal logic so they only run when the modal markup exists.
+const cancelTaskBtn = document.getElementById("cancel-task");
+if (cancelTaskBtn) {
+    cancelTaskBtn.addEventListener("click", closeTaskModal);
+}
+// The create task button is inside the modal, so only bind if it exists
+const createTaskBtn = document.getElementById("create-task");
+if (createTaskBtn) {
+    createTaskBtn.addEventListener("click", handleCreateTask);
+} // this looks... bad, but modal logic would be tightly coupled to the create task button, so we need to guard it like this. TODO:// standardise modal logic across pages to avoid this kind of thing
+
+const removeTaskBtn = document.getElementById("remove-task");
+if (removeTaskBtn) {
+    removeTaskBtn.addEventListener("click", handleRemoveTasks);
+}
+
+const addTaskBtn = document.getElementById("add-task");
+if (addTaskBtn) {
+    addTaskBtn.addEventListener("click", openTaskModal);
+}
+
+const editTaskBtn = document.getElementById("edit-task");
 // page mode configuration
 function configurePageMode() {
 
@@ -123,6 +152,7 @@ async function loadTasks() {
     try {
 
         const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
+        currentTasks = tasks;
 
         taskListEl.innerHTML = "";
 
@@ -139,7 +169,8 @@ async function loadTasks() {
                 <span>${formatState(task.state)}</span>
                 <span>${task.active ? "Yes" : "No"}</span>
                 ${task.info ? `<div class="policy-info">${task.info}</div>` : ""}
-                <input type="checkbox" class="task-select" data-id="${task.id}">
+                <span><input type="checkbox" class="task-select" data-id="${task.id}"></span>
+
             `;
 
             taskListEl.appendChild(row);
@@ -344,9 +375,147 @@ async function handleDelete() {
     }
 
 }
+// tasks
+let currentTaskId = null; // tracks which task is being edited
 
+// Create / Save
+async function handleCreateTask() {
+    if (!policyId) {
+        alert("Save the policy before adding tasks.");
+        return;
+    }
+
+    const payload = {
+        name: document.getElementById("task-name").value,
+        plannedStart: document.getElementById("task-start").value,
+        plannedEnd: document.getElementById("task-end").value,
+        priority: document.getElementById("task-priority").value,
+        state: document.getElementById("task-state").value,
+        info: document.getElementById("task-info").value,
+        assignedToUserId: document.getElementById("task-user").value,
+        edictId: policyId
+    };
+
+    if (currentTaskId) {
+        payload.id = currentTaskId;
+        // TODO: call PUT /api/tasks/:id
+        console.log("EDIT TASK", payload);
+    } else {
+        await apiPost("/api/tasks", payload);
+    }
+
+    closeTaskModal();
+    loadTasks(); // reload to reflect changes
+}
+
+async function handleRemoveTasks() {
+
+    const selected = Array.from(document.querySelectorAll(".task-select:checked"))
+        .map(cb => cb.dataset.id)
+        .filter(Boolean);
+
+    if (!selected.length) {
+        alert("Select at least one task to delete.");
+        return;
+    }
+
+    const confirmDelete = confirm("Delete selected tasks?");
+
+    if (!confirmDelete) {
+        return;
+    }
+
+    try {
+
+        await Promise.all(selected.map(id => apiDelete(`/api/tasks/${id}`)));
+
+        await loadTasks();
+
+    } catch (err) {
+
+        console.error("[Task] Delete failed", err);
+        alert("Failed to delete selected tasks");
+
+    }
+
+}
+
+// deletebtn POLICY, PLS FIX. TODO://
+// the js file needs to be standardised to not have this misinterpretation anyway
 deleteBtn.addEventListener("click", handleDelete);
 
+function resetTaskForm() {
+
+    const modal = document.getElementById("task-modal");
+
+    if (!modal) return;
+
+    const fields = modal.querySelectorAll("input, textarea, select");
+
+    fields.forEach(field => {
+        if (field.type === "checkbox" || field.type === "radio") {
+            field.checked = false;
+            return;
+        }
+        field.value = "";
+    });
+
+}
+// uhh... closeTaskModal handleCreateTask readds the delete and create POLICY. TODO:// why? 
+function openTaskModal(task = null) {
+    const modal = document.getElementById("task-modal");
+    if (!modal) return;
+
+    // Populate fields if editing
+    if (currentTaskId = task?.id || null) {
+        document.getElementById("task-name").value = task.name ?? "";
+        document.getElementById("task-start").value = (task.plannedStart ?? "").slice(0, 10);
+        document.getElementById("task-end").value = (task.plannedEnd ?? "").slice(0, 10);
+        document.getElementById("task-priority").value = task.priority ?? "";
+        document.getElementById("task-state").value = task.state ?? 1;
+        document.getElementById("task-info").value = task.info ?? "";
+        document.getElementById("task-user").value = task.assignedToUserId ?? "";
+    } else {
+        // Clear fields if adding new task
+        document.getElementById("task-name").value = "";
+        document.getElementById("task-start").value = "";
+        document.getElementById("task-end").value = "";
+        document.getElementById("task-priority").value = "";
+        document.getElementById("task-state").value = 1;
+        document.getElementById("task-info").value = "";
+        document.getElementById("task-user").value = "";
+    }
+
+    modal.style.display = "flex";
+}
+
+function closeTaskModal() {
+
+    const modal = document.getElementById("task-modal");
+    if (!modal) return;
+    modal.style.display = "none";
+    resetTaskForm();
+
+}
+
+// Edit button click
+editTaskBtn.addEventListener("click", () => {
+    const selected = document.querySelectorAll(".task-select:checked");
+
+    if (selected.length !== 1) {
+        alert("Please select exactly one task to edit.");
+        return;
+    }
+    const taskId = selected[0].dataset.id;
+    const task = currentTasks.find(t => t.id == taskId); // `currentTasks` must be the loaded tasks array
+    if (!task) return;
+    openTaskModal(task);
+});
+
+
+
+
+// Initialize page
 async function init() {
 
     configurePageMode();

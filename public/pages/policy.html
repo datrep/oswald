@@ -56,7 +56,8 @@
 
 <div class="task-controls">
 <button id="add-task">Add Task</button>
-<button id="remove-task">Remove Task</button>
+<button id="remove-task">Remove selected</button>
+<button id="edit-task">Edit Task</button>
 </div>
 
 <div class="task-header">
@@ -67,7 +68,7 @@
 <span>State</span>
 <span>Active</span>
 <span>Description</span>
-<span>edit?</span>
+<span>select</span>
 </div>
 
 <div id="task-list"></div>
@@ -104,6 +105,53 @@
 <button id="edit-policy">Edit Policy</button>
 <button id="save-policy">Save Policy</button>
 <button id="delete-policy">Delete Policy</button>
+
+
+
+<div id="task-modal" class="modal">
+
+<div class="modal-content">
+
+<h2>Add Task</h2>
+
+<div class="task-form">
+
+<label>Name</label>
+<input id="task-name" type="text">
+
+<label>Planned Start</label>
+<input id="task-start" type="datetime-local">
+
+<label>Planned End</label>
+<input id="task-end" type="datetime-local">
+
+<label>Priority</label>
+<input id="task-priority" type="number">
+
+<label>State</label>
+<select id="task-state">
+<option value="1">Draft</option>
+<option value="2">Published</option>
+<option value="3">Archived</option>
+</select>
+
+<label>Description</label>
+<textarea id="task-info"></textarea>
+
+<label>Assigned User</label>
+<input id="task-user" type="number">
+
+<div class="modal-buttons">
+<button id="create-task">Create Task</button>
+<button id="cancel-task">Cancel</button>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
 </body>
 
 <!-- please put it at the bottom so i dont have to think of committing sion e onto traffic -->
