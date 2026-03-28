@@ -1,22 +1,19 @@
-// edictID on SQL is broken, pls fix. TODO://
-// PUT/PATCH is needed for RESOURCES, but not implemented. TODO://
+// responsibility: standard api helpers
 import { apiGet, apiPost, apiDelete } from "../api/api.js";
 
-
-
+// responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
 const policyId = params.get("id");
-const isCreateMode = !policyId; 
+const isCreateMode = !policyId;
+const edictId = parseInt(policyId); // reserved for future counts
 
-// unused elements from index page - will be used to show counts on policy cards TODO://
-const edictId = parseInt(policyId);
-
-// PATCH workaround
+// responsibility: shared state caches
 let resourcesCache = [];
 let editingResourceId = null;
 let currentTasks = [];
+let currentTaskId = null;
 
-// auto gen Elements
+// responsibility: element lookups
 const titleEl = document.getElementById("policy-title");
 const nameEl = document.getElementById("policy-name");
 const startEl = document.getElementById("policy-start");
@@ -25,112 +22,75 @@ const priorityEl = document.getElementById("policy-priority");
 const stateEl = document.getElementById("policy-state");
 const infoEl = document.getElementById("policy-info");
 
-// resource form elements   
+// responsibility: resource form elements
 const resourceFileInput = document.getElementById("resource-file");
 const resourceDescriptionInput = document.getElementById("resource-description");
 const saveResourceBtn = document.getElementById("save-resource");
 
-// Policybutton elements
+// responsibility: policy buttons
 const saveBtn = document.getElementById("save-policy");
 const deleteBtn = document.getElementById("delete-policy");
 const editBtn = document.getElementById("edit-policy");
+const policyform = document.getElementById("policy-form");
 
-// unused form element - will be used to hide form on policy.html?id
-const policyform = document.getElementById("policy-form"); 
-
-// Task and Resource lists
+// responsibility: task/resource lists
 const taskListEl = document.getElementById("task-list");
 const resourceListEl = document.getElementById("resource-list");
 
-// Task modal elements
-// Guard the bindings and modal logic so they only run when the modal markup exists.
+// responsibility: task modal elements
 const cancelTaskBtn = document.getElementById("cancel-task");
-if (cancelTaskBtn) {
-    cancelTaskBtn.addEventListener("click", closeTaskModal);
-}
-// The create task button is inside the modal, so only bind if it exists
 const createTaskBtn = document.getElementById("create-task");
-if (createTaskBtn) {
-    createTaskBtn.addEventListener("click", handleCreateTask);
-} // this looks... bad, but modal logic would be tightly coupled to the create task button, so we need to guard it like this. TODO:// standardise modal logic across pages to avoid this kind of thing
-
 const removeTaskBtn = document.getElementById("remove-task");
-if (removeTaskBtn) {
-    removeTaskBtn.addEventListener("click", handleRemoveTasks);
-}
-
 const addTaskBtn = document.getElementById("add-task");
-if (addTaskBtn) {
-    addTaskBtn.addEventListener("click", openTaskModal);
-}
 const editTaskBtn = document.getElementById("edit-task");
 
+// responsibility: resource modal elements
 const addResourceBtn = document.getElementById("add-resource");
 const cancelResourceBtn = document.getElementById("cancel-resource");
-
-if (addResourceBtn) {
-    addResourceBtn.addEventListener("click", openResourceModal);
-}
-if (cancelResourceBtn) {
-    cancelResourceBtn.addEventListener("click", closeResourceModal);
-}
-if (saveResourceBtn) {
-    saveResourceBtn.addEventListener("click", saveResource);
-}
 const removeResourceBtn = document.getElementById("remove-resource");
-
-if (removeResourceBtn) {
-    removeResourceBtn.addEventListener("click", deleteSelectedResources);
-}
 const editResourceBtn = document.getElementById("edit-resource");
 
-if (editResourceBtn) {
-    editResourceBtn.addEventListener("click", openEditResource);
-}
+// responsibility: misc constants
+const STATE_LABELS = { 1: "Draft", 2: "Published", 3: "Archived" };
 
+// responsibility: safe event binding helper
+const bind = (el, evt, fn) => {
+    if (el && fn) el.addEventListener(evt, fn);
+};
 
-// page mode configuration
+// responsibility: field edit toggles
 function configurePageMode() {
-
-    // Show/hide buttons based on mode
-    const show = (el, visible) => { //element, visible
+    const show = (el, visible) => {
         if (!el) return;
         el.style.display = visible ? "" : "none";
     };
 
     if (isCreateMode) {
-
         show(saveBtn, true);
         show(editBtn, false);
         show(deleteBtn, false);
-
     } else {
-
         show(saveBtn, true);
         show(editBtn, true);
         show(deleteBtn, true);
-
     }
-
 }
 
+// responsibility: enable/disable base fields
 function setFieldsEditable(enabled) {
-
     nameEl.disabled = !enabled;
     startEl.disabled = !enabled;
     endEl.disabled = !enabled;
     priorityEl.disabled = !enabled;
     stateEl.disabled = !enabled;
     infoEl.disabled = !enabled;
-
 }
 
-// formatting helpers
-
+// responsibility: date formatting helpers
 function formatDateInput(value) {
     if (!value) return "";
     const date = new Date(value);
-    return date.toISOString().slice(0,16);
+    return date.toISOString().slice(0, 16);
 }
 
 function formatDate(value) {
@@ -139,246 +99,21 @@ function formatDate(value) {
     return date.toLocaleDateString();
 }
 
-// Map state num to labels
-
 function formatState(state) {
-    const labels = {
-        1: "Draft",
-        2: "Published",
-        3: "Archived"
-    };
-    return labels[state] || state;
+    return STATE_LABELS[state] || state;
 }
 
-// GET
-
-async function loadPolicy() {
-
-    if (!policyId) {
-        titleEl.textContent = "Policy";
-        return;
-    }
-
-    try {
-
-        const policy = await apiGet(`/api/edicts/${policyId}`);
-
-        titleEl.textContent = policy.name;
-
-        nameEl.value = policy.name || "";
-        startEl.value = formatDateInput(policy.plannedStart);
-        endEl.value = formatDateInput(policy.plannedEnd);
-        priorityEl.value = policy.priority ?? "";
-        stateEl.value = policy.state ?? "";
-        infoEl.value = policy.info ?? "";
-
-    } catch (err) {
-        console.error("[UI] Failed to load policy", err);
-    }
-
-}
-
-async function loadTasks() {
-
-    if (!policyId) return;
-
-    try {
-
-        const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
-        currentTasks = tasks;
-
-        taskListEl.innerHTML = "";
-
-        tasks.forEach(task => {
-
-            const row = document.createElement("div");
-            row.className = "task-row";
-
-            row.innerHTML = `
-                <span>${task.name || "-"}</span>
-                <span>${formatDate(task.plannedStart)}</span>
-                <span>${formatDate(task.plannedEnd)}</span>
-                <span>${task.priority ?? "-"}</span>
-                <span>${formatState(task.state)}</span>
-                <span>${task.active ? "Yes" : "No"}</span>
-                ${task.info ? `<div class="policy-info">${task.info}</div>` : ""}
-                <span><input type="checkbox" class="task-select" data-id="${task.id}"></span>
-
-            `;
-
-            taskListEl.appendChild(row);
-
-        });
-
-    } catch (err) {
-        console.error("[UI] Failed to load tasks", err);
-    }
-
-}
-
-async function loadResources() {
-
-    if (!policyId) return;
-
-    try {
-
-        const resources = await apiGet(`/api/resources/edict/${policyId}`);
-
-        resourcesCache = resources; // cache for PATCH workaround
-
-        resourceListEl.innerHTML = "";
-
-        resources.forEach(resource => {
-
-            const row = document.createElement("div");
-            row.className = "resource-row";
-
-            const fileName = extractFilename(resource.resourcePath);
-
-            row.innerHTML = `
-                <input type="checkbox" class="resource-select" data-id="${resource.id}">
-                <span>${fileName}</span>
-                <span>${resource.resourcePath}</span>
-                <span>${resource.description || ""}</span>
-            `;
-
-            resourceListEl.appendChild(row);
-
-        });
-
-    } catch (err) {
-        console.error("[UI] Failed to load resources", err);
-    }
-
-}
-
-function getSelectedResource() {
-
-    const selected = document.querySelectorAll(".resource-select:checked");
-
-    if (selected.length === 0) {
-        alert("Select a resource to edit.");
-        return null;
-    }
-
-    if (selected.length > 1) {
-        alert("Only one resource can be edited at a time.");
-        return null;
-    }
-
-    const id = parseInt(selected[0].dataset.id);
-
-    return resourcesCache.find(r => r.id === id);
-
-}
-
+// responsibility: simple helpers
 function extractFilename(path) {
-
     if (!path) return "-";
-
     return path.split("/").pop();
-
 }
 
-
-// POST
-
-// log
-const data = collectPolicyData();
-console.log("POST DATA:", JSON.stringify(data));
-
-async function createPolicy() {
-
-    try {
-
-        const data = collectPolicyData();
-
-        const response = await fetch("/api/edicts", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            alert(result.message || "Failed to create policy");
-            return;
-        }
-
-        const newId = result.id;
-
-        alert("Policy created successfully");
-
-        window.location.href = `/pages/policy.html?id=${newId}`;
-
-    } catch (err) {
-
-        console.error("[Policy] Create failed", err);
-        alert("Error creating policy");
-
-    }
-
-}
-
-async function updatePolicy() {
-
-    if (!policyId) {
-        alert("No policy selected.");
-        return;
-    }
-
-    try {
-
-        const data = collectPolicyData();
-
-        const response = await fetch(`/api/edicts/${policyId}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            alert(result.message || "Failed to update policy");
-            return;
-        }
-   
-        // Refresh data on page after update
-            await
-        loadPolicy();
-        alert("Policy updated successfully");
-
-    } catch (err) {
-
-        console.error("[Policy] Update failed", err);
-        alert("Error updating policy");
-
-    }
-
-}
-
-// Render list of policies on index page
- function collectPolicyData() {
-    
-    console.log("POST DATA:", JSON.stringify({
-        name: nameEl.value,
-        plannedStart: startEl.value,
-        plannedEnd: endEl.value,
-        priority: priorityEl.value,
-        state: stateEl.value,
-        info: infoEl.value
-    }));
-    
+function collectPolicyData() {
     if (!nameEl || !startEl || !endEl || !priorityEl || !stateEl || !infoEl) {
         console.error("One or more form elements are missing");
         throw new Error("Form elements not found");
-    }   
+    }
     return {
         name: nameEl.value,
         plannedStart: startEl.value,
@@ -387,70 +122,227 @@ async function updatePolicy() {
         state: stateEl.value,
         info: infoEl.value
     };
-
 }
 
-// Button handlers
+// responsibility: render helpers
+function renderTaskRow(task) {
+    const row = document.createElement("div");
+    row.className = "task-row";
+    row.innerHTML = `
+        <span>${task.name || "-"}</span>
+        <span>${formatDate(task.plannedStart)}</span>
+        <span>${formatDate(task.plannedEnd)}</span>
+        <span>${task.priority ?? "-"}</span>
+        <span>${formatState(task.state)}</span>
+        <span>${task.active ? "Yes" : "No"}</span>
+        ${task.info ? `<div class="policy-info">${task.info}</div>` : ""}
+        <span><input type="checkbox" class="task-select" data-id="${task.id}"></span>
+    `;
+    return row;
+}
 
-async function handleSave() {
+function renderResourceRow(resource) {
+    const row = document.createElement("div");
+    row.className = "resource-row";
+    const fileName = extractFilename(resource.resourcePath);
+    row.innerHTML = `
+        <input type="checkbox" class="resource-select" data-id="${resource.id}">
+        <span>${fileName}</span>
+        <span>${resource.resourcePath}</span>
+        <span>${resource.description || ""}</span>
+    `;
+    return row;
+}
 
-    if (isCreateMode) {
-        await createPolicy();
-    } else {
-        await updatePolicy();
+function getSelectedTaskIds() {
+    return Array.from(document.querySelectorAll(".task-select:checked"))
+        .map(cb => cb.dataset.id)
+        .filter(Boolean);
+}
+
+function getSelectedResource() {
+    const selected = document.querySelectorAll(".resource-select:checked");
+    if (selected.length === 0) {
+        alert("Select a resource to edit.");
+        return null;
     }
-
+    if (selected.length > 1) {
+        alert("Only one resource can be edited at a time.");
+        return null;
+    }
+    const id = parseInt(selected[0].dataset.id);
+    return resourcesCache.find(r => r.id === id);
 }
-saveBtn.addEventListener("click", handleSave);
 
+// responsibility: load policy data
+async function loadPolicy() {
+    if (!policyId) {
+        titleEl.textContent = "Policy";
+        return;
+    }
+    try {
+        const policy = await apiGet(`/api/edicts/${policyId}`);
+        titleEl.textContent = policy.name;
+        nameEl.value = policy.name || "";
+        startEl.value = formatDateInput(policy.plannedStart);
+        endEl.value = formatDateInput(policy.plannedEnd);
+        priorityEl.value = policy.priority ?? "";
+        stateEl.value = policy.state ?? "";
+        infoEl.value = policy.info ?? "";
+    } catch (err) {
+        console.error("[UI] Failed to load policy", err);
+    }
+}
 
+// responsibility: load tasks list
+async function loadTasks() {
+    if (!policyId) return;
+    try {
+        const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
+        currentTasks = tasks;
+        taskListEl.innerHTML = "";
+        tasks.forEach(task => taskListEl.appendChild(renderTaskRow(task)));
+    } catch (err) {
+        console.error("[UI] Failed to load tasks", err);
+    }
+}
+
+// responsibility: load resources list
+async function loadResources() {
+    if (!policyId) return;
+    try {
+        const resources = await apiGet(`/api/resources/edict/${policyId}`);
+        resourcesCache = resources;
+        resourceListEl.innerHTML = "";
+        resources.forEach(resource => resourceListEl.appendChild(renderResourceRow(resource)));
+    } catch (err) {
+        console.error("[UI] Failed to load resources", err);
+    }
+}
+
+// responsibility: create policy
+async function createPolicy() {
+    try {
+        const data = collectPolicyData();
+        const response = await fetch("/api/edicts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            alert(result.message || "Failed to create policy");
+            return;
+        }
+        alert("Policy created successfully");
+        window.location.href = `/pages/policy.html?id=${result.id}`;
+    } catch (err) {
+        console.error("[Policy] Create failed", err);
+        alert("Error creating policy");
+    }
+}
+
+// responsibility: update policy
+async function updatePolicy() {
+    if (!policyId) {
+        alert("No policy selected.");
+        return;
+    }
+    try {
+        const data = collectPolicyData();
+        const response = await fetch(`/api/edicts/${policyId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            alert(result.message || "Failed to update policy");
+            return;
+        }
+        await loadPolicy();
+        alert("Policy updated successfully");
+    } catch (err) {
+        console.error("[Policy] Update failed", err);
+        alert("Error updating policy");
+    }
+}
+
+// responsibility: delete policy
 async function handleDelete() {
-
     if (!policyId) {
         alert("No policy to delete.");
         return;
     }
-
     const confirmDelete = confirm("Are you sure you want to delete this policy?");
-
-    if (!confirmDelete) {
-        return;
-    }
-
+    if (!confirmDelete) return;
     try {
-
-        const response = await fetch(`/api/edicts/${policyId}`, {
-            method: "DELETE"
-        });
-
+        const response = await fetch(`/api/edicts/${policyId}`, { method: "DELETE" });
         if (!response.ok) {
             const result = await response.json();
             alert(result.message || "Failed to delete policy");
             return;
         }
-
         alert("Policy deleted successfully");
-
         window.location.href = "/index.html";
-
     } catch (err) {
-
         console.error("[Policy] Delete failed", err);
         alert("Error deleting policy");
-
     }
-
 }
-// tasks
-let currentTaskId = null; // tracks which task is being edited
 
-// Create / Save
+// responsibility: save policy (create or update)
+async function handleSave() {
+    if (isCreateMode) {
+        await createPolicy();
+    } else {
+        await updatePolicy();
+    }
+}
+
+// responsibility: reset task form fields
+function resetTaskForm() {
+    const modal = document.getElementById("task-modal");
+    if (!modal) return;
+    const fields = modal.querySelectorAll("input, textarea, select");
+    fields.forEach(field => {
+        if (field.type === "checkbox" || field.type === "radio") {
+            field.checked = false;
+        } else {
+            field.value = "";
+        }
+    });
+}
+
+// responsibility: open task modal
+function openTaskModal(task = null) {
+    const modal = document.getElementById("task-modal");
+    if (!modal) return;
+    currentTaskId = task ? task.id : null;
+    document.getElementById("task-name").value = task?.name ?? "";
+    document.getElementById("task-start").value = (task?.plannedStart ?? "").slice(0, 10);
+    document.getElementById("task-end").value = (task?.plannedEnd ?? "").slice(0, 10);
+    document.getElementById("task-priority").value = task?.priority ?? "";
+    document.getElementById("task-state").value = task?.state ?? 1;
+    document.getElementById("task-info").value = task?.info ?? "";
+    document.getElementById("task-user").value = task?.assignedToUserId ?? "";
+    modal.style.display = "flex";
+}
+
+// responsibility: close task modal
+function closeTaskModal() {
+    const modal = document.getElementById("task-modal");
+    if (!modal) return;
+    modal.style.display = "none";
+    resetTaskForm();
+}
+
+// responsibility: create or edit task
 async function handleCreateTask() {
     if (!policyId) {
         alert("Save the policy before adding tasks.");
         return;
     }
-
     const payload = {
         name: document.getElementById("task-name").value,
         plannedStart: document.getElementById("task-start").value,
@@ -461,277 +353,157 @@ async function handleCreateTask() {
         assignedToUserId: document.getElementById("task-user").value,
         edictId: policyId
     };
-
     if (currentTaskId) {
         payload.id = currentTaskId;
-        // TODO: call PUT /api/tasks/:id
-        console.log("EDIT TASK", payload);
+        console.log("EDIT TASK", payload); // placeholder for PUT /api/tasks/:id
     } else {
         await apiPost("/api/tasks", payload);
     }
-
     closeTaskModal();
-    loadTasks(); // reload to reflect changes
+    loadTasks();
 }
 
+// responsibility: remove tasks
 async function handleRemoveTasks() {
-
-    const selected = Array.from(document.querySelectorAll(".task-select:checked"))
-        .map(cb => cb.dataset.id)
-        .filter(Boolean);
-
+    const selected = getSelectedTaskIds();
     if (!selected.length) {
         alert("Select at least one task to delete.");
         return;
     }
-
-    const confirmDelete = confirm("Delete selected tasks?");
-
-    if (!confirmDelete) {
-        return;
-    }
-
+    if (!confirm("Delete selected tasks?")) return;
     try {
-
         await Promise.all(selected.map(id => apiDelete(`/api/tasks/${id}`)));
-
         await loadTasks();
-
     } catch (err) {
-
         console.error("[Task] Delete failed", err);
         alert("Failed to delete selected tasks");
-
     }
-
 }
 
-// deletebtn POLICY, PLS FIX. TODO://
-// the js file needs to be standardised to not have this misinterpretation anyway
-deleteBtn.addEventListener("click", handleDelete);
-
-function resetTaskForm() {
-
-    const modal = document.getElementById("task-modal");
-
+// responsibility: reset resource form
+function resetResourceForm() {
+    const modal = document.getElementById("resource-modal");
     if (!modal) return;
-
     const fields = modal.querySelectorAll("input, textarea, select");
-
     fields.forEach(field => {
         if (field.type === "checkbox" || field.type === "radio") {
             field.checked = false;
-            return;
+        } else {
+            field.value = "";
         }
-        field.value = "";
     });
-
-}
-// uhh... closeTaskModal handleCreateTask readds the delete and create POLICY. TODO:// why? 
-function openTaskModal(task = null) {
-    const modal = document.getElementById("task-modal");
-    if (!modal) return;
-
-    // Populate fields if editing
-    if (currentTaskId = task?.id || null) {
-        document.getElementById("task-name").value = task.name ?? "";
-        document.getElementById("task-start").value = (task.plannedStart ?? "").slice(0, 10);
-        document.getElementById("task-end").value = (task.plannedEnd ?? "").slice(0, 10);
-        document.getElementById("task-priority").value = task.priority ?? "";
-        document.getElementById("task-state").value = task.state ?? 1;
-        document.getElementById("task-info").value = task.info ?? "";
-        document.getElementById("task-user").value = task.assignedToUserId ?? "";
-    } else {
-        // Clear fields if adding new task
-        document.getElementById("task-name").value = "";
-        document.getElementById("task-start").value = "";
-        document.getElementById("task-end").value = "";
-        document.getElementById("task-priority").value = "";
-        document.getElementById("task-state").value = 1;
-        document.getElementById("task-info").value = "";
-        document.getElementById("task-user").value = "";
-    }
-
-    modal.style.display = "flex";
 }
 
-function closeTaskModal() {
-
-    const modal = document.getElementById("task-modal");
-    if (!modal) return;
-    modal.style.display = "none";
-    resetTaskForm();
-
-}
-
+// responsibility: open resource modal (new)
 function openResourceModal() {
-
     const modal = document.getElementById("resource-modal");
     if (!modal) return;
-
     modal.style.display = "block";
 }
 
+// responsibility: open resource modal (edit)
 function openEditResource() {
-
     const resource = getSelectedResource();
-    editingResourceId = resource.id;
     if (!resource) return;
-
+    editingResourceId = resource.id;
     openResourceModal();
-
     resourceDescriptionInput.value = resource.description || "";
-
 }
 
+// responsibility: close resource modal
 function closeResourceModal() {
-
     const modal = document.getElementById("resource-modal");
     if (!modal) return;
-
     modal.style.display = "none";
-
     resetResourceForm();
 }
 
-function resetResourceForm() {
-
-    const modal = document.getElementById("resource-modal");
-    if (!modal) return;
-
-    const fields = modal.querySelectorAll("input, textarea, select");
-
-    fields.forEach(field => {
-
-        if (field.type === "checkbox" || field.type === "radio") {
-            field.checked = false;
-            return;
-        }
-
-        field.value = "";
-    });
-
-}
-
-// Edit button click
-editTaskBtn.addEventListener("click", () => {
-    const selected = document.querySelectorAll(".task-select:checked");
-
-    if (selected.length !== 1) {
-        alert("Please select exactly one task to edit.");
+// responsibility: save resource (create or replace)
+async function saveResource() {
+    if (!policyId) return;
+    const file = resourceFileInput.files[0];
+    if (editingResourceId && !file) {
+        alert("Please select a file when editing a resource.");
         return;
     }
-    const taskId = selected[0].dataset.id;
-    const task = currentTasks.find(t => t.id == taskId); // `currentTasks` must be the loaded tasks array
-    if (!task) return;
-    openTaskModal(task);
-});
-
-async function saveResource() {
-
-    if (editingResourceId && !file) {
-    alert("Please select a file when editing a resource.");
-    return;}
-    if (!policyId) return;
-
-    const file = resourceFileInput.files[0];
     const description = resourceDescriptionInput.value || "";
-
     try {
-
         if (editingResourceId) {
-
-            await fetch(`/api/resources/${editingResourceId}`, {
-                method: "DELETE"
-            });
-
+            await fetch(`/api/resources/${editingResourceId}`, { method: "DELETE" });
         }
-
         const formData = new FormData();
-
         formData.append("file", file);
         formData.append("edictID", policyId);
         formData.append("filesize", file.size);
         formData.append("description", description);
-
-        const response = await fetch("/api/resources", {
-            method: "POST",
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error("Upload failed");
-        }
-
+        const response = await fetch("/api/resources", { method: "POST", body: formData });
+        if (!response.ok) throw new Error("Upload failed");
         editingResourceId = null;
-
         closeResourceModal();
-
         await loadResources();
-
     } catch (err) {
-
         console.error("[UI] Failed to save resource", err);
         alert("Resource save failed");
-
     }
-
 }
+
+// responsibility: delete resources
 async function deleteSelectedResources() {
-
     const selected = document.querySelectorAll(".resource-select:checked");
-
     if (selected.length === 0) {
         alert("No resources selected.");
         return;
     }
-
-    if (!confirm("Delete selected resources?")) {
-        return;
-    }
-
+    if (!confirm("Delete selected resources?")) return;
     try {
-
         for (const checkbox of selected) {
-
             const id = checkbox.dataset.id;
-
-            await fetch(`/api/resources/${id}`, {
-                method: "DELETE"
-            });
-
+            await fetch(`/api/resources/${id}`, { method: "DELETE" });
         }
-
         await loadResources();
-
     } catch (err) {
-
         console.error("[UI] Failed to delete resources", err);
         alert("Delete failed");
-
     }
-
 }
 
-// Initialize page
+// responsibility: init page wiring
 async function init() {
-
     configurePageMode();
-    
-    // If no policyId, we are in create mode - just show empty form
+
+    bind(saveBtn, "click", handleSave);
+    bind(deleteBtn, "click", handleDelete);
+
+    bind(cancelTaskBtn, "click", closeTaskModal);
+    bind(createTaskBtn, "click", handleCreateTask);
+    bind(removeTaskBtn, "click", handleRemoveTasks);
+    bind(addTaskBtn, "click", openTaskModal);
+    bind(editTaskBtn, "click", () => {
+        const selectedIds = getSelectedTaskIds();
+        if (selectedIds.length !== 1) {
+            alert("Please select exactly one task to edit.");
+            return;
+        }
+        const task = currentTasks.find(t => t.id == selectedIds[0]);
+        if (!task) return;
+        openTaskModal(task);
+    });
+
+    bind(addResourceBtn, "click", openResourceModal);
+    bind(cancelResourceBtn, "click", closeResourceModal);
+    bind(saveResourceBtn, "click", saveResource);
+    bind(removeResourceBtn, "click", deleteSelectedResources);
+    bind(editResourceBtn, "click", openEditResource);
+
     if (isCreateMode) {
         console.log("[Policy] Create mode");
-        
         return;
     }
 
     console.log("[Policy] View mode", policyId);
-
-    // pull from api and render
     await loadPolicy();
     await loadTasks();
     await loadResources();
-
 }
 
 init();
