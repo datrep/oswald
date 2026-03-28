@@ -1,6 +1,8 @@
 // edictID on SQL is broken, pls fix. TODO://
-
+// PUT/PATCH is needed for RESOURCES, but not implemented. TODO://
 import { apiGet, apiPost, apiDelete } from "../api/api.js";
+
+
 
 const params = new URLSearchParams(window.location.search);
 const policyId = params.get("id");
@@ -9,6 +11,9 @@ const isCreateMode = !policyId;
 // unused elements from index page - will be used to show counts on policy cards TODO://
 const edictId = parseInt(policyId);
 
+// PATCH workaround
+let resourcesCache = [];
+let editingResourceId = null;
 let currentTasks = [];
 
 // auto gen Elements
@@ -20,6 +25,10 @@ const priorityEl = document.getElementById("policy-priority");
 const stateEl = document.getElementById("policy-state");
 const infoEl = document.getElementById("policy-info");
 
+// resource form elements   
+const resourceFileInput = document.getElementById("resource-file");
+const resourceDescriptionInput = document.getElementById("resource-description");
+const saveResourceBtn = document.getElementById("save-resource");
 
 // Policybutton elements
 const saveBtn = document.getElementById("save-policy");
@@ -54,8 +63,32 @@ const addTaskBtn = document.getElementById("add-task");
 if (addTaskBtn) {
     addTaskBtn.addEventListener("click", openTaskModal);
 }
-
 const editTaskBtn = document.getElementById("edit-task");
+
+const addResourceBtn = document.getElementById("add-resource");
+const cancelResourceBtn = document.getElementById("cancel-resource");
+
+if (addResourceBtn) {
+    addResourceBtn.addEventListener("click", openResourceModal);
+}
+if (cancelResourceBtn) {
+    cancelResourceBtn.addEventListener("click", closeResourceModal);
+}
+if (saveResourceBtn) {
+    saveResourceBtn.addEventListener("click", saveResource);
+}
+const removeResourceBtn = document.getElementById("remove-resource");
+
+if (removeResourceBtn) {
+    removeResourceBtn.addEventListener("click", deleteSelectedResources);
+}
+const editResourceBtn = document.getElementById("edit-resource");
+
+if (editResourceBtn) {
+    editResourceBtn.addEventListener("click", openEditResource);
+}
+
+
 // page mode configuration
 function configurePageMode() {
 
@@ -191,6 +224,8 @@ async function loadResources() {
 
         const resources = await apiGet(`/api/resources/edict/${policyId}`);
 
+        resourcesCache = resources; // cache for PATCH workaround
+
         resourceListEl.innerHTML = "";
 
         resources.forEach(resource => {
@@ -198,7 +233,11 @@ async function loadResources() {
             const row = document.createElement("div");
             row.className = "resource-row";
 
+            const fileName = extractFilename(resource.resourcePath);
+
             row.innerHTML = `
+                <input type="checkbox" class="resource-select" data-id="${resource.id}">
+                <span>${fileName}</span>
                 <span>${resource.resourcePath}</span>
                 <span>${resource.description || ""}</span>
             `;
@@ -213,6 +252,33 @@ async function loadResources() {
 
 }
 
+function getSelectedResource() {
+
+    const selected = document.querySelectorAll(".resource-select:checked");
+
+    if (selected.length === 0) {
+        alert("Select a resource to edit.");
+        return null;
+    }
+
+    if (selected.length > 1) {
+        alert("Only one resource can be edited at a time.");
+        return null;
+    }
+
+    const id = parseInt(selected[0].dataset.id);
+
+    return resourcesCache.find(r => r.id === id);
+
+}
+
+function extractFilename(path) {
+
+    if (!path) return "-";
+
+    return path.split("/").pop();
+
+}
 
 
 // POST
@@ -498,6 +564,55 @@ function closeTaskModal() {
 
 }
 
+function openResourceModal() {
+
+    const modal = document.getElementById("resource-modal");
+    if (!modal) return;
+
+    modal.style.display = "block";
+}
+
+function openEditResource() {
+
+    const resource = getSelectedResource();
+    editingResourceId = resource.id;
+    if (!resource) return;
+
+    openResourceModal();
+
+    resourceDescriptionInput.value = resource.description || "";
+
+}
+
+function closeResourceModal() {
+
+    const modal = document.getElementById("resource-modal");
+    if (!modal) return;
+
+    modal.style.display = "none";
+
+    resetResourceForm();
+}
+
+function resetResourceForm() {
+
+    const modal = document.getElementById("resource-modal");
+    if (!modal) return;
+
+    const fields = modal.querySelectorAll("input, textarea, select");
+
+    fields.forEach(field => {
+
+        if (field.type === "checkbox" || field.type === "radio") {
+            field.checked = false;
+            return;
+        }
+
+        field.value = "";
+    });
+
+}
+
 // Edit button click
 editTaskBtn.addEventListener("click", () => {
     const selected = document.querySelectorAll(".task-select:checked");
@@ -512,8 +627,91 @@ editTaskBtn.addEventListener("click", () => {
     openTaskModal(task);
 });
 
+async function saveResource() {
 
+    if (editingResourceId && !file) {
+    alert("Please select a file when editing a resource.");
+    return;}
+    if (!policyId) return;
 
+    const file = resourceFileInput.files[0];
+    const description = resourceDescriptionInput.value || "";
+
+    try {
+
+        if (editingResourceId) {
+
+            await fetch(`/api/resources/${editingResourceId}`, {
+                method: "DELETE"
+            });
+
+        }
+
+        const formData = new FormData();
+
+        formData.append("file", file);
+        formData.append("edictID", policyId);
+        formData.append("filesize", file.size);
+        formData.append("description", description);
+
+        const response = await fetch("/api/resources", {
+            method: "POST",
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error("Upload failed");
+        }
+
+        editingResourceId = null;
+
+        closeResourceModal();
+
+        await loadResources();
+
+    } catch (err) {
+
+        console.error("[UI] Failed to save resource", err);
+        alert("Resource save failed");
+
+    }
+
+}
+async function deleteSelectedResources() {
+
+    const selected = document.querySelectorAll(".resource-select:checked");
+
+    if (selected.length === 0) {
+        alert("No resources selected.");
+        return;
+    }
+
+    if (!confirm("Delete selected resources?")) {
+        return;
+    }
+
+    try {
+
+        for (const checkbox of selected) {
+
+            const id = checkbox.dataset.id;
+
+            await fetch(`/api/resources/${id}`, {
+                method: "DELETE"
+            });
+
+        }
+
+        await loadResources();
+
+    } catch (err) {
+
+        console.error("[UI] Failed to delete resources", err);
+        alert("Delete failed");
+
+    }
+
+}
 
 // Initialize page
 async function init() {

@@ -36,8 +36,21 @@ const upload = multer({
 // POST /api/resources
 async function createResource(req, res) {
     try {
-        const { edictId, description } = req.body;
+        const rawEdictId = req.body.edictId ?? req.body.edictID ?? req.body.edictid;
+        const numericEdictId = Number(rawEdictId);
+        const edictId = Number.isInteger(numericEdictId) ? numericEdictId : null;
+        const description = req.body.description ?? '';
+
+        if (edictId === null) {
+            return res.status(400).json({ error: 'edictId is required' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'Resource file is required' });
+        }
+
         const filePath = req.file.path; // from multer
+
         await modelCreateResource(edictId, description, filePath);
         res.json({ success: true, message: 'Resource created' });
     } catch (err) {

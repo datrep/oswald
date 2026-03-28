@@ -82,12 +82,15 @@
 <h2>Resources</h2>
 
 <div class="resource-controls">
-<button id="add-resource">Add Resource</button>
+    <button id="add-resource">Add Resource</button>
+    <button id="edit-resource">Edit Selected</button>
+    <button id="remove-resource">Remove Selected</button>
 </div>
 
 <div class="resource-header">
-<span>Path</span>
-<span>Description</span>
+    <span>Name</span>
+    <span>Resource Path</span>
+    <span>Description</span>
 </div>
 
 <div id="resource-list"></div>
@@ -151,6 +154,29 @@
 </div>
 
 </div>
+
+<div id="resource-modal" style="display:none">
+
+    <div class="modal-content">
+
+        <h3 id="resource-modal-title">Add Resource</h3>
+
+        <label for="resource-file">Choose File</label>
+        <input type="file" id="resource-file">
+
+        <label for="resource-description">Description</label>
+        <textarea id="resource-description"></textarea>
+
+        <div class="modal-actions">
+            <button id="save-resource">Save</button>
+            <button id="cancel-resource">Cancel</button>
+        </div>
+
+    </div>
+
+</div>
+
+
 
 </body>
 
