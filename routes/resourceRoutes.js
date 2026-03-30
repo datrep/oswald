@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 const multer = require('multer');
 const resourceController = require('../controllers/resourceController');
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'resources/');
+      cb(null, path.join(__dirname, '..', 'public', 'resources')); 
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

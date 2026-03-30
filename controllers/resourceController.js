@@ -1,37 +1,6 @@
 const { createResource: modelCreateResource, getResourcesByEdict: modelGetResourcesByEdict, getResourcePathById, deleteResourceById: modelDeleteResourceById } = require('../models/resourceModel');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = './uploads'; // make sure this folder exists
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // avoid overwriting by prefixing timestamp
-    cb(null, `${Date.now()}_${file.originalname}`);
-  }
-});
-
-// Optional: only allow certain file types
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|pdf|txt|docx/;
-  const ext = path.extname(file.originalname).toLowerCase();
-  if (allowedTypes.test(ext)) {
-    cb(null, true);
-  } else {
-    cb(new Error('File type not allowed'));
-  }
-};
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
-  fileFilter: fileFilter
-}).single('file'); // 'file' is the form field name
 
 // POST /api/resources
 async function createResource(req, res) {
@@ -49,9 +18,17 @@ async function createResource(req, res) {
             return res.status(400).json({ error: 'Resource file is required' });
         }
 
-        const filePath = req.file.path; // from multer
+        const filePath = path.resolve(req.file.path); // absolute path from multer
+        const publicDir = path.resolve(__dirname, '../public');
+        let storedPath = filePath;
+        const publicDirLower = publicDir.toLowerCase();
+        const filePathLower = filePath.toLowerCase();
+        if (filePathLower.startsWith(publicDirLower)) {
+            storedPath = path.relative(publicDir, filePath);
+        }
+        storedPath = storedPath.replace(/\\/g, '/');
 
-        await modelCreateResource(edictId, description, filePath);
+        await modelCreateResource(edictId, description, storedPath);
         res.json({ success: true, message: 'Resource created' });
     } catch (err) {
         console.error(err);
@@ -86,7 +63,18 @@ async function deleteResourceById(req, res) {
             return res.status(404).json({ error: 'Resource not found' });
         }
 
-        const resourcePath = path.join(__dirname, '../', resource.resourcePath);
+        const publicDir = path.resolve(__dirname, '../public');
+        const normalizedResourcePath = (resource.resourcePath || "").replace(/\\/g, '/');
+        let resourcePath = normalizedResourcePath;
+
+        if (resourcePath.startsWith('public/')) {
+            resourcePath = resourcePath.slice('public/'.length);
+        }
+
+        if (!path.isAbsolute(resourcePath)) {
+            resourcePath = path.join(publicDir, resourcePath);
+        }
+        resourcePath = path.resolve(resourcePath);
 
         // Delete file from disk
         if (fs.existsSync(resourcePath)) fs.unlinkSync(resourcePath);

@@ -64,7 +64,11 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/audit', auditRoutes);
 
-// unused routes, likely used in future
+// Serve uploaded files (e.g., images, documents) from the resources directory
+app.use("/resources", express.static("resources"));
+
+
+// unused routes, likely used in Sfuture
 // app.use("/images", imageRoutes);
 // app.use("/api/users", userRoutes);
 // app.use('/tags', tagRoutes);
@@ -88,7 +92,7 @@ async function startServer() {
     await getPool();
     console.log("Database pool initialized successfully");
 
-    app.listen(port, () => {
+    app.listen(port, "10.244.10.3", () => {
       console.log(`Server running on port ${port}`);
     });
   } catch (err) {

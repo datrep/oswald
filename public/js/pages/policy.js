@@ -142,17 +142,21 @@ function renderTaskRow(task) {
 }
 
 function renderResourceRow(resource) {
+    const webPath = formatResourcePath(resource.resourcePath);
+
     const row = document.createElement("div");
     row.className = "resource-row";
     const fileName = extractFilename(resource.resourcePath);
     row.innerHTML = `
-        <input type="checkbox" class="resource-select" data-id="${resource.id}">
-        <span>${fileName}</span>
-        <span>${resource.resourcePath}</span>
-        <span>${resource.description || ""}</span>
+        <!-- <span class="resource-file">${fileName}</span> -->    
+        <span class="resource-webpath"><a href="/${webPath}" download>${webPath}</a></span>
+        <span class="resource-path">${resource.resourcePath}</span>
+        <span class="resource-description">${resource.description || ""}</span>
+        <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id}"></span>
     `;
     return row;
 }
+
 
 function getSelectedTaskIds() {
     return Array.from(document.querySelectorAll(".task-select:checked"))
@@ -466,6 +470,19 @@ async function deleteSelectedResources() {
         alert("Delete failed");
     }
 }
+
+// responsibility: format resource paths for display
+function formatResourcePath(path) {
+    if (!path) return "";
+    const normalized = path.replaceAll("\\", "/");
+    const resourcesIndex = normalized.indexOf("resources/");
+    if (resourcesIndex !== -1) {
+        return normalized.slice(resourcesIndex);
+    }
+    return normalized;
+}
+
+
 
 // responsibility: init page wiring
 async function init() {
