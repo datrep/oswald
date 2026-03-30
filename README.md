@@ -34,3 +34,7 @@ npm install express dotenv mssql multer joi bcryptjs jsonwebtoken
 
 
 and run node .\app.js
+
+## Maintenance
+
+Run `npm run cleanup-resources` after deleting database entries or on a schedule to remove orphaned files under `public/resources/` that no longer appear in `EdictResources`.
