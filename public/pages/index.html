@@ -13,6 +13,8 @@
 
 <link rel="stylesheet" href="/css/main.css">
     <div class="sidebar">
+        <div id="myClock" class="clock"> </div>
+
         <div class="add-policy-panel">
             <button id="add-policy">Add Policy</button>
                         <form id="add-policy-form" class="add-policy-form hidden">
@@ -39,9 +41,19 @@
         </div>
     </div>
 
-    <div class="content">
+    <div class="main">
+        <div class="topbar">
+            <div style="color: #7279db;"> Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.</div>
+        </div>
 
+        <div class="content">
         <h1>Policies</h1>
+
+        <div class="policy-count"> 
+             <div id="policy-count">
+                    <!-- Count will be populated here -->
+             </div>
+        </div>
 
         <div class="policy-header">
             <span>Name</span>
@@ -53,14 +65,21 @@
             <span>State</span>
         </div>
 
-        <div id="policy-count"></div>
 
         <div id="policy-list"></div>
 
     </div>
 
+
+        <div class="bottombar">
+            <div style="color: #7279db;"> Audendo magnus tegitur, timor vincit qui patitur.</div>
+        </div>
+
+    </div>
+
 </div>
 
+<script src="/js/utils/helpers.js"></script>
 <script type="module" src="/js/pages/index.js"></script>
 
 </body>

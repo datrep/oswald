@@ -521,6 +521,8 @@ async function init() {
     await loadPolicy();
     await loadTasks();
     await loadResources();
+
+
 }
 
 init();

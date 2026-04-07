@@ -1,198 +1,173 @@
-body {
-  font-family: Arial, sans-serif;
-  margin: 20px;
-  background: #fafafa;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Layout reset and page shell */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
 }
 
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: Arial, sans-serif;
+    background: #fafafa;
+    color: #222;
+}
+
+/* Top navigation */
 #main-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 20px;
-  background-color: #eee;
-  border-radius: 5px;
-  margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 20px;
+    margin: 16px 20px 12px;
+    background: #eee;
+    border-radius: 8px;
 }
 
 #main-menu a {
-  padding: 8px 15px;
-  text-decoration: none;
-  color: #333;
-  border-radius: 4px;
-  transition: background-color 0.3s ease;
+    padding: 8px 15px;
+    text-decoration: none;
+    color: #333;
+    border-radius: 6px;
+    transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 #main-menu a:hover {
-  background-color: #007bff;
-  color: white;
+    background: #007bff;
+    color: #fff;
 }
 
 #main-menu a.current {
-  font-weight: bold;
-  color: white;
-  background-color: #0056b3;
+    font-weight: 700;
+    background: #0056b3;
+    color: #fff;
 }
 
+/* Main content split: sidebar + gallery */
 #container {
-  display: flex;
-  flex: 1;
-  gap: 20px;
-  margin-top: 20px;
-  height: 100%;
+    display: flex;
+    gap: 20px;
+    padding: 0 20px 24px;
+    flex: 1;
 }
 
 #image-menu {
-  display: flex;
-  flex-direction: column;
-  min-width: 150px;
-  background-color: #f0f0f0;
-  padding: 15px;
-  border-radius: 8px;
+    flex: 0 0 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #f0f0f0;
+    padding: 16px;
+    border-radius: 10px;
 }
 
 #image-menu button {
-  padding: 10px;
-  margin-bottom: 8px;
-  text-decoration: none;
-  color: #333;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-  background-color: white;
-  border: 1px solid #ccc;
-  cursor: pointer;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    color: #333;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 #image-menu a.current {
-  background-color: #007bff;
-  color: white;
-  font-weight: bold;
+    background: #007bff;
+    color: #fff;
+    font-weight: 700;
 }
 
 #image-menu a:hover:not(.current),
 #image-menu button:hover {
-  background-color: #ddd;
+    background: #ddd;
 }
 
+/* Gallery grid */
 .gallery {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  justify-items: center; /* center items in each grid cell */
-  align-items: start;    /* force top alignment */
-  gap: 10px 15px;        /* tighter row/column gap */
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    align-items: start;
 }
 
-
-.image-card > * {
-  max-height: 100%;
-  overflow: hidden;
-}
-
-
-.image-card > * {
-  max-height: 100%;
-  overflow: hidden;
-}
-
+/* Image card */
 .image-card {
-  display: flex;
-  flex-direction: column;
-  height: calc((100vw / 8) * 1.7); /* maintains ~250:145 aspect for each column */
-  width: calc((100vw / 8) * 1.7); /* maintains ~250:145 aspect for each column */
-  max-width: 180px; /* width can be adjusted as needed */
-  max-height: 265px; /* width can be adjusted as needed */
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 0 8px rgba(0,0,0,0.1);
-  overflow: hidden;
-  margin: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    min-height: 240px;
+    aspect-ratio: 4 / 5;
 }
 
 .post-preview-container {
-  flex: 0 0 0%; /* 40% of height */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f8f8f8;
-  overflow: hidden;
+    flex: 0 0 55%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f8f8;
+    overflow: hidden;
 }
 
 .post-preview-container img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: cover; /* crops if image too tall */
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
 }
+
 .image-info {
-  flex: 1; /* fills remaining space */
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+    flex: 1;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .image-info h3 {
-  margin: 0 0 5px 0;
-  font-size: 1rem;
+    margin: 0;
+    font-size: 1rem;
 }
 
 .image-info p {
-  margin: 3px 0;
-  color: #555;
+    margin: 0;
+    color: #555;
+    line-height: 1.4;
 }
 
 .image-info .buttons {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
 }
 
 .image-info button {
-  width: 46px;
-  height: 26px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  color: white;
-  transition: background-color 0.3s ease;
-  flex-shrink: 0;
-  padding: 2px 4px;
+    width: 46px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #fff;
+    transition: background-color 0.25s ease;
 }
-
-.post-preview-container {
-  flex: 0 0 auto;  /* height controlled by max-height */
-  width: 180px;
-  height: 90px;
-  background-color: #f8f8f8;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.post-preview-container img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: cover; /* crops if image too tall */
-}
-
 
 .btn-edit {
-  background-color: #007bff;
+    background: #007bff;
 }
 
 .btn-edit:hover {
-  background-color: #0056b3;
+    background: #0056b3;
 }
 
 .btn-delete {
-  background-color: #dc3545;
+    background: #dc3545;
 }
 
 .btn-delete:hover {
-  background-color: #a71d2a;
+    background: #a71d2a;
 }
-
-
