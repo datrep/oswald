@@ -25,7 +25,8 @@
 
 <h2>Policy Details</h2>
 
-<div class="policy-form">
+<div id="policy-form-panel" class="policy-form-panel hidden">
+<div id="policy-form" class="policy-form">
 
 <label>Name</label>
 <input id="policy-name" type="text">
@@ -49,6 +50,7 @@
 <label>Description</label>
 <textarea id="policy-info"></textarea>
 
+</div>
 </div>
 
 </div>
@@ -80,6 +82,8 @@
 
 </div>
 
+<div class="task-ender"></div> <!-- just a line to separate the sections, not an actual header -->
+
 <!-- RESOURCES -->
 
 <div class="policy-section">
@@ -93,24 +97,27 @@
 </div>
 
 <div class="resource-header">
-    <span>Name</span>
+    <span>Web Path</span>
     <span>Resource Path</span>
     <span>Description</span>
+    <span>Select</span>
 </div>
 
 <div id="resource-list"></div>
 
-</div>
 
 </div>
 
 </div>
-
 <div class="policy-controls">
 
 <button id="edit-policy">Edit Policy</button>
 <button id="save-policy">Save Policy</button>
 <button id="delete-policy">Delete Policy</button>
+
+</div>
+
+
 
 <div id="task-modal" class="modal">
 

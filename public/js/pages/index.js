@@ -70,8 +70,9 @@ async function renderPolicies(edicts) {
                 <span>${edict.active ? "Yes" : "No"}</span>
                 <span>${edict.priority ?? "-"}</span>
                 <span>${formatState(edict.state)}</span>
-            ${edict.info ? `<div class="policy-info">Description: ${edict.info}</div>` : ""}
+                <span class="policy-info">${edict.info || "No description available. check database."}</span>
         `;
+            
 
         // Make row clickable
         row.addEventListener("click", () => {

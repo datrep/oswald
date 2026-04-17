@@ -31,7 +31,8 @@ const saveResourceBtn = document.getElementById("save-resource");
 const saveBtn = document.getElementById("save-policy");
 const deleteBtn = document.getElementById("delete-policy");
 const editBtn = document.getElementById("edit-policy");
-const policyform = document.getElementById("policy-form");
+const policyFormEl = document.getElementById("policy-form");
+const policyFormPanelEl = document.getElementById("policy-form-panel");
 
 // responsibility: task/resource lists
 const taskListEl = document.getElementById("task-list");
@@ -84,6 +85,20 @@ function setFieldsEditable(enabled) {
     priorityEl.disabled = !enabled;
     stateEl.disabled = !enabled;
     infoEl.disabled = !enabled;
+}
+
+function setPolicyFormVisible(visible) {
+    if (!policyFormPanelEl) return;
+    policyFormPanelEl.classList.toggle("hidden", !visible);
+}
+
+function togglePolicyEditor() {
+    if (!policyFormPanelEl) return;
+    const isHidden = policyFormPanelEl.classList.contains("hidden");
+    const show = isHidden;
+    setPolicyFormVisible(show);
+    setFieldsEditable(show);
+    if (editBtn) editBtn.textContent = show ? "Hide Editor" : "Edit Policy";
 }
 
 // responsibility: date formatting helpers
@@ -490,6 +505,7 @@ async function init() {
 
     bind(saveBtn, "click", handleSave);
     bind(deleteBtn, "click", handleDelete);
+    bind(editBtn, "click", togglePolicyEditor);
 
     bind(cancelTaskBtn, "click", closeTaskModal);
     bind(createTaskBtn, "click", handleCreateTask);
@@ -513,6 +529,9 @@ async function init() {
     bind(editResourceBtn, "click", openEditResource);
 
     if (isCreateMode) {
+        // Creating: show editor by default.
+        setPolicyFormVisible(true);
+        setFieldsEditable(true);
         console.log("[Policy] Create mode");
         return;
     }
@@ -521,7 +540,9 @@ async function init() {
     await loadPolicy();
     await loadTasks();
     await loadResources();
-
+    // Viewing: hide editor by default; enable via Edit Policy.
+    setPolicyFormVisible(false);
+    setFieldsEditable(false);
 
 }
 
