@@ -32,18 +32,18 @@ dotenv.config(); // init, look dbConfig.js
 // Import DB pool
 const { getPool } = require('./config/db');
 
-// Initialize express app
-const app = express();
-const port = process.env.PORT || 3000;
+  // Initialize express app
+  const app = express();
+  const port = process.env.PORT || 3000;
 
-// Middleware
-// app.use(requestLogger); // verbose request logging middleware
-app.use(logger); // simple request logging middleware
-app.use(express.json());
+  // Middleware
+  // app.use(requestLogger); // verbose request logging middleware
+  app.use(logger); // simple request logging middleware
+  app.use(express.json());
 
-// Serve static files
-app.use(express.static("public"));        // CSS, JS, images, HTML
-app.use(express.static("public/pages"));  // static chunks of the newer page layouts
+  // Serve static files
+  app.use(express.static("public"));        // CSS, JS, images, HTML
+  app.use(express.static("public/pages"));  // static chunks of the newer page layouts
 
 // Legacy route for frontend data fetch without /api
 app.use('/edicts', edictRoutes);
@@ -94,7 +94,7 @@ async function startServer() {
     await getPool();
     console.log("Database pool initialized successfully");
 
-    const serverHost = process.env.SERVER_HOST || "10.244.10.3"; // default to remote
+    const serverHost = "0.0.0.0"; // SERVER_HOST technically deprecated. const still stands for brevity.
       app.listen(port, serverHost, () => {
     console.log(`Server running on ${serverHost}:${port}`);
   });

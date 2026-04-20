@@ -333,9 +333,7 @@ gap: 10px;
 
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-
     padding: 6px 0;
-
     border-bottom: 1px solid #333;
 
 }
@@ -359,11 +357,19 @@ gap: 10px;
     padding: 20px;
     border-radius: 6px;
     border: 1px solid #444;
-    max-width: 720px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
 }
 
-.task-row {
+.policy-form {
+    background: #1e1e1e;
+    border-radius: 6px;
+}
 
+
+
+.task-row {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 0.8fr 0.9fr 0.7fr 3fr 60px;
     column-gap: 12px;
@@ -475,12 +481,18 @@ button:hover {
   font-weight: 600;
 }
 
+/* input class="input-md...." */
+.input-sm { max-width: 150px; }
+.input-md { max-width: 300px; }
+.input-lg { max-width: 100%; }
+
 input,
 textarea,
 select {
   width: 100%;
   min-height: 44px;
   padding: 0.95rem 1rem;
+  padding-bottom: 1rem;
   border: 1px solid #333;
   border-radius: 0.75rem;
   background: #161616;
@@ -488,6 +500,17 @@ select {
   font-size: 1rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease,
     background-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+input[type="datetime-local"] {
+  color-scheme: dark; /* Changes icon to white for dark backgrounds */
+}
+
+
+.datetime-inputs {
+  display: flex;
+  gap: 12px;
 }
 
 textarea {
