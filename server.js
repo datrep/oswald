@@ -85,6 +85,8 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
+console.info("if this was too fast, the DB server not found or shut down.");
+
 // Start server after DB pool is ready
 async function startServer() {
   try {
@@ -92,9 +94,10 @@ async function startServer() {
     await getPool();
     console.log("Database pool initialized successfully");
 
-    app.listen(port, "10.244.10.3", () => {
-      console.log(`Server running on port ${port}`);
-    });
+    const serverHost = process.env.SERVER_HOST || "10.244.10.3"; // default to remote
+      app.listen(port, serverHost, () => {
+    console.log(`Server running on ${serverHost}:${port}`);
+  });
   } catch (err) {
     console.error("Failed to initialize database pool:", err);
     process.exit(1); // Exit if DB fails

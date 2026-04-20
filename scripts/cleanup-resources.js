@@ -1,5 +1,4 @@
-﻿//#!/usr/bin/env node
-
+﻿
 const fs = require('fs');
 const path = require('path');
 const { getPool } = require('../config/db');
@@ -35,9 +34,10 @@ async function cleanupOrphans() {
 
   const files = fs.readdirSync(resourcesDir);
   let deleted = 0;
+  // Iterate over files in resources directory and delete those not referenced in DB
   for (const file of files) {
     const filePath = path.join(resourcesDir, file);
-    const stat = fs.statSync(filePath);
+    const stat = fs.statSync(filePath); // statSync is used to check if it's a file or directory
     if (!stat.isFile()) continue;
     const key = `resources/${file}`;
     if (!referenced.has(key)) {
