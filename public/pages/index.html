@@ -21,7 +21,10 @@
                 <h2>Add Policy</h2>
                 <p class="muted">Fill in the basic fields for now; more data will be collected soon.</p>
                 <div class="form-group">
-                    <label for="policy-name">Name</label>
+                    <div class="label-with-help">
+                        <label for="policy-name">Name</label>
+                        <button type="button" class="help-btn" id="help-add-policy-name" aria-label="More info about policy name">?</button>
+                    </div>
                     <input id="policy-name" name="policyName" type="text" placeholder="Policy name" required>
                 </div>
                 <div class="form-group">
@@ -56,14 +59,14 @@
         </div>
 
         <div class="policy-header">
-            <span>Name</span>
-            <span>Start</span>
-            <span>End</span>
-            <span>Tasks</span>
-            <span>Active</span>
-            <span>Priority</span>
-            <span>State</span>
-            <span>Description</span>
+            <span data-sort="name">Name</span>
+            <span data-sort="plannedStart">Start</span>
+            <span data-sort="plannedEnd">End</span>
+            <span data-sort="taskCount">Tasks</span>
+            <span data-sort="active">Active</span>
+            <span data-sort="priority">Priority</span>
+            <span data-sort="state">State</span>
+            <span data-sort="info">Description</span>
         </div>
 
 

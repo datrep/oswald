@@ -54,6 +54,97 @@ const editResourceBtn = document.getElementById("edit-resource");
 // responsibility: misc constants
 const STATE_LABELS = { 1: "Draft", 2: "Published", 3: "Archived" };
 
+// ===========================
+// HELP POPOVERS (LLM-assisted)
+// Purpose: add a reusable "?" button popover pattern for inline field help (no hover required).
+// Notes: this block was implemented with LLM assistance and then adapted to the existing codebase.
+//
+// How to reuse:
+// - Add a button element with class `help-btn` and a stable id (e.g. `help-foo`).
+// - Call `attachHelpPopover(document.getElementById("help-foo"), { title, body })` in `init()`.
+// ===========================
+function attachHelpPopover(buttonEl, { title, body }) {
+    if (!buttonEl) return;
+
+    let popoverEl = null;
+    let isOpen = false;
+
+    const close = () => {
+        if (!popoverEl) return;
+        popoverEl.remove();
+        popoverEl = null;
+        isOpen = false;
+        buttonEl.setAttribute("aria-expanded", "false");
+    };
+
+    const open = () => {
+        close();
+
+        popoverEl = document.createElement("div");
+        popoverEl.className = "help-popover";
+        popoverEl.setAttribute("role", "tooltip");
+        popoverEl.innerHTML = `
+            <div class="help-popover-title"></div>
+            <div class="help-popover-body"></div>
+        `;
+        popoverEl.querySelector(".help-popover-title").textContent = title || "More info";
+        popoverEl.querySelector(".help-popover-body").textContent = body || "";
+
+        document.body.appendChild(popoverEl);
+
+        const rect = buttonEl.getBoundingClientRect();
+        const gap = 8;
+        const maxRight = window.innerWidth - 12;
+
+        // Position under the button; clamp horizontally to stay on screen.
+        let left = rect.left;
+        let top = rect.bottom + gap;
+
+        const popRect = popoverEl.getBoundingClientRect();
+        if (left + popRect.width > maxRight) {
+            left = Math.max(12, maxRight - popRect.width);
+        }
+        if (top + popRect.height > window.innerHeight - 12) {
+            top = Math.max(12, rect.top - gap - popRect.height);
+        }
+
+        popoverEl.style.left = `${left}px`;
+        popoverEl.style.top = `${top}px`;
+
+        isOpen = true;
+        buttonEl.setAttribute("aria-expanded", "true");
+    };
+
+    const toggle = () => {
+        if (isOpen) close();
+        else open();
+    };
+
+    buttonEl.setAttribute("aria-haspopup", "true");
+    buttonEl.setAttribute("aria-expanded", "false");
+
+    buttonEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggle();
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!isOpen) return;
+        if (e.target === buttonEl) return;
+        if (popoverEl && popoverEl.contains(e.target)) return;
+        close();
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (!isOpen) return;
+        if (e.key === "Escape") close();
+    });
+}
+// ===========================
+// END HELP POPOVERS (LLM-assisted)
+// ===========================
+
 // responsibility: safe event binding helper
 const bind = (el, evt, fn) => {
     if (el && fn) el.addEventListener(evt, fn);
@@ -103,9 +194,17 @@ function togglePolicyEditor() {
 
 // responsibility: date formatting helpers
 function formatDateInput(value) {
+    // Return a value compatible with <input type="datetime-local"> in the user's local timezone.
     if (!value) return "";
     const date = new Date(value);
-    return date.toISOString().slice(0, 16);
+    if (!Number.isFinite(date.getTime())) return "";
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    const mm = pad2(date.getMonth() + 1);
+    const dd = pad2(date.getDate());
+    const hh = pad2(date.getHours());
+    const min = pad2(date.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
 function formatDate(value) {
@@ -124,6 +223,65 @@ function extractFilename(path) {
     return path.split("/").pop();
 }
 
+function roundToClosestMinute(date) {
+    const d = new Date(date);
+    if (!Number.isFinite(d.getTime())) return new Date();
+    const seconds = d.getSeconds();
+    d.setSeconds(0, 0);
+    if (seconds >= 30) d.setMinutes(d.getMinutes() + 1);
+    return d;
+}
+
+function setDatetimeLocalNow(inputEl) {
+    if (!inputEl) return;
+    inputEl.value = formatDateInput(roundToClosestMinute(new Date()));
+}
+
+function setInputBlank(inputEl) {
+    if (!inputEl) return;
+    inputEl.value = "";
+}
+
+function toOptionalInt(value) {
+    if (value === null || value === undefined) return null;
+    const trimmed = String(value).trim();
+    if (trimmed === "") return null;
+    const n = Number.parseInt(trimmed, 10);
+    return Number.isFinite(n) ? n : null;
+}
+
+function ensureSelectHasValue(selectEl, value) {
+    if (!selectEl) return;
+    if (value === null || value === undefined) return;
+    const str = String(value);
+    const has = [...selectEl.options].some(o => o.value === str);
+    if (has) return;
+    const opt = document.createElement("option");
+    opt.value = str;
+    opt.textContent = str;
+    selectEl.appendChild(opt);
+}
+
+function populateStateSelect(selectEl) {
+    if (!selectEl) return;
+    const currentValue = selectEl.value;
+    selectEl.innerHTML = "";
+
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "-";
+    selectEl.appendChild(blank);
+
+    Object.entries(STATE_LABELS).forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        selectEl.appendChild(option);
+    });
+
+    if (currentValue) selectEl.value = currentValue;
+}
+
 function collectPolicyData() {
     if (!nameEl || !startEl || !endEl || !priorityEl || !stateEl || !infoEl) {
         console.error("One or more form elements are missing");
@@ -131,10 +289,10 @@ function collectPolicyData() {
     }
     return {
         name: nameEl.value,
-        plannedStart: startEl.value,
-        plannedEnd: endEl.value,
-        priority: priorityEl.value,
-        state: stateEl.value,
+        plannedStart: startEl.value || null,
+        plannedEnd: endEl.value || null, // optional
+        priority: toOptionalInt(priorityEl.value),
+        state: toOptionalInt(stateEl.value),
         info: infoEl.value
     };
 }
@@ -205,6 +363,7 @@ async function loadPolicy() {
         nameEl.value = policy.name || "";
         startEl.value = formatDateInput(policy.plannedStart);
         endEl.value = formatDateInput(policy.plannedEnd);
+        ensureSelectHasValue(priorityEl, policy.priority);
         priorityEl.value = policy.priority ?? "";
         stateEl.value = policy.state ?? "";
         infoEl.value = policy.info ?? "";
@@ -243,6 +402,10 @@ async function loadResources() {
 async function createPolicy() {
     try {
         const data = collectPolicyData();
+        if (!data.plannedStart) {
+            alert("Policy planned start is required.");
+            return;
+        }
         const response = await fetch("/api/edicts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -269,6 +432,10 @@ async function updatePolicy() {
     }
     try {
         const data = collectPolicyData();
+        if (!data.plannedStart) {
+            alert("Policy planned start is required.");
+            return;
+        }
         const response = await fetch(`/api/edicts/${policyId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -339,8 +506,9 @@ function openTaskModal(task = null) {
     if (!modal) return;
     currentTaskId = task ? task.id : null;
     document.getElementById("task-name").value = task?.name ?? "";
-    document.getElementById("task-start").value = (task?.plannedStart ?? "").slice(0, 10);
-    document.getElementById("task-end").value = (task?.plannedEnd ?? "").slice(0, 10);
+    document.getElementById("task-start").value = formatDateInput(task?.plannedStart);
+    document.getElementById("task-end").value = formatDateInput(task?.plannedEnd);
+    ensureSelectHasValue(document.getElementById("task-priority"), task?.priority);
     document.getElementById("task-priority").value = task?.priority ?? "";
     document.getElementById("task-state").value = task?.state ?? 1;
     document.getElementById("task-info").value = task?.info ?? "";
@@ -362,14 +530,20 @@ async function handleCreateTask() {
         alert("Save the policy before adding tasks.");
         return;
     }
+
+    if (!document.getElementById("task-start").value) {
+        alert("Task planned start is required.");
+        return;
+    }
+
     const payload = {
         name: document.getElementById("task-name").value,
         plannedStart: document.getElementById("task-start").value,
-        plannedEnd: document.getElementById("task-end").value,
-        priority: document.getElementById("task-priority").value,
-        state: document.getElementById("task-state").value,
+        plannedEnd: document.getElementById("task-end").value || null, // optional
+        priority: toOptionalInt(document.getElementById("task-priority").value),
+        state: toOptionalInt(document.getElementById("task-state").value),
         info: document.getElementById("task-info").value,
-        assignedToUserId: document.getElementById("task-user").value,
+        assignedToUserId: toOptionalInt(document.getElementById("task-user").value),
         edictId: policyId
     };
     if (currentTaskId) {
@@ -502,6 +676,28 @@ function formatResourcePath(path) {
 // responsibility: init page wiring
 async function init() {
     configurePageMode();
+
+    populateStateSelect(stateEl);
+    populateStateSelect(document.getElementById("task-state"));
+    if (isCreateMode && !stateEl.value) stateEl.value = "1";
+
+    attachHelpPopover(document.getElementById("help-policy-name"), {
+        title: "Policy name",
+        body: "Use a short, descriptive title. Example: “Initial Policy” or “Follow-up Policy”."
+    });
+
+    attachHelpPopover(document.getElementById("help-task-name"), {
+        title: "Task name",
+        body: "Use an action-oriented title. Example: “Draft announcement copy” or “Review resources”."
+    });
+
+    bind(document.getElementById("policy-start-now"), "click", () => setDatetimeLocalNow(startEl));
+    bind(document.getElementById("policy-end-now"), "click", () => setDatetimeLocalNow(endEl));
+    bind(document.getElementById("policy-end-clear"), "click", () => setInputBlank(endEl));
+
+    bind(document.getElementById("task-start-now"), "click", () => setDatetimeLocalNow(document.getElementById("task-start")));
+    bind(document.getElementById("task-end-now"), "click", () => setDatetimeLocalNow(document.getElementById("task-end")));
+    bind(document.getElementById("task-end-clear"), "click", () => setInputBlank(document.getElementById("task-end")));
 
     bind(saveBtn, "click", handleSave);
     bind(deleteBtn, "click", handleDelete);

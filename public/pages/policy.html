@@ -28,24 +28,36 @@
 <div id="policy-form-panel" class="policy-form-panel hidden">
 <div id="policy-form" class="policy-form">
 
-<label>Name</label>
+<div class="label-with-help">
+    <label>Name</label>
+    <button type="button" class="help-btn" id="help-policy-name" aria-label="More info about policy name">?</button>
+</div>
 <input id="policy-name" type="text">
 
 <label>Planned Start</label>
 <input id="policy-start" type="datetime-local">
+<div class="input-actions">
+    <button type="button" id="policy-start-now">Use current time</button>
+</div>
 
 <label>Planned End</label>
 <input id="policy-end" type="datetime-local">
+<div class="input-actions">
+    <button type="button" id="policy-end-now">Use current time</button>
+    <button type="button" id="policy-end-clear">Leave blank</button>
+</div>
 
 <label>Priority</label>
-<input id="policy-priority" type="number">
+<select id="policy-priority">
+    <option value="">-</option>
+    <option value="0">P0 Critical</option>
+    <option value="1">P1 High</option>
+    <option value="2">P2 Medium</option>
+    <option value="3">P3 Low</option>
+</select>
 
 <label>State</label>
-<select id="policy-state">
-<option value="1">Draft</option>
-<option value="2">Published</option>
-<option value="3">Archived</option>
-</select>
+<select id="policy-state"></select>
 
 <label>Description</label>
 <textarea id="policy-info"></textarea>
@@ -68,14 +80,16 @@
 </div>
 
 <div class="task-header">
-<span>Name</span>
-<span>Start</span>
-<span>End</span>
-<span>Priority</span>
-<span>State</span>
-<span>Active</span>
-<span>Description</span>
+<!-- SORTABLE TASK HEADER (LLM-assisted): click columns to sort asc/desc -->
+<span data-sort="name">Name</span>
+<span data-sort="plannedStart">Start</span>
+<span data-sort="plannedEnd">End</span>
+<span data-sort="priority">Priority</span>
+<span data-sort="state">State</span>
+<span data-sort="active">Active</span>
+<span data-sort="info">Description</span>
 <span>select</span>
+<!-- END SORTABLE TASK HEADER (LLM-assisted) -->
 </div>
 
 <div id="task-list"></div>
@@ -97,10 +111,12 @@
 </div>
 
 <div class="resource-header">
-    <span>Web Path</span>
-    <span>Resource Path</span>
-    <span>Description</span>
+    <!-- SORTABLE RESOURCE HEADER (LLM-assisted): click columns to sort asc/desc -->
+    <span data-sort="webPath">Web Path</span>
+    <span data-sort="resourcePath">Resource Path</span>
+    <span data-sort="description">Description</span>
     <span>Select</span>
+    <!-- END SORTABLE RESOURCE HEADER (LLM-assisted) -->
 </div>
 
 <div id="resource-list"></div>
@@ -127,24 +143,36 @@
 
 <div class="task-form">
 
-<label>Name</label>
+<div class="label-with-help">
+    <label>Name</label>
+    <button type="button" class="help-btn" id="help-task-name" aria-label="More info about task name">?</button>
+</div>
 <input id="task-name" type="text">
 
 <label>Planned Start</label>
 <input id="task-start" type="datetime-local">
+<div class="input-actions">
+    <button type="button" id="task-start-now">Use current time</button>
+</div>
 
 <label>Planned End</label>
 <input id="task-end" type="datetime-local">
+<div class="input-actions">
+    <button type="button" id="task-end-now">Use current time</button>
+    <button type="button" id="task-end-clear">Leave blank</button>
+</div>
 
 <label>Priority</label>
-<input id="task-priority" type="number">
+<select id="task-priority">
+    <option value="">-</option>
+    <option value="0">P0 Critical</option>
+    <option value="1">P1 High</option>
+    <option value="2">P2 Medium</option>
+    <option value="3">P3 Low</option>
+</select>
 
 <label>State</label>
-<select id="task-state">
-<option value="1">Draft</option>
-<option value="2">Published</option>
-<option value="3">Archived</option>
-</select>
+<select id="task-state"></select>
 
 <label>Description</label>
 <textarea id="task-info"></textarea>
