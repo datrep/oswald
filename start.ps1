@@ -26,12 +26,13 @@ do {
 if ($choice -eq "1") {
     $localHost = $env:LOCAL_SERVER_HOST
     Write-Host "Starting locally on http://$($localHost):3000" -ForegroundColor Green
-    
+    Start-Sleep -Seconds 1
     # Clean up old resources
     Write-Host "Cleaning up old local resources..."
     npm run cleanup-resources
-    
+    Start-Sleep -Seconds 1
     Write-Host "Starting the server..."
+    Start-Sleep -Seconds 2
     # Set environment variable for local binding
     $env:SERVER_HOST = $localHost
     node .\server.js

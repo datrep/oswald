@@ -141,7 +141,7 @@ html, body {
 }
 
 .task-select {
-
+    width: 30%;
     display: flex;
     justify-content: flex-start;
     align-items: center;
@@ -283,6 +283,15 @@ gap: 10px;
     font-size: 0.9rem;
     color: #aaa;
     margin-bottom: 15px;
+}
+
+.resource-select {
+    width: 30%;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    justify-self: start;
+    padding-left: 0;
 }
 
 /* Rows */
@@ -486,7 +495,8 @@ button:hover {
 .input-md { max-width: 300px; }
 .input-lg { max-width: 100%; }
 
-input,
+/* Full-width form controls (exclude checkbox/radio, which are used in tables/lists) */
+input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
   width: 100%;
@@ -523,13 +533,13 @@ textarea::placeholder {
   color: #777;
 }
 
-input:hover,
+input:not([type="checkbox"]):not([type="radio"]):hover,
 textarea:hover,
 select:hover {
   border-color: #555;
 }
 
-input:focus,
+input:not([type="checkbox"]):not([type="radio"]):focus,
 textarea:focus,
 select:focus {
   outline: none;
@@ -538,7 +548,7 @@ select:focus {
   background: #1d1d1d;
 }
 
-input:disabled,
+input:not([type="checkbox"]):not([type="radio"]):disabled,
 textarea:disabled,
 select:disabled {
   opacity: 0.65;
