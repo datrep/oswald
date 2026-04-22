@@ -15,7 +15,12 @@
         <div class="topbar-title">Policy workspace</div>
     </div>
 
-    <div class="content">
+    back link to policies list
+    <div class="back">
+        <!-- to refresh, just /index.html instead of history.back() -->
+        <button id="back-to-policies"><a href="/index.html">Back to Policies</a></button>
+    </div>
+
 
 <h1 id="policy-title">Policy</h1>
 
@@ -53,19 +58,24 @@
     </div>
 </div>
     
+<div class ="datetime-inputs">
+    <div>
+        <label for="policy-priority">Priority</label>
+        <select id="policy-priority">
+            <option value="">-</option>
+            <option value="0">P0 Critical</option>
+            <option value="1">P1 High</option>
+            <option value="2">P2 Medium</option>
+            <option value="3">P3 Low</option>
+        </select>
+    </div>
+    <div>
+        <label for="policy-state">State</label>
+        <select id="policy-state"></select>
+    </div>
 
+</div>
 
-<label for="policy-priority">Priority</label>
-<select id="policy-priority">
-    <option value="">-</option>
-    <option value="0">P0 Critical</option>
-    <option value="1">P1 High</option>
-    <option value="2">P2 Medium</option>
-    <option value="3">P3 Low</option>
-</select>
-
-<label for="policy-state">State</label>
-<select id="policy-state"></select>
 
 <label for="policy-info">Description</label>
 <textarea id="policy-info"></textarea>
@@ -116,6 +126,27 @@
     <button id="add-resource">Add Resource</button>
     <button id="edit-resource">Edit Selected</button>
     <button id="remove-resource">Remove Selected</button>
+</div>
+
+<div id="resource-modal" style="display:none">
+
+    <div class="modal-content">
+
+        <h3 id="resource-modal-title">Add Resource</h3>
+
+        <label for="resource-file">Choose File</label>
+        <input type="file" id="resource-file">
+
+        <label for="resource-description">Description</label>
+        <textarea id="resource-description"></textarea>
+
+        <div class="modal-actions">
+            <button id="save-resource">Save</button>
+            <button id="cancel-resource">Cancel</button>
+        </div>
+
+    </div>
+
 </div>
 
 <div class="resource-header">
@@ -198,26 +229,6 @@
 
 </div>
 
-<div id="resource-modal" style="display:none">
-
-    <div class="modal-content">
-
-        <h3 id="resource-modal-title">Add Resource</h3>
-
-        <label for="resource-file">Choose File</label>
-        <input type="file" id="resource-file">
-
-        <label for="resource-description">Description</label>
-        <textarea id="resource-description"></textarea>
-
-        <div class="modal-actions">
-            <button id="save-resource">Save</button>
-            <button id="cancel-resource">Cancel</button>
-        </div>
-
-    </div>
-
-</div>
 
 </body>
 
