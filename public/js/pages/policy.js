@@ -728,7 +728,11 @@ async function init() {
         // Creating: show editor by default.
         setPolicyFormVisible(true);
         setFieldsEditable(true);
-        console.log("[Policy] Create mode");
+        console.log("[Policy] Create mode: True");
+        return;
+    }
+    else {
+        console.log("[Policy] Create mode: False");
         return;
     }
 
