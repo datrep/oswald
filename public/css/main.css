@@ -653,7 +653,50 @@ select {
     min-height: 1rem;
 }
 
+/* Global Toolbar (LLM-assisted): Primary action buttons for policy management */
+.global-toolbar {
+    height: 50px;
+    width: 100%;
+    border-bottom: 1px solid #444;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    background: #111;
+    gap: 12px;
+}
 
+/* Contextual Toolbars (LLM-assisted): Task and Resource selection actions */
+.task-context-toolbar,
+.resource-context-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 40px;
+    padding: 0 20px;
+    margin-bottom: 10px;
+    background: #111;
+    border-top: 1px solid #333;
+    gap: 12px;
+}
+
+.task-context-toolbar span,
+.resource-context-toolbar span {
+    font-size: 0.9rem;
+    color: #aaa;
+    flex-shrink: 0;
+}
+
+.task-context-toolbar button,
+.resource-context-toolbar button {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.task-context-toolbar button:not(:first-of-type),
+.resource-context-toolbar button:not(:first-of-type) {
+    margin-left: 8px;
+}
 
 .hidden {
 

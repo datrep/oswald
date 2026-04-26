@@ -41,15 +41,11 @@ const resourceListEl = document.getElementById("resource-list");
 // responsibility: task modal elements
 const cancelTaskBtn = document.getElementById("cancel-task");
 const createTaskBtn = document.getElementById("create-task");
-const removeTaskBtn = document.getElementById("remove-task");
 const addTaskBtn = document.getElementById("add-task");
-const editTaskBtn = document.getElementById("edit-task");
 
 // responsibility: resource modal elements
 const addResourceBtn = document.getElementById("add-resource");
 const cancelResourceBtn = document.getElementById("cancel-resource");
-const removeResourceBtn = document.getElementById("remove-resource");
-const editResourceBtn = document.getElementById("edit-resource");
 
 // responsibility: misc constants
 const STATE_LABELS = { 1: "Draft", 2: "Published", 3: "Archived" };
@@ -297,6 +293,41 @@ function collectPolicyData() {
     };
 }
 
+// ===========================
+// CONTEXTUAL TOOLBAR HELPERS (LLM-assisted)
+// Purpose: manage task and resource selection state and UI
+// ===========================
+
+function updateTaskContextToolbar() {
+    const selected = getSelectedTaskIds();
+    const toolbar = document.getElementById("task-context-toolbar");
+    const countEl = document.getElementById("task-selected-count");
+    if (!toolbar) return;
+    if (selected.length === 0) {
+        toolbar.classList.add("hidden");
+    } else {
+        toolbar.classList.remove("hidden");
+        countEl.textContent = `${selected.length} selected`;
+    }
+}
+
+function updateResourceContextToolbar() {
+    const selected = document.querySelectorAll(".resource-select:checked");
+    const toolbar = document.getElementById("resource-context-toolbar");
+    const countEl = document.getElementById("resource-selected-count");
+    if (!toolbar) return;
+    if (selected.length === 0) {
+        toolbar.classList.add("hidden");
+    } else {
+        toolbar.classList.remove("hidden");
+        countEl.textContent = `${selected.length} selected`;
+    }
+}
+
+// ===========================
+// END CONTEXTUAL TOOLBAR HELPERS (LLM-assisted)
+// ===========================
+
 // responsibility: render helpers
 function renderTaskRow(task) {
     const row = document.createElement("div");
@@ -311,6 +342,13 @@ function renderTaskRow(task) {
         ${task.info ? `<div class="policy-info">${task.info}</div>` : ""}
         <span><input type="checkbox" class="task-select" data-id="${task.id}"></span>
     `;
+    
+    // LLM-assisted: Add listener to checkbox for contextual toolbar updates
+    const checkbox = row.querySelector(".task-select");
+    if (checkbox) {
+        checkbox.addEventListener("change", updateTaskContextToolbar);
+    }
+    
     return row;
 }
 
@@ -327,6 +365,13 @@ function renderResourceRow(resource) {
         <span class="resource-description">${resource.description || ""}</span>
         <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id}"></span>
     `;
+    
+    // LLM-assisted: Add listener to checkbox for contextual toolbar updates
+    const checkbox = row.querySelector(".resource-select");
+    if (checkbox) {
+        checkbox.addEventListener("change", updateResourceContextToolbar);
+    }
+    
     return row;
 }
 
@@ -406,6 +451,7 @@ async function createPolicy() {
             alert("Policy planned start is required.");
             return;
         }
+        console.log("[Policy.save_policy] Executed: create_policy");
         const response = await fetch("/api/edicts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -416,6 +462,7 @@ async function createPolicy() {
             alert(result.message || "Failed to create policy");
             return;
         }
+        console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
         alert("Policy created successfully");
         window.location.href = `/pages/policy.html?id=${result.id}`;
     } catch (err) {
@@ -436,6 +483,7 @@ async function updatePolicy() {
             alert("Policy planned start is required.");
             return;
         }
+        console.log(`[Policy.save_policy] Executed: update_policy (id: ${policyId})`);
         const response = await fetch(`/api/edicts/${policyId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -446,6 +494,7 @@ async function updatePolicy() {
             alert(result.message || "Failed to update policy");
             return;
         }
+        console.log(`[Policy.save_policy] Completed: update_policy (id: ${policyId})`);
         await loadPolicy();
         alert("Policy updated successfully");
     } catch (err) {
@@ -463,12 +512,14 @@ async function handleDelete() {
     const confirmDelete = confirm("Are you sure you want to delete this policy?");
     if (!confirmDelete) return;
     try {
+        console.log(`[Policy.delete_policy] Executed: delete_policy (id: ${policyId})`);
         const response = await fetch(`/api/edicts/${policyId}`, { method: "DELETE" });
         if (!response.ok) {
             const result = await response.json();
             alert(result.message || "Failed to delete policy");
             return;
         }
+        console.log(`[Policy.delete_policy] Completed: delete_policy (id: ${policyId})`);
         alert("Policy deleted successfully");
         window.location.href = "/index.html";
     } catch (err) {
@@ -548,9 +599,12 @@ async function handleCreateTask() {
     };
     if (currentTaskId) {
         payload.id = currentTaskId;
-        console.log("EDIT TASK", payload); // placeholder for PUT /api/tasks/:id
+        console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
+        console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`); // placeholder for PUT /api/tasks/:id
     } else {
+        console.log("[Policy.add_task] Executed: add_task");
         await apiPost("/api/tasks", payload);
+        console.log("[Policy.add_task] Completed: add_task");
     }
     closeTaskModal();
     loadTasks();
@@ -565,8 +619,11 @@ async function handleRemoveTasks() {
     }
     if (!confirm("Delete selected tasks?")) return;
     try {
+        console.log(`[Policy.delete_task] Executed: delete_task (${selected.length} task(s))`);
         await Promise.all(selected.map(id => apiDelete(`/api/tasks/${id}`)));
+        console.log(`[Policy.delete_task] Completed: delete_task (${selected.length} task(s) deleted)`);
         await loadTasks();
+        updateTaskContextToolbar();
     } catch (err) {
         console.error("[Task] Delete failed", err);
         alert("Failed to delete selected tasks");
@@ -622,7 +679,10 @@ async function saveResource() {
     const description = resourceDescriptionInput.value || "";
     try {
         if (editingResourceId) {
+            console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId})`);
             await fetch(`/api/resources/${editingResourceId}`, { method: "DELETE" });
+        } else {
+            console.log("[Policy.add_resource] Executed: add_resource");
         }
         const formData = new FormData();
         formData.append("file", file);
@@ -631,6 +691,11 @@ async function saveResource() {
         formData.append("description", description);
         const response = await fetch("/api/resources", { method: "POST", body: formData });
         if (!response.ok) throw new Error("Upload failed");
+        if (editingResourceId) {
+            console.log(`[Policy.edit_resource] Completed: edit_resource (id: ${editingResourceId})`);
+        } else {
+            console.log("[Policy.add_resource] Completed: add_resource");
+        }
         editingResourceId = null;
         closeResourceModal();
         await loadResources();
@@ -649,16 +714,62 @@ async function deleteSelectedResources() {
     }
     if (!confirm("Delete selected resources?")) return;
     try {
+        console.log(`[Policy.delete_resource] Executed: delete_resource (${selected.length} resource(s))`);
         for (const checkbox of selected) {
             const id = checkbox.dataset.id;
             await fetch(`/api/resources/${id}`, { method: "DELETE" });
         }
+        console.log(`[Policy.delete_resource] Completed: delete_resource (${selected.length} resource(s) deleted)`);
         await loadResources();
+        updateResourceContextToolbar();
     } catch (err) {
         console.error("[UI] Failed to delete resources", err);
         alert("Delete failed");
     }
 }
+
+// ===========================
+// CONTEXTUAL EDIT/DELETE HANDLERS (LLM-assisted)
+// Purpose: handle edit/delete from contextual toolbars
+// ===========================
+
+// responsibility: edit selected task from contextual toolbar
+function handleEditContextTask() {
+    const selectedIds = getSelectedTaskIds();
+    if (selectedIds.length !== 1) {
+        alert("Please select exactly one task to edit.");
+        return;
+    }
+    const task = currentTasks.find(t => t.id == selectedIds[0]);
+    if (!task) return;
+    console.log(`[Policy.edit_task] Executed: edit_task (id: ${task.id})`);
+    openTaskModal(task);
+}
+
+// responsibility: delete selected tasks from contextual toolbar
+function handleDeleteContextTask() {
+    console.log("[Policy.delete_task] Executed: delete_task");
+    handleRemoveTasks();
+}
+
+// responsibility: edit selected resource from contextual toolbar
+function handleEditContextResource() {
+    const resource = getSelectedResource();
+    if (!resource) return;
+    console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${resource.id})`);
+    editingResourceId = resource.id;
+    openResourceModal();
+    resourceDescriptionInput.value = resource.description || "";
+}
+
+// responsibility: delete selected resources from contextual toolbar
+function handleDeleteContextResource() {
+    console.log("[Policy.delete_resource] Executed: delete_resource");
+    deleteSelectedResources();
+}
+
+// ===========================\n// END CONTEXTUAL EDIT/DELETE HANDLERS (LLM-assisted)
+// ===========================
 
 // responsibility: format resource paths for display
 function formatResourcePath(path) {
@@ -705,24 +816,19 @@ async function init() {
 
     bind(cancelTaskBtn, "click", closeTaskModal);
     bind(createTaskBtn, "click", handleCreateTask);
-    bind(removeTaskBtn, "click", handleRemoveTasks);
     bind(addTaskBtn, "click", openTaskModal);
-    bind(editTaskBtn, "click", () => {
-        const selectedIds = getSelectedTaskIds();
-        if (selectedIds.length !== 1) {
-            alert("Please select exactly one task to edit.");
-            return;
-        }
-        const task = currentTasks.find(t => t.id == selectedIds[0]);
-        if (!task) return;
-        openTaskModal(task);
-    });
+
+    // LLM-assisted: New contextual toolbar bindings for tasks
+    bind(document.getElementById("edit-task"), "click", handleEditContextTask);
+    bind(document.getElementById("delete-task"), "click", handleDeleteContextTask);
 
     bind(addResourceBtn, "click", openResourceModal);
     bind(cancelResourceBtn, "click", closeResourceModal);
     bind(saveResourceBtn, "click", saveResource);
-    bind(removeResourceBtn, "click", deleteSelectedResources);
-    bind(editResourceBtn, "click", openEditResource);
+
+    // LLM-assisted: New contextual toolbar bindings for resources
+    bind(document.getElementById("edit-resource"), "click", handleEditContextResource);
+    bind(document.getElementById("delete-resource"), "click", handleDeleteContextResource);
 
     if (isCreateMode) {
         // Creating: show editor by default.
@@ -731,16 +837,13 @@ async function init() {
         console.log("[Policy] Create mode: True");
         return;
     }
-    else {
-        console.log("[Policy] Create mode: False");
-        return;
-    }
 
+    // Viewing: load data and hide editor by default
     console.log("[Policy] View mode", policyId);
     await loadPolicy();
     await loadTasks();
     await loadResources();
-    // Viewing: hide editor by default; enable via Edit Policy.
+    // Enable via Edit Policy button
     setPolicyFormVisible(false);
     setFieldsEditable(false);
 

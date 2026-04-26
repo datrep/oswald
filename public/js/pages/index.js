@@ -177,6 +177,7 @@ function makeComparator(key, dir) {
 
         const result = String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: "base" });
         return result * direction;
+        
     };
 }
 
