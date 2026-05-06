@@ -12,6 +12,7 @@ let resourcesCache = [];
 let editingResourceId = null;
 let currentTasks = [];
 let currentTaskId = null;
+let currentPolicy = null;
 
 // responsibility: element lookups
 const titleEl = document.getElementById("policy-title");
@@ -33,6 +34,7 @@ const deleteBtn = document.getElementById("delete-policy");
 const editBtn = document.getElementById("edit-policy");
 const policyFormEl = document.getElementById("policy-form");
 const policyFormPanelEl = document.getElementById("policy-form-panel");
+const policyListEl = document.getElementById("policy-list");
 
 // responsibility: task/resource lists
 const taskListEl = document.getElementById("task-list");
@@ -400,10 +402,13 @@ function getSelectedResource() {
 async function loadPolicy() {
     if (!policyId) {
         titleEl.textContent = "Policy";
+        currentPolicy = null;
+        renderPolicyRows(null);
         return;
     }
     try {
         const policy = await apiGet(`/api/edicts/${policyId}`);
+        currentPolicy = policy;
         titleEl.textContent = policy.name;
         nameEl.value = policy.name || "";
         startEl.value = formatDateInput(policy.plannedStart);
@@ -412,8 +417,11 @@ async function loadPolicy() {
         priorityEl.value = policy.priority ?? "";
         stateEl.value = policy.state ?? "";
         infoEl.value = policy.info ?? "";
+        renderPolicyRows(currentPolicy);
     } catch (err) {
         console.error("[UI] Failed to load policy", err);
+        currentPolicy = null;
+        renderPolicyRows(null);
     }
 }
 
@@ -425,8 +433,11 @@ async function loadTasks() {
         currentTasks = tasks;
         taskListEl.innerHTML = "";
         tasks.forEach(task => taskListEl.appendChild(renderTaskRow(task)));
+        renderPolicyRows(currentPolicy);
     } catch (err) {
         console.error("[UI] Failed to load tasks", err);
+        currentTasks = [];
+        renderPolicyRows(currentPolicy);
     }
 }
 
@@ -438,8 +449,11 @@ async function loadResources() {
         resourcesCache = resources;
         resourceListEl.innerHTML = "";
         resources.forEach(resource => resourceListEl.appendChild(renderResourceRow(resource)));
+        renderPolicyRows(currentPolicy);
     } catch (err) {
         console.error("[UI] Failed to load resources", err);
+        resourcesCache = [];
+        renderPolicyRows(currentPolicy);
     }
 }
 
@@ -607,7 +621,7 @@ async function handleCreateTask() {
         console.log("[Policy.add_task] Completed: add_task");
     }
     closeTaskModal();
-    loadTasks();
+    await loadTasks();
 }
 
 // responsibility: remove tasks
@@ -834,6 +848,7 @@ async function init() {
         // Creating: show editor by default.
         setPolicyFormVisible(true);
         setFieldsEditable(true);
+        renderPolicyRows(null);
         console.log("[Policy] Create mode: True");
         return;
     }
@@ -848,5 +863,36 @@ async function init() {
     setFieldsEditable(false);
 
 }
+
+function renderPolicyRows(policy) {
+    if (!policyListEl) return;
+
+    policyListEl.innerHTML = "";
+
+    if (!policy) {
+        const empty = document.createElement("div");
+        empty.className = "policy-row";
+        empty.textContent = isCreateMode
+            ? "Policy summary will appear after save."
+            : "No policy selected.";
+        policyListEl.appendChild(empty);
+        return;
+    }
+
+    const row = document.createElement("div");
+    row.className = "policy-row";
+    row.innerHTML = `
+        <span>${formatDate(policy.plannedStart)}</span>
+        <span>${formatDate(policy.plannedEnd)}</span>
+        <span>${policy.taskCount ?? 0} / ${policy.resourceCount ?? 0}</span>
+        <span>${policy.active ? "Yes" : "No"}</span>
+        <span>${policy.priority ?? "-"}</span>
+        <span>${formatState(policy.state)}</span>
+        <span class="policy-info">${policy.info || "No description available."}</span>
+    `;
+
+    policyListEl.appendChild(row);
+}
+
 
 init();
