@@ -259,6 +259,13 @@ function setupSortHeader() {
     });
 }
 
+function formatipstatus(status) {
+    if (status === null || status === undefined) return "-";
+    const statusLabels = { active: "Active", slow: "Slow", inactive: "Inactive" };
+    return statusLabels[status] || status;
+}
+
+
 // Render all policies (already enriched with counts)
 function renderPolicyRows(edicts) {
     policyListEl.innerHTML = "";
@@ -336,6 +343,66 @@ async function initPolicies() {
         policyCountEl.textContent = "Unable to load policies.";
     }
 }
+
+function renderipstatus() {
+    // Deprecated placeholder; real rendering done by `renderIPResults(results)`.
+}
+
+async function fetchIPStatuses() {
+    try {
+        const resp = await apiGet('/api/ip/check');
+        if (!resp || !resp.ok) {
+            console.warn('[IP] bad response', resp);
+            renderIPResults([]);
+            return;
+        }
+        renderIPResults(resp.results || []);
+    } catch (err) {
+        console.error('[IP] Failed to fetch statuses', err);
+        renderIPResults([]);
+    }
+}
+
+function renderIPResults(results) {
+    const strip = document.querySelector('.status-strip');
+    if (!strip) return;
+
+    // Clear existing items
+    strip.innerHTML = '';
+
+    if (!results || results.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'status-item';
+        empty.textContent = 'No IP status available';
+        strip.appendChild(empty);
+        return;
+    }
+
+    results.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'status-item';
+        item.title = r.ip + (r.time ? ` responded in ${r.time}ms` : '') + (r.error ? `, error: ${r.error}` : ''); // tooltip for more info
+
+        const dot = document.createElement('span');
+        dot.className = 'status-dot';
+        // choose visual class
+        if (r.alive) dot.classList.add('online');
+        else if (r.time && Number(r.time) > 1000) dot.classList.add('warning');
+        else dot.classList.add('offline');
+
+        const label = document.createElement('span');
+        label.textContent = r.ip + (r.time ? ` (${r.time}ms)` : '');
+
+        item.appendChild(dot);
+        item.appendChild(label);
+        strip.appendChild(item);
+    });
+}
+
+// Initial fetch and periodic polling
+fetchIPStatuses();
+setInterval(fetchIPStatuses, 5000); // refresh every 5s
+
 
 // Add policy button listener
 document.getElementById("add-policy")?.addEventListener("click", () => {

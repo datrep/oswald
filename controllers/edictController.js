@@ -46,8 +46,8 @@ async function createEdict(req, res) {
     const { name, plannedStart, plannedEnd, info, priority, state } = req.body;
 
     try {
-        await modelCreateEdict(name, plannedStart, plannedEnd, info, priority, state);
-        res.json({ message: "Edict created successfully" });
+        const insertedId = await modelCreateEdict(name, plannedStart, plannedEnd, info, priority, state);
+        res.json({ message: "Edict created successfully", id: insertedId });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to create edict" });

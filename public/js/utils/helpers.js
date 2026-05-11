@@ -26,4 +26,26 @@ function showTime() {
   document.getElementById("myClock").innerText = fullDisplay;
   setTimeout(showTime, 1000);
 }
+
+
+async function pingIP(ip) {
+  console.log(`Pinging ${ip}...`);
+  const start = performance.now();
+  try {
+    // Try connecting to the IP (note: needs CORS support on server)
+    await fetch(`http://${ip}`, { mode: 'no-cors', cache: 'no-cache' });
+    const end = performance.now();
+    return { ip, status: 'active', time: Math.round(end - start) + 'ms' };
+    if (response.ok) {
+      if (response.status === 200 || response.status === 304 + (end - start) < 300)
+        return { ip, status: 'active', time: Math.round(end - start) + 'ms' };
+      else
+        return { ip, status: 'slow', time: Math.round(end - start) + 'ms' };
+    }
+  }  catch (error) {
+    return { ip, status: 'inactive', time: null, error: error.message };
+  }
+}
+
+// Usage
 showTime();

@@ -6,6 +6,7 @@
 const express = require("express");
 const sql = require("mssql");
 const dotenv = require("dotenv");
+const cors = require("cors");
 
 // utils
 // use morgan? cors?
@@ -20,6 +21,7 @@ const edictRoutes = require('./routes/edictRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const auditRoutes = require('./routes/audit');
 const resourceRoutes = require('./routes/resourceRoutes'); // this is OSWALD file upload routes. not imageRoutes
+const ipRoutes = require('./routes/ipRoutes');
 
 // unused routes, likely used in future
 // const imageRoutes = require("./routes/imageRoutes");
@@ -63,6 +65,7 @@ app.use('/api/edicts', edictRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/ip', ipRoutes);
 
 // Serve uploaded files (e.g., images, documents) from the resources directory
 app.use("/resources", express.static("resources"));
@@ -103,6 +106,16 @@ async function startServer() {
     process.exit(1); // Exit if DB fails
   }
 }
+
+
+const corsOptions = {
+  origin: '10.244.10.*', // Allow requests from this origin (adjust as needed)
+  //methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
+  //allowedHeaders: 'Content-Type,Authorization', // Allowed headers
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
+
+app.use(cors(corsOptions));
 
 // actually start
 startServer();

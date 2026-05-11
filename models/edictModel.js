@@ -26,7 +26,7 @@ async function getTasksByEdict(edictId) {
 
 async function createEdict(name, plannedStart, plannedEnd, info, priority, state) {
     const pool = await getPool();
-    await pool.request()
+    const result = await pool.request()
         .input('name', sql.NVarChar, name)
         .input('plannedStart', sql.DateTime, plannedStart)
         .input('plannedEnd', sql.DateTime, plannedEnd)
@@ -37,8 +37,12 @@ async function createEdict(name, plannedStart, plannedEnd, info, priority, state
             INSERT INTO Edicts
             (name, plannedStart, plannedEnd, info, priority, state)
             VALUES
-            (@name, @plannedStart, @plannedEnd, @info, @priority, @state)
+            (@name, @plannedStart, @plannedEnd, @info, @priority, @state);
+            SELECT SCOPE_IDENTITY() AS id;
         `);
+
+    // return the inserted id
+    return result.recordset && result.recordset[0] ? result.recordset[0].id : null;
 }
 
 async function updateEdict(id, name, plannedStart, plannedEnd, info, priority, state) {

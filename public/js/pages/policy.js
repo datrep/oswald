@@ -3,9 +3,12 @@ import { apiGet, apiPost, apiDelete } from "../api/api.js";
 
 // responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
-const policyId = params.get("id");
-const isCreateMode = !policyId;
-const edictId = parseInt(policyId); // reserved for future counts
+let policyId = params.get("id");
+let isCreateMode = !policyId;
+// local queues for create-before-policy flows
+// replaced to arrays for bulk form submissions.
+let pendingTasks = [];
+let pendingResources = [];
 
 // responsibility: shared state caches
 let resourcesCache = [];
@@ -342,7 +345,7 @@ function renderTaskRow(task) {
         <span>${formatState(task.state)}</span>
         <span>${task.active ? "Yes" : "No"}</span>
         ${task.info ? `<div class="policy-info">${task.info}</div>` : ""}
-        <span><input type="checkbox" class="task-select" data-id="${task.id}"></span>
+        <span><input type="checkbox" class="task-select" data-id="${task.id ?? task._tempId ?? ''}"></span>
     `;
     
     // LLM-assisted: Add listener to checkbox for contextual toolbar updates
@@ -355,17 +358,17 @@ function renderTaskRow(task) {
 }
 
 function renderResourceRow(resource) {
-    const webPath = formatResourcePath(resource.resourcePath);
+    const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
 
     const row = document.createElement("div");
     row.className = "resource-row";
-    const fileName = extractFilename(resource.resourcePath);
+    const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
     row.innerHTML = `
         <!-- <span class="resource-file">${fileName}</span> -->    
-        <span class="resource-webpath"><a href="/${webPath}" download>${webPath}</a></span>
-        <span class="resource-path">${resource.resourcePath}</span>
+        <span class="resource-webpath">${resource.resourcePath ? `<a href="/${webPath}" download>${webPath}</a>` : fileName}</span>
+        <span class="resource-path">${resource.resourcePath || fileName}</span>
         <span class="resource-description">${resource.description || ""}</span>
-        <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id}"></span>
+        <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id ?? resource._tempId ?? ''}"></span>
     `;
     
     // LLM-assisted: Add listener to checkbox for contextual toolbar updates
@@ -394,8 +397,14 @@ function getSelectedResource() {
         alert("Only one resource can be edited at a time.");
         return null;
     }
-    const id = parseInt(selected[0].dataset.id);
-    return resourcesCache.find(r => r.id === id);
+    const rawId = selected[0].dataset.id;
+    // numeric id -> existing resource from server
+    const numeric = Number.parseInt(rawId, 10);
+    if (Number.isFinite(numeric)) {
+        return resourcesCache.find(r => r.id === numeric);
+    }
+    // otherwise look in pendingResources by _tempId
+    return pendingResources.find(r => r._tempId === rawId) || null;
 }
 
 // responsibility: load policy data
@@ -478,11 +487,61 @@ async function createPolicy() {
         }
         console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
         alert("Policy created successfully");
-        window.location.href = `/pages/policy.html?id=${result.id}`;
+        // Switch the current page into view-mode for the newly created policy
+        policyId = result.id;
+        isCreateMode = false;
+        // Flush any queued tasks/resources that were added while policy did not exist
+        await flushPendingSubmissions(policyId);
+        // Reload server-backed lists
+        await loadPolicy();
+        await loadTasks();
+        await loadResources();
+        // Hide editor now that policy is created
+        setPolicyFormVisible(false);
+        setFieldsEditable(false);
     } catch (err) {
         console.error("[Policy] Create failed", err);
         alert("Error creating policy");
     }
+}
+
+// Flush pending tasks and resources after a policy has been created
+async function flushPendingSubmissions(createdPolicyId) {
+    if (!createdPolicyId) return;
+
+    // Submit tasks first
+    if (pendingTasks.length) {
+        console.log(`[Policy] Flushing ${pendingTasks.length} pending task(s)`);
+        for (const t of pendingTasks) {
+            try {
+                const payload = Object.assign({}, t, { edictId: createdPolicyId });
+                await apiPost('/api/tasks', payload);
+            } catch (err) {
+                console.error('[Policy] Failed to flush pending task', err, t);
+            }
+        }
+        pendingTasks = [];
+    }
+
+    // Then submit resources (uploads)
+    if (pendingResources.length) {
+        console.log(`[Policy] Flushing ${pendingResources.length} pending resource(s)`);
+        for (const r of pendingResources) {
+            try {
+                const form = new FormData();
+                form.append('file', r.file);
+                // resourceController tolerates different edict param names
+                form.append('edictID', createdPolicyId);
+                form.append('description', r.description || '');
+                await fetch('/api/resources', { method: 'POST', body: form });
+            } catch (err) {
+                console.error('[Policy] Failed to flush pending resource', err, r);
+            }
+        }
+        pendingResources = [];
+    }
+
+    alert('Pending tasks and resources have been saved.');
 }
 
 // responsibility: update policy
@@ -591,11 +650,6 @@ function closeTaskModal() {
 
 // responsibility: create or edit task
 async function handleCreateTask() {
-    if (!policyId) {
-        alert("Save the policy before adding tasks.");
-        return;
-    }
-
     if (!document.getElementById("task-start").value) {
         alert("Task planned start is required.");
         return;
@@ -608,17 +662,28 @@ async function handleCreateTask() {
         priority: toOptionalInt(document.getElementById("task-priority").value),
         state: toOptionalInt(document.getElementById("task-state").value),
         info: document.getElementById("task-info").value,
-        assignedToUserId: toOptionalInt(document.getElementById("task-user").value),
-        edictId: policyId
+        assignedToUserId: toOptionalInt(document.getElementById("task-user").value)
     };
-    if (currentTaskId) {
-        payload.id = currentTaskId;
-        console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
-        console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`); // placeholder for PUT /api/tasks/:id
+
+    if (!policyId) {
+        // Queue task locally until policy is created
+        const tempId = `temp-${Date.now()}-${Math.round(Math.random()*1e6)}`;
+        const queued = Object.assign({}, payload, { _tempId: tempId });
+        pendingTasks.push(queued);
+        // Render immediately so user sees the queued task
+        taskListEl.appendChild(renderTaskRow(queued));
+        console.log('[Policy] Queued task until policy is created', queued);
     } else {
-        console.log("[Policy.add_task] Executed: add_task");
-        await apiPost("/api/tasks", payload);
-        console.log("[Policy.add_task] Completed: add_task");
+        if (currentTaskId) {
+            payload.id = currentTaskId;
+            console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
+            console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`); // placeholder for PUT /api/tasks/:id
+        } else {
+            payload.edictId = policyId;
+            console.log("[Policy.add_task] Executed: add_task");
+            await apiPost("/api/tasks", payload);
+            console.log("[Policy.add_task] Completed: add_task");
+        }
     }
     closeTaskModal();
     await loadTasks();
@@ -634,7 +699,18 @@ async function handleRemoveTasks() {
     if (!confirm("Delete selected tasks?")) return;
     try {
         console.log(`[Policy.delete_task] Executed: delete_task (${selected.length} task(s))`);
-        await Promise.all(selected.map(id => apiDelete(`/api/tasks/${id}`)));
+        for (const id of selected) {
+            if (String(id).startsWith('temp-')) {
+                const idx = pendingTasks.findIndex(t => t._tempId === id);
+                if (idx !== -1) pendingTasks.splice(idx, 1);
+                // remove DOM row
+                const cb = document.querySelector(`.task-select[data-id="${id}"]`);
+                const row = cb ? cb.closest('.task-row') : null;
+                if (row) row.remove();
+            } else {
+                await apiDelete(`/api/tasks/${id}`);
+            }
+        }
         console.log(`[Policy.delete_task] Completed: delete_task (${selected.length} task(s) deleted)`);
         await loadTasks();
         updateTaskContextToolbar();
@@ -684,7 +760,6 @@ function closeResourceModal() {
 
 // responsibility: save resource (create or replace)
 async function saveResource() {
-    if (!policyId) return;
     const file = resourceFileInput.files[0];
     if (editingResourceId && !file) {
         alert("Please select a file when editing a resource.");
@@ -692,6 +767,39 @@ async function saveResource() {
     }
     const description = resourceDescriptionInput.value || "";
     try {
+        if (!policyId) {
+            // Queue resource until policy is created
+            if (!file) {
+                alert('Please choose a file to add as a resource.');
+                return;
+            }
+            if (editingResourceId && String(editingResourceId).startsWith('temp-res-')) {
+                // Replace existing queued resource
+                const idx = pendingResources.findIndex(r => r._tempId === editingResourceId);
+                if (idx !== -1) {
+                    pendingResources[idx] = { _tempId: editingResourceId, file, description };
+                    // update DOM row if present
+                    const checkbox = document.querySelector(`.resource-select[data-id="${editingResourceId}"]`);
+                    const row = checkbox ? checkbox.closest('.resource-row') : null;
+                    if (row) {
+                        row.querySelector('.resource-webpath').textContent = file.name;
+                        row.querySelector('.resource-path').textContent = file.name;
+                        row.querySelector('.resource-description').textContent = description || '';
+                    }
+                    editingResourceId = null;
+                    closeResourceModal();
+                    return;
+                }
+            }
+            const tempId = `temp-res-${Date.now()}-${Math.round(Math.random()*1e6)}`;
+            pendingResources.push({ _tempId: tempId, file, description });
+            // Render immediately so user sees the queued resource
+            resourceListEl.appendChild(renderResourceRow({ _tempId: tempId, file, description }));
+            closeResourceModal();
+            console.log('[Policy] Queued resource until policy is created', file.name);
+            return;
+        }
+
         if (editingResourceId) {
             console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId})`);
             await fetch(`/api/resources/${editingResourceId}`, { method: "DELETE" });
@@ -731,7 +839,17 @@ async function deleteSelectedResources() {
         console.log(`[Policy.delete_resource] Executed: delete_resource (${selected.length} resource(s))`);
         for (const checkbox of selected) {
             const id = checkbox.dataset.id;
-            await fetch(`/api/resources/${id}`, { method: "DELETE" });
+            const numeric = Number.parseInt(id, 10);
+            if (Number.isFinite(numeric)) {
+                await fetch(`/api/resources/${id}`, { method: "DELETE" });
+            } else {
+                // remove from local pending queue
+                const idx = pendingResources.findIndex(r => r._tempId === id);
+                if (idx !== -1) pendingResources.splice(idx, 1);
+            }
+            // remove row from DOM
+            const row = checkbox.closest('.resource-row');
+            if (row) row.remove();
         }
         console.log(`[Policy.delete_resource] Completed: delete_resource (${selected.length} resource(s) deleted)`);
         await loadResources();
@@ -770,8 +888,8 @@ function handleDeleteContextTask() {
 function handleEditContextResource() {
     const resource = getSelectedResource();
     if (!resource) return;
-    console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${resource.id})`);
-    editingResourceId = resource.id;
+    console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${resource.id ?? resource._tempId})`);
+    editingResourceId = resource.id ?? resource._tempId;
     openResourceModal();
     resourceDescriptionInput.value = resource.description || "";
 }

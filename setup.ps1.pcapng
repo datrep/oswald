@@ -16,7 +16,7 @@ sqlcmd -S localhost -E -i "sql\DB_init_table.sql"
 
 # Install required npm packages
 Write-Host " Installing required npm packages..."
-npm install express dotenv mssql multer joi # check with package.json for any additional dependencies
+npm install express dotenv mssql multer joi cors # check with package.json for any additional dependencies
 
 
 # Run the SQL setup script using sqlcmd

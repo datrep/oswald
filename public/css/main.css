@@ -166,12 +166,12 @@ html, body {
     background: #1e1e1e;
     padding: 20px;
     width: 90%;
-    max-width: 800px;
+    max-width: 600px;
     border-radius: 6px;
     transform: scale(0.90);
     transform-origin: center;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-height: 600px;
+    overflow-x: auto;
     border: 1px solid #444;
 }
 
