@@ -9,252 +9,254 @@
 <body>
 
 
-<div class="layout layout--policy">
+    <div class="content">
+        <div class="layout layout--policy">
 
-    <div class="topbar">
-        <a href="/index.html" class="back-link">← Policies</a>
-        <div class="topbar-title">Policy Workspace</div>
-    </div>
-
-    <!-- GLOBAL TOOLBAR (LLM-assisted): Primary actions for policy management -->
-    <div class="global-toolbar">
-        <button id="add-task">Add Task</button>
-        <button id="add-resource">Add Resource</button>
-        <button id="save-policy">Save Policy</button>
-    </div>
-
-    <h2 id="policy-title">Policy</h2>
-
-<!-- POLICY DETAILS -->
-
-<div class="policy-section">
-
-<h2>Policy Details</h2>
-<!--to change row to box/list style, update CSS and this template accordingly--> 
-<div class="policy-header">
-    <span data-sort="plannedStart">Start</span>
-    <span data-sort="plannedEnd">End</span>
-    <span data-sort="taskCount">Task count</span>
-    <span data-sort="active">Active</span>
-    <span data-sort="priority">Priority</span>
-    <span data-sort="state">State</span>
-    <span data-sort="info">Description</span> 
-</div>
-<div id="policy-list"></div>
+            <div class="topbar">
+                <a href="/index.html" class="back-link">
+                        <img src="/images/arrow.jpg" alt="Dashboard" width="15px">
+                </a>
+                <div class="topbar-title">Policy Workspace</div>
+            </div>
 
 
-<!-- todo implementation, derived from database  -->
-<div class="policy-description">
-</div>
+            <!-- GLOBAL TOOLBAR (LLM-assisted): Primary actions for policy management -->
+            <div class="global-toolbar">
+                <button id="add-task">Add Task</button>
+                <!-- <button id="add-resource">Add Resource</button> deprecated, to be removed -->
+                <button id="edit-policy">Edit Policy</button>
+            </div>
+
+            <div id="resource-modal" style="display:none">
+                <div class="modal-content">
+                    <h3 id="resource-modal-title">Add Resource</h3>
+
+                    <label for="resource-file">Choose File</label>
+                    <input type="file" id="resource-file">
+
+                    <label for="resource-description">Description</label>
+                    <textarea id="resource-description"></textarea>
+
+                    <div class="modal-actions">
+                        <button id="save-resource">Save</button>
+                        <button id="cancel-resource">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <h2 id="policy-title">Policy</h2>
+
+        <!-- POLICY DETAILS -->
+
+        <div class="policy-section">
+
+        <h2>Policy Details</h2>
+        <!--to change row to box/list style, update CSS and this template accordingly--> 
+        <div class="policy-header">
+            <span data-sort="plannedStart">Start</span>
+            <span data-sort="plannedEnd">End</span>
+            <span data-sort="taskCount">Task count</span>
+            <span data-sort="active">Active</span>
+            <span data-sort="priority">Priority</span>
+            <span data-sort="state">State</span>
+            <span data-sort="info">Description</span> 
+        </div>
+        <div id="policy-list"></div>
+
+
+        <!-- todo implementation, derived from database  -->
+        <div class="policy-description">
+        </div>
 
 
 
-<div id="policy-form-panel" class="policy-form-panel hidden">
-<div id="policy-form" class="policy-form">
+        <div id="policy-form-panel" class="policy-form-panel hidden">
+        <div id="policy-form" class="policy-form">
 
-<div class="label-with-help">
-    <label for="policy-name">Name</label>
-    <button type="button" class="help-btn" id="help-policy-name" aria-label="More info about policy name">?</button>
-</div>
-<input id="policy-name" type="text">
+        <div class="label-with-help">
+            <label for="policy-name">Name</label>
+            <button type="button" class="help-btn" id="help-policy-name" aria-label="More info about policy name">?</button>
+        </div>
+        <input id="policy-name" type="text">
 
 
-<div class ="datetime-inputs">
-    <div>
-        <label for="policy-start">Planned Start</label>
-        <input id="policy-start" type="datetime-local">
-        <div class="input-actions">
-            <button type="button" id="policy-start-now">Use current time</button>
+        <div class ="datetime-inputs">
+            <div>
+                <label for="policy-start">Planned Start</label>
+                <input id="policy-start" type="datetime-local">
+                <div class="input-actions">
+                    <button type="button" id="policy-start-now">Use current time</button>
+                </div>
+            </div>
+            <div>
+                <label for="policy-end">Planned End</label>
+                <input id="policy-end" type="datetime-local">
+                <div class="input-actions">
+                    <button type="button" id="policy-end-now">Use current time</button>
+                    <button type="button" id="policy-end-clear">Leave blank</button>
+                </div>
+            </div>
+        </div>
+            
+        <div class ="datetime-inputs">
+            <div>
+                <label for="policy-priority">Priority</label>
+                <select id="policy-priority">
+                    <option value="">-</option>
+                    <option value="0">P0 Critical</option>
+                    <option value="1">P1 High</option>
+                    <option value="2">P2 Medium</option>
+                    <option value="3">P3 Low</option>
+                </select>
+            </div>
+            <div>
+                <label for="policy-state">State</label>
+                <select id="policy-state"></select>
+            </div>
+
+        </div>
+
+
+        <label for="policy-info">Description</label>
+        <textarea id="policy-info"></textarea>
+
+        </div>
+        </div>
+
+        </div>
+
+        <!-- TASKS -->
+
+        <div class="policy-section">
+
+        <h2>Tasks</h2>
+
+        <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when tasks are selected -->
+        <div id="task-context-toolbar" class="task-context-toolbar hidden">
+            <span id="task-selected-count">0 selected</span>
+            <button id="edit-task">Edit</button>
+            <button id="delete-task">Delete</button>
+        </div>
+
+        <div class="task-header">
+        <!-- SORTABLE TASK HEADER (LLM-assisted): click columns to sort asc/desc -->
+        <span data-sort="name">Name</span>
+        <span data-sort="plannedStart">Start</span>
+        <span data-sort="plannedEnd">End</span>
+        <span data-sort="priority">Priority</span>
+        <span data-sort="state">State</span>
+        <span data-sort="active">Active</span>
+        <span data-sort="info">Description</span>
+        <span>select</span>
+        <!-- END SORTABLE TASK HEADER (LLM-assisted) -->
+        </div>
+
+        <div id="task-list"></div>
+
+        </div>
+
+        <div class="task-ender"></div> <!-- just a line to separate the sections, not an actual header -->
+
+        <!-- RESOURCES -->
+
+        <div class="policy-section">
+
+        <h2>Resources</h2>
+
+        <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when resources are selected -->
+        <div id="resource-context-toolbar" class="resource-context-toolbar hidden">
+            <span id="resource-selected-count">0 selected</span>
+            <button id="edit-resource">Edit</button>
+            <button id="delete-resource">Delete</button>
+        </div>
+
+
+
+        <div class="resource-header">
+            <!-- SORTABLE RESOURCE HEADER (LLM-assisted): click columns to sort asc/desc -->
+            <span data-sort="webPath">Web Path</span>
+            <span data-sort="resourcePath">Resource Path</span>
+            <span data-sort="description">Description</span>
+            <span>Select</span>
+            <!-- END SORTABLE RESOURCE HEADER (LLM-assisted) -->
+        </div>
+
+        <div id="resource-list"></div>
+
+
+        </div>
+
+        </div>
+        <div class="policy-controls">
+            <button id="save-policy">Save Policy</button>
+            <button id="delete-policy">Delete Policy</button>
         </div>
     </div>
-    <div>
-        <label for="policy-end">Planned End</label>
-        <input id="policy-end" type="datetime-local">
-        <div class="input-actions">
-            <button type="button" id="policy-end-now">Use current time</button>
-            <button type="button" id="policy-end-clear">Leave blank</button>
-        </div>
-    </div>
-</div>
-    
-<div class ="datetime-inputs">
-    <div>
-        <label for="policy-priority">Priority</label>
-        <select id="policy-priority">
-            <option value="">-</option>
-            <option value="0">P0 Critical</option>
-            <option value="1">P1 High</option>
-            <option value="2">P2 Medium</option>
-            <option value="3">P3 Low</option>
-        </select>
-    </div>
-    <div>
-        <label for="policy-state">State</label>
-        <select id="policy-state"></select>
-    </div>
-
-</div>
 
 
-<label for="policy-info">Description</label>
-<textarea id="policy-info"></textarea>
-
-</div>
-</div>
-
-</div>
-
-<!-- TASKS -->
-
-<div class="policy-section">
-
-<h2>Tasks</h2>
-
-<!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when tasks are selected -->
-<div id="task-context-toolbar" class="task-context-toolbar hidden">
-    <span id="task-selected-count">0 selected</span>
-    <button id="edit-task">Edit</button>
-    <button id="delete-task">Delete</button>
-</div>
-
-<div class="task-header">
-<!-- SORTABLE TASK HEADER (LLM-assisted): click columns to sort asc/desc -->
-<span data-sort="name">Name</span>
-<span data-sort="plannedStart">Start</span>
-<span data-sort="plannedEnd">End</span>
-<span data-sort="priority">Priority</span>
-<span data-sort="state">State</span>
-<span data-sort="active">Active</span>
-<span data-sort="info">Description</span>
-<span>select</span>
-<!-- END SORTABLE TASK HEADER (LLM-assisted) -->
-</div>
-
-<div id="task-list"></div>
-
-</div>
-
-<div class="task-ender"></div> <!-- just a line to separate the sections, not an actual header -->
-
-<!-- RESOURCES -->
-
-<div class="policy-section">
-
-<h2>Resources</h2>
-
-<!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when resources are selected -->
-<div id="resource-context-toolbar" class="resource-context-toolbar hidden">
-    <span id="resource-selected-count">0 selected</span>
-    <button id="edit-resource">Edit</button>
-    <button id="delete-resource">Delete</button>
-</div>
-
-<div id="resource-modal" style="display:none">
+    <div id="task-modal" class="modal">
 
     <div class="modal-content">
 
-        <h3 id="resource-modal-title">Add Resource</h3>
+    <h2>Add Task</h2>
 
-        <label for="resource-file">Choose File</label>
-        <input type="file" id="resource-file">
+    <div class="task-form">
+    <div class="label-with-help">
+        <label for="task-name">Name</label>
+        <input id="task-name" type="text">
+        <button type="button" class="help-btn" id="help-task-name" aria-label="More info about task name">?</button>
+    </div>
 
-        <label for="resource-description">Description</label>
-        <textarea id="resource-description"></textarea>
-
-        <div class="modal-actions">
-            <button id="save-resource">Save</button>
-            <button id="cancel-resource">Cancel</button>
+    <div class ="datetime-inputs">
+        <div>
+            <label for="task-start">Planned Start</label>
+            <input id="task-start" type="datetime-local">
+            <div class="input-actions">
+                <button type="button" id="task-start-now">Use current time</button>
+            </div>
         </div>
+        <div>
+            <label for="task-end">Planned End</label>
+            <input id="task-end" type="datetime-local">
+            <div class="input-actions">
+                <button type="button" id="task-end-now">Use current time</button>
+                <button type="button" id="task-end-clear">Leave blank</button>
+            </div>
+        </div>
+    </div>
+
+
+    <label for="task-priority">Priority</label>
+    <select id="task-priority">
+        <option value="">-</option>
+        <option value="0">P0 Critical</option>
+        <option value="1">P1 High</option>
+        <option value="2">P2 Medium</option>
+        <option value="3">P3 Low</option>
+    </select>
+
+    <label for="task-state">State</label>
+    <select id="task-state"></select>
+
+    <label for="task-info">Description</label>
+    <textarea id="task-info"></textarea>
+
+    <label for="task-user">Assigned User</label>
+    <input id="task-user" type="number">
+
+    <div class="modal-buttons">
+    <button id="create-task">Create Task</button>
+    <button id="cancel-task">Cancel</button>
+    </div>
+
+
 
     </div>
 
-</div>
-
-<div class="resource-header">
-    <!-- SORTABLE RESOURCE HEADER (LLM-assisted): click columns to sort asc/desc -->
-    <span data-sort="webPath">Web Path</span>
-    <span data-sort="resourcePath">Resource Path</span>
-    <span data-sort="description">Description</span>
-    <span>Select</span>
-    <!-- END SORTABLE RESOURCE HEADER (LLM-assisted) -->
-</div>
-
-<div id="resource-list"></div>
-
-
-</div>
-
-</div>
-<div class="policy-controls">
-    <button id="edit-policy">Edit Policy</button>
-    <button id="delete-policy">Delete Policy</button>
-</div>
-
-
-
-<div id="task-modal" class="modal">
-
-<div class="modal-content">
-
-<h2>Add Task</h2>
-
-<div class="task-form">
-<div class="label-with-help">
-    <label for="task-name">Name</label>
-    <input id="task-name" type="text">
-    <button type="button" class="help-btn" id="help-task-name" aria-label="More info about task name">?</button>
-</div>
-
-<div class ="datetime-inputs">
-    <div>
-        <label for="task-start">Planned Start</label>
-        <input id="task-start" type="datetime-local">
-        <div class="input-actions">
-            <button type="button" id="task-start-now">Use current time</button>
-        </div>
     </div>
-    <div>
-        <label for="task-end">Planned End</label>
-        <input id="task-end" type="datetime-local">
-        <div class="input-actions">
-            <button type="button" id="task-end-now">Use current time</button>
-            <button type="button" id="task-end-clear">Leave blank</button>
-        </div>
+
     </div>
-</div>
-
-
-<label for="task-priority">Priority</label>
-<select id="task-priority">
-    <option value="">-</option>
-    <option value="0">P0 Critical</option>
-    <option value="1">P1 High</option>
-    <option value="2">P2 Medium</option>
-    <option value="3">P3 Low</option>
-</select>
-
-<label for="task-state">State</label>
-<select id="task-state"></select>
-
-<label for="task-info">Description</label>
-<textarea id="task-info"></textarea>
-
-<label for="task-user">Assigned User</label>
-<input id="task-user" type="number">
-
-<div class="modal-buttons">
-<button id="create-task">Create Task</button>
-<button id="cancel-task">Cancel</button>
-</div>
-
-
-
-</div>
-
-</div>
-
-</div>
-
 
 
 
@@ -265,6 +267,7 @@
 
 <!-- please put it at the bottom so i dont have to think of committing sion e onto traffic -->
 <script type="module" src="/js/pages/policy.js"></script>
+<script type="module" src="/js/utils/helpers.js"></script>
 
 
 </html>

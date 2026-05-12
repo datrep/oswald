@@ -1,5 +1,7 @@
 public/resources
 /caddy
+temp
+/config/ips.txt
 
 # Logs
 logs
@@ -137,6 +139,7 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
 public/favicon/favicon-16x16.png
 public/favicon/favicon.ico
 public/favicon/favicon-32x32.png

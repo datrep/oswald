@@ -36,7 +36,7 @@ async function pingIP(ip) {
     await fetch(`http://${ip}`, { mode: 'no-cors', cache: 'no-cache' });
     const end = performance.now();
     return { ip, status: 'active', time: Math.round(end - start) + 'ms' };
-    if (response.ok) {
+    if (response.ok) { // unreachable due to CORS, so we check status code instead
       if (response.status === 200 || response.status === 304 + (end - start) < 300)
         return { ip, status: 'active', time: Math.round(end - start) + 'ms' };
       else
@@ -46,6 +46,19 @@ async function pingIP(ip) {
     return { ip, status: 'inactive', time: null, error: error.message };
   }
 }
+
+
+document.addEventListener('keydown', function(event) {
+  if (event.key === "Escape") {
+    console.log("Escape key pressed - closing modals if any are open");
+    // Replace '.your-modal-class' with your actual modal selector
+    // lazy way to close any open modal, can be improved by tracking open modals in a state variable
+    document.querySelector('.modal').style.display = 'none';
+    document.querySelector('.policy-form-panel').style.display = 'none';
+  }
+});
+
+
 
 // Usage
 showTime();

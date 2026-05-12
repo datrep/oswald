@@ -109,13 +109,13 @@ async function startServer() {
 
 
 const corsOptions = {
-  origin: '10.244.10.*', // Allow requests from this origin (adjust as needed)
+  origin: '172.22.160.*', // Allow requests from this origin (adjust as needed)
   //methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
   //allowedHeaders: 'Content-Type,Authorization', // Allowed headers
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+  //optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
-app.use(cors(corsOptions));
+//app.use(cors(corsOptions));
 
 // actually start
 startServer();

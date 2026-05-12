@@ -367,8 +367,18 @@ function renderResourceRow(resource) {
         <!-- <span class="resource-file">${fileName}</span> -->    
         <span class="resource-webpath">${resource.resourcePath ? `<a href="/${webPath}" download>${webPath}</a>` : fileName}</span>
         <span class="resource-path">${resource.resourcePath || fileName}</span>
-        <span class="resource-description">${resource.description || ""}</span>
+        <span class="resource-description">${resource.description || "no description"}</span>
         <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id ?? resource._tempId ?? ''}"></span>
+        <div class="preview-container">
+            <span class="resource-view">
+                <div class="thumbnail-preview">
+                    <img src="/${webPath}" alt="${fileName}">
+                </div>
+                <div class="resource-actions">
+                    <a href="/${webPath}" target="_blank" title="View ${fileName}">View</a>
+                </div>
+            </span>
+        </div>
     `;
     
     // LLM-assisted: Add listener to checkbox for contextual toolbar updates
