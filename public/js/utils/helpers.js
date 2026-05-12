@@ -47,17 +47,62 @@ async function pingIP(ip) {
   }
 }
 
+const modalStack = [];
 
+function registerModal(modalElement, hideMethod = 'style') {
+  if (!(modalElement instanceof HTMLElement)) return;
+  const entry = { element: modalElement, hideMethod };
+  if (!modalStack.some(item => item.element === modalElement)) {
+    modalStack.push(entry);
+  }
+}
+
+function unregisterModal(modalElement) {
+  if (!(modalElement instanceof HTMLElement)) return;
+  const index = modalStack.findIndex(item => item.element === modalElement);
+  if (index !== -1) {
+    modalStack.splice(index, 1);
+  }
+}
+
+function hideElement(element, hideMethod = 'style') {
+  if (!(element instanceof HTMLElement)) return;
+  if (hideMethod === 'class-hidden') {
+    element.classList.add('hidden');
+    return;
+  }
+  if (hideMethod === 'attribute-hidden') {
+    element.hidden = true;
+    return;
+  }
+  element.style.display = 'none';
+}
+
+
+
+function closeTopModal() {
+  const entry = modalStack.pop();
+  if (entry && entry.element instanceof HTMLElement) {
+    hideElement(entry.element, entry.hideMethod);
+    return true;
+  }
+  return false;
+}
+
+// this entire css modal name convention is bad, CHANGE todo://
 document.addEventListener('keydown', function(event) {
   if (event.key === "Escape") {
     console.log("Escape key pressed - closing modals if any are open");
-    // Replace '.your-modal-class' with your actual modal selector
-    // lazy way to close any open modal, can be improved by tracking open modals in a state variable
-    document.querySelector('.modal').style.display = 'none';
-    document.querySelector('.policy-form-panel').style.display = 'none';
+    if (!closeTopModal()) {
+      const fallbackModal = document.querySelector('.modal');
+      if (fallbackModal) hideElement(fallbackModal, 'style');
+      const policyPanel = document.querySelector('.policy-form-panel');
+      if (policyPanel) hideElement(policyPanel, 'class-hidden');
+      const resourceModal = document.querySelector('#resource-modal, .resource-modal');
+      if (resourceModal) hideElement(resourceModal, 'style');
+    }
   }
 });
-
 
 
 // Usage

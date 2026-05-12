@@ -42,6 +42,7 @@ const policyListEl = document.getElementById("policy-list");
 // responsibility: task/resource lists
 const taskListEl = document.getElementById("task-list");
 const resourceListEl = document.getElementById("resource-list");
+const resourcePreviewListEl = document.getElementById("resource-preview-list");
 
 // responsibility: task modal elements
 const cancelTaskBtn = document.getElementById("cancel-task");
@@ -338,14 +339,16 @@ function renderTaskRow(task) {
     const row = document.createElement("div");
     row.className = "task-row";
     row.innerHTML = `
-        <span>${task.name || "-"}</span>
-        <span>${formatDate(task.plannedStart)}</span>
-        <span>${formatDate(task.plannedEnd)}</span>
-        <span>${task.priority ?? "-"}</span>
-        <span>${formatState(task.state)}</span>
-        <span>${task.active ? "Yes" : "No"}</span>
-        ${task.info ? `<div class="policy-info">${task.info}</div>` : ""}
-        <span><input type="checkbox" class="task-select" data-id="${task.id ?? task._tempId ?? ''}"></span>
+        <div class="task-header-row">
+            <span class="task-name">${task.name || "-"}</span>
+            <span class="task-active">${task.active ? "Yes" : "No"}</span>
+            <input type="checkbox" class="task-select" data-id="${task.id ?? task._tempId ?? ''}">
+        </div>
+        <div class="task-dates">${formatDate(task.plannedStart)} - ${formatDate(task.plannedEnd)}</div>
+        <div class="task-description">${task.info || ""}</div>
+        <div class="task-footer">
+            <span class="task-priority">${task.priority ?? "-"}</span>
+        </div>
     `;
     
     // LLM-assisted: Add listener to checkbox for contextual toolbar updates
@@ -369,19 +372,8 @@ function renderResourceRow(resource) {
         <span class="resource-path">${resource.resourcePath || fileName}</span>
         <span class="resource-description">${resource.description || "no description"}</span>
         <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id ?? resource._tempId ?? ''}"></span>
-        <div class="preview-container">
-            <span class="resource-view">
-                <div class="thumbnail-preview">
-                    <img src="/${webPath}" alt="${fileName}">
-                </div>
-                <div class="resource-actions">
-                    <a href="/${webPath}" target="_blank" title="View ${fileName}">View</a>
-                </div>
-            </span>
-        </div>
     `;
     
-    // LLM-assisted: Add listener to checkbox for contextual toolbar updates
     const checkbox = row.querySelector(".resource-select");
     if (checkbox) {
         checkbox.addEventListener("change", updateResourceContextToolbar);
@@ -390,6 +382,25 @@ function renderResourceRow(resource) {
     return row;
 }
 
+function renderResourcePreview(resource) {
+    const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
+    const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
+    const row = document.createElement("div");
+    row.className = "resource-preview-row";
+    row.innerHTML = `
+        <div class="thumbnail-preview">
+            ${webPath ? `<img src="/${webPath}" alt="${fileName}">` : `<div class="thumbnail-placeholder">No preview available</div>`}
+        </div>
+        <div class="resource-preview-text">
+            <div class="resource-preview-path">${resource.resourcePath ? resource.resourcePath : fileName}</div>
+            <div class="resource-preview-description">${resource.description || "No description"}</div>
+        </div>
+        <div class="resource-actions">
+            ${webPath ? `<a href="/${webPath}" target="_blank" rel="noopener noreferrer" title="View ${fileName}">View</a>` : `<span class="resource-missing">No preview</span>`}
+        </div>
+    `;
+    return row;
+}
 
 function getSelectedTaskIds() {
     return Array.from(document.querySelectorAll(".task-select:checked"))
@@ -467,7 +478,11 @@ async function loadResources() {
         const resources = await apiGet(`/api/resources/edict/${policyId}`);
         resourcesCache = resources;
         resourceListEl.innerHTML = "";
-        resources.forEach(resource => resourceListEl.appendChild(renderResourceRow(resource)));
+        if (resourcePreviewListEl) resourcePreviewListEl.innerHTML = "";
+        resources.forEach(resource => {
+            resourceListEl.appendChild(renderResourceRow(resource));
+            if (resourcePreviewListEl) resourcePreviewListEl.appendChild(renderResourcePreview(resource));
+        });
         renderPolicyRows(currentPolicy);
     } catch (err) {
         console.error("[UI] Failed to load resources", err);
@@ -924,10 +939,48 @@ function formatResourcePath(path) {
     return normalized;
 }
 
-
+// responsibility: initialize task-ender resize drag handler
+function initializeTaskEnderResize() {
+    const taskEnder = document.querySelector(".task-ender");
+    const taskList = document.querySelector("#task-list");
+    
+    if (!taskEnder || !taskList) return;
+    
+    let isDragging = false;
+    let startY = 0;
+    let startMaxHeight = 0;
+    
+    taskEnder.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startMaxHeight = taskList.offsetHeight;
+        taskEnder.classList.add("dragging");
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = "row-resize";
+    });
+    
+    document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        
+        const deltaY = e.clientY - startY;
+        const newMaxHeight = Math.max(100, startMaxHeight + deltaY);
+        taskList.style.maxHeight = `${newMaxHeight}px`;
+        taskList.style.overflowY = "auto";
+    });
+    
+    document.addEventListener("mouseup", () => {
+        if (!isDragging) return;
+        isDragging = false;
+        taskEnder.classList.remove("dragging");
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+    });
+}
 
 // responsibility: init page wiring
 async function init() {
+    initializeTaskEnderResize();
+    
     configurePageMode();
 
     populateStateSelect(stateEl);

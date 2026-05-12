@@ -23,26 +23,10 @@
             <!-- GLOBAL TOOLBAR (LLM-assisted): Primary actions for policy management -->
             <div class="global-toolbar">
                 <button id="add-task">Add Task</button>
-                <!-- <button id="add-resource">Add Resource</button> deprecated, to be removed -->
+                
                 <button id="edit-policy">Edit Policy</button>
             </div>
 
-            <div id="resource-modal" style="display:none">
-                <div class="modal-content">
-                    <h3 id="resource-modal-title">Add Resource</h3>
-
-                    <label for="resource-file">Choose File</label>
-                    <input type="file" id="resource-file">
-
-                    <label for="resource-description">Description</label>
-                    <textarea id="resource-description"></textarea>
-
-                    <div class="modal-actions">
-                        <button id="save-resource">Save</button>
-                        <button id="cancel-resource">Cancel</button>
-                    </div>
-                </div>
-            </div>
 
 
             <h2 id="policy-title">Policy</h2>
@@ -163,7 +147,8 @@
         <div class="policy-section">
 
         <h2>Resources</h2>
-
+            
+        <button id="add-resource">Add Resource</button> 
         <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when resources are selected -->
         <div id="resource-context-toolbar" class="resource-context-toolbar hidden">
             <span id="resource-selected-count">0 selected</span>
@@ -171,6 +156,22 @@
             <button id="delete-resource">Delete</button>
         </div>
 
+            <div id="resource-modal" style="display:none">
+                <div class="modal-resource-content">
+                    <h3 id="resource-modal-title">Add Resource</h3>
+
+                    <label for="resource-file">Choose File</label>
+                    <input type="file" id="resource-file">
+
+                    <label for="resource-description">Description</label>
+                    <textarea id="resource-description"></textarea>
+
+                    <div class="modal-actions">
+                        <button id="save-resource">Save</button>
+                        <button id="cancel-resource">Cancel</button>
+                    </div>
+                </div>
+            </div>
 
 
         <div class="resource-header">
@@ -183,17 +184,19 @@
         </div>
 
         <div id="resource-list"></div>
+        <div id="resource-preview-list"></div>
 
 
         </div>
 
         </div>
-        <div class="policy-controls">
+
+    </div>
+    
+    <div class="policy-controls">
             <button id="save-policy">Save Policy</button>
             <button id="delete-policy">Delete Policy</button>
-        </div>
     </div>
-
 
     <div id="task-modal" class="modal">
 
