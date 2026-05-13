@@ -1,6 +1,7 @@
 
 import { apiGet, apiPost, apiDelete } from "./api/api.js";
 
+//TODO:// POST /api/settings to update settings in real time. JSON file in settings.json
 async function main() {
     const settings = await apiGet("/api/settings");
 

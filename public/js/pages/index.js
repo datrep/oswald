@@ -10,18 +10,35 @@ const policyListEl = document.getElementById("policy-list");
 let edictsCache = [];
 let globalSettings = null;
 
-async function loadSettings() {
-    if (!globalSettings) {
+// Load settings from server. Browser caches HTTP responses by default (304 Not Modified),
+// so we use cache: 'no-store' to bypass browser cache. On page load, this ensures we get
+// the latest settings.json from the server. However, changes made to settings.json during
+// runtime won't be reflected until you call loadSettings(true) to force-refresh, or reload the page.
+async function loadSettings(forceRefresh = false) {
+    if (!globalSettings || forceRefresh) {
         try {
             const response = await fetch('/api/settings', { cache: 'no-store' });
             if (!response.ok) throw new Error('Failed to fetch settings');
             globalSettings = await response.json();
+            applySettingsChanges(); // Apply any UI changes from new settings
         } catch (err) {
             console.error("Failed to load settings", err);
             globalSettings = { enableStatusStrip: true }; // default
         }
     }
     return globalSettings;
+}
+
+// Apply settings to the UI
+function applySettingsChanges() {
+    const strip = document.querySelector('.status-strip');
+    if (!strip) return;
+    
+    if (!globalSettings.enableStatusStrip) {
+        strip.style.display = 'none';
+    } else {
+        strip.style.display = 'flex';
+    }
 }
 let sortKey = "createdAt";
 let sortDir = "desc"; // "asc" | "desc"
