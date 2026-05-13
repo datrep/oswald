@@ -8,6 +8,21 @@ const policyCountEl = document.getElementById("policy-count");
 const policyListEl = document.getElementById("policy-list");
 
 let edictsCache = [];
+let globalSettings = null;
+
+async function loadSettings() {
+    if (!globalSettings) {
+        try {
+            const response = await fetch('/api/settings', { cache: 'no-store' });
+            if (!response.ok) throw new Error('Failed to fetch settings');
+            globalSettings = await response.json();
+        } catch (err) {
+            console.error("Failed to load settings", err);
+            globalSettings = { enableStatusStrip: true }; // default
+        }
+    }
+    return globalSettings;
+}
 let sortKey = "createdAt";
 let sortDir = "desc"; // "asc" | "desc"
 
@@ -349,6 +364,12 @@ function renderipstatus() {
 }
 
 async function fetchIPStatuses() {
+    const settings = await loadSettings();
+    if (!settings.enableStatusStrip) {
+        const strip = document.querySelector('.status-strip');
+        if (strip) strip.style.display = 'none';
+        return;
+    }
     try {
         const resp = await apiGet('/api/ip/check');
         if (!resp || !resp.ok) {
@@ -366,6 +387,8 @@ async function fetchIPStatuses() {
 function renderIPResults(results) {
     const strip = document.querySelector('.status-strip');
     if (!strip) return;
+
+    strip.style.display = 'flex'; // ensure visible when rendering
 
     // Clear existing items
     strip.innerHTML = '';
