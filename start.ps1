@@ -35,7 +35,12 @@ if ($choice -eq "1") {
     Start-Sleep -Seconds 2
     # Set environment variable for local binding
     $env:SERVER_HOST = $localHost
+  
+    # Open local server in browser
+    start-process "http://$($localHost):3000/"
+    Start-Sleep -Seconds 2
     node .\server.js
+
 
 } else {
     $remoteHost = $env:REMOTE_SERVER_HOST

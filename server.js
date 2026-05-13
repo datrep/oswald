@@ -50,6 +50,15 @@ const { getPool } = require('./config/db');
 // Legacy route for frontend data fetch without /api
 app.use('/edicts', edictRoutes);
 
+
+app.get("/api/settings", (req, res) => {
+    const settings = require("./public/js/api/settings.json");
+    res.json(settings);
+});
+
+
+
+
 // Prevent browsers/clients from caching API responses
 app.use('/api', (req, res, next) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -106,6 +115,7 @@ async function startServer() {
     process.exit(1); // Exit if DB fails
   }
 }
+
 
 
 const corsOptions = {
