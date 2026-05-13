@@ -426,8 +426,10 @@ function renderIPResults(results) {
         const dot = document.createElement('span');
         dot.className = 'status-dot';
         // choose visual class
+        console.warn(r.time);
         if (r.alive) dot.classList.add('online');
-        else if (r.time && Number(r.time) > 1000) dot.classList.add('warning');
+        // force number, r.time displays numerical number... 
+        else if (Number(r.time) > 200) dot.classList.add('warning');
         else dot.classList.add('offline');
 
         const label = document.createElement('span');
