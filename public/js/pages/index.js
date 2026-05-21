@@ -446,6 +446,238 @@ fetchIPStatuses();
 setInterval(fetchIPStatuses, 5000); // refresh every 5s
 
 
+// ===========================
+// POPUP MANAGEMENT SYSTEM (Extensible Framework)
+// Purpose: Generic popup/modal framework for managing all notification and popup types
+// 
+// How to add new popup types:
+// 1. Add popup HTML structure to index.html with unique id (e.g., id="popup-{type}-modal")
+// 2. Create popup handler functions:
+//    - renderPopup{Type}() - render content
+//    - openPopup{Type}() - open the popup
+//    - closePopup{Type}() - close the popup
+// 3. Register the popup in the popupRegistry below with handlers
+// 4. Add opening trigger (button click, notification icon, etc.)
+//
+// Example:
+// popupRegistry['alerts'] = {
+//     open: openAlerts,
+//     close: closeAlerts,
+//     render: renderAlerts,
+//     element: document.getElementById('popup-alerts-modal')
+// };
+// ===========================
+
+const popupRegistry = {};
+
+function registerPopup(type, handlers) {
+    popupRegistry[type] = handlers;
+    console.log(`[Popups] Registered popup type: ${type}`);
+}
+
+function openPopup(type) {
+    const popup = popupRegistry[type];
+    if (!popup) {
+        console.warn(`[Popups] Popup type not registered: ${type}`);
+        return;
+    }
+    if (popup.render) popup.render();
+    if (popup.open) popup.open();
+}
+
+function closePopup(type) {
+    const popup = popupRegistry[type];
+    if (!popup) return;
+    if (popup.close) popup.close();
+}
+
+function closeAllPopups() {
+    Object.keys(popupRegistry).forEach(type => closePopup(type));
+}
+
+// ===========================
+// END POPUP MANAGEMENT SYSTEM
+// ===========================
+
+
+// ===========================
+// UNFINISHED POLICIES NOTIFICATIONS
+// ===========================
+
+let unfinishedEdicts = [];
+
+function calculateDaysOverdue(endDate) {
+    const now = new Date();
+    const end = new Date(endDate);
+    const diffTime = now - end;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+}
+
+function renderNotificationModal() {
+    const modal = document.getElementById("notification-modal");
+    const tableBody = document.getElementById("notification-table-body");
+    const emptyMessage = document.getElementById("notification-empty-message");
+
+    tableBody.innerHTML = "";
+
+    if (unfinishedEdicts.length === 0) {
+        emptyMessage.style.display = "block";
+        return;
+    }
+
+    emptyMessage.style.display = "none";
+
+    unfinishedEdicts.forEach((edict) => {
+        const row = document.createElement("tr");
+        const daysOverdue = calculateDaysOverdue(edict.plannedEnd);
+        const priorityLabel = edict.priority ? `P${edict.priority}` : "-";
+
+        row.innerHTML = `
+            <td>${edict.name || "-"}</td>
+            <td>${formatDate(edict.plannedEnd)}</td>
+            <td>${daysOverdue} day${daysOverdue !== 1 ? "s" : ""}</td>
+            <td>${priorityLabel}</td>
+        `;
+
+        // Make row clickable to navigate to policy detail page
+        row.style.cursor = "pointer";
+        row.addEventListener("click", () => {
+            window.location.href = `/pages/policy.html?id=${edict.id}`;
+        });
+
+        // Add hover effect
+        row.addEventListener("mouseenter", () => {
+            row.style.backgroundColor = "#2a2a2a";
+        });
+        row.addEventListener("mouseleave", () => {
+            row.style.backgroundColor = "";
+        });
+
+        tableBody.appendChild(row);
+    });
+}
+
+function renderNotificationSidebar() {
+    const badge = document.getElementById("notification-badge");
+    const list = document.getElementById("sidebar-notifications-list");
+
+    badge.textContent = unfinishedEdicts.length;
+
+    if (unfinishedEdicts.length === 0) {
+        badge.classList.add("none");
+        list.innerHTML = `<div style="color: #aaa; font-size: 0.8rem; padding: 10px; text-align: center;">No unfinished policies</div>`;
+        return;
+    }
+
+    badge.classList.remove("none");
+    list.innerHTML = "";
+
+    unfinishedEdicts.slice(0, 5).forEach((edict) => {
+        const daysOverdue = calculateDaysOverdue(edict.plannedEnd);
+        const item = document.createElement("div");
+        item.className = "notification-item";
+
+        item.innerHTML = `
+            <div class="notification-item-name">${edict.name}</div>
+            <div class="notification-item-date">${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} overdue</div>
+            ${edict.priority ? `<div class="notification-item-priority">Priority ${edict.priority}</div>` : ""}
+        `;
+
+        // Click to navigate directly to policy page
+        item.addEventListener("click", () => {
+            window.location.href = `/pages/policy.html?id=${edict.id}`;
+        });
+
+        list.appendChild(item);
+    });
+
+    // Add "view all" link if more than 5
+    if (unfinishedEdicts.length > 5) {
+        const viewAll = document.createElement("div");
+        viewAll.className = "notification-item";
+        viewAll.style.textAlign = "center";
+        viewAll.style.color = "#7279db";
+        viewAll.style.fontWeight = "600";
+        viewAll.textContent = `View all (${unfinishedEdicts.length})`;
+        viewAll.addEventListener("click", () => {
+            openNotificationModal();
+        });
+        list.appendChild(viewAll);
+    }
+}
+
+function openNotificationModal() {
+    const modal = document.getElementById("notification-modal");
+    renderNotificationModal();
+    modal.classList.add("show");
+}
+
+function closeNotificationModal() {
+    const modal = document.getElementById("notification-modal");
+    modal.classList.remove("show");
+}
+
+async function loadUnfinishedPolicies() {
+    try {
+        console.log("[Notifications] Fetching unfinished policies...");
+        unfinishedEdicts = await apiGet("/api/edicts/unfinished");
+        console.log(`[Notifications] Found ${unfinishedEdicts.length} unfinished policies`);
+
+        // Update topbar notification icon count
+        const topbarCount = document.getElementById("topbar-notification-count");
+        if (topbarCount) {
+            topbarCount.textContent = unfinishedEdicts.length;
+        }
+
+        // Render sidebar notification panel
+        renderNotificationSidebar();
+
+        // Show modal if there are unfinished policies
+        if (unfinishedEdicts.length > 0) {
+            openNotificationModal();
+        }
+    } catch (err) {
+        console.error("[Notifications] Failed to load unfinished policies", err);
+    }
+}
+
+function setupNotificationModal() {
+    const closeBtn = document.getElementById("notification-modal-close");
+    const modal = document.getElementById("notification-modal");
+
+    closeBtn?.addEventListener("click", closeNotificationModal);
+
+    // Close modal when clicking outside
+    modal?.addEventListener("click", (e) => {
+        if (e.target === modal) {
+            closeNotificationModal();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && modal.classList.contains("show")) {
+            closeNotificationModal();
+        }
+    });
+}
+
+// Register the unfinished policies notification in the popup system
+function registerUnfinishedPoliciesPopup() {
+    registerPopup('unfinishedPolicies', {
+        render: renderNotificationModal,
+        open: openNotificationModal,
+        close: closeNotificationModal,
+        element: document.getElementById('notification-modal')
+    });
+}
+
+// ===========================
+// END UNFINISHED POLICIES NOTIFICATIONS
+// ===========================
+
+
 // Add policy button listener
 document.getElementById("add-policy")?.addEventListener("click", () => {
     window.location.href = "/pages/policy.html";
@@ -453,7 +685,21 @@ document.getElementById("add-policy")?.addEventListener("click", () => {
 
 attachHelpPopover(document.getElementById("help-add-policy-name"), {
     title: "Policy name",
-    body: "Use a short, descriptive title. Example: “Initial Policy” or “Follow-up Policy”."
+    body: `Use a short, descriptive title. Example: "Initial Policy" or "Follow-up Policy".`
 });
+
+// Setup notification modal interactions
+setupNotificationModal();
+
+// Register unfinished policies popup in the popup management system
+registerUnfinishedPoliciesPopup();
+
+// Setup topbar notification icon click handler
+document.getElementById("topbar-notification-icon")?.addEventListener("click", () => {
+    openPopup('unfinishedPolicies');
+});
+
+// Load unfinished policies and show notifications
+loadUnfinishedPolicies();
 
 initPolicies();  

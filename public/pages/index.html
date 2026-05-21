@@ -1,32 +1,24 @@
-<!-- todo: implement task summary endpoint and display on UI -->
-
 <!DOCTYPE html>
 <html>
-
-<!-- head should be moved to a common template, and only title should be changed per page -->
 <head>
 <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
 <link rel="icon" type="image/x-icon" sizes="32x32" href="favicon/favicon-32x32.png">
 <link rel="icon" type="image/x-icon" sizes="16x16" href="favicon/favicon-16x16.png">
-
-
 <title>Policy Dashboard</title>
-
-
+<link rel="stylesheet" href="/css/main.css">
+</head>
 <body>
 
-<div class="layout">
-
-<link rel="stylesheet" href="/css/main.css">
+<!-- Semantic structure -->
+<header>
+    <div class="layout">
         <div class="sidebar">
         <div id="myClock" class="clock"> </div>
             <button id="sleep cycle"><a href="/sleep-cycle.html">
-                <img src="images\arrow.jpg" alt="Description of the button action" width="30px">
+                <img src="/images/arrow.jpg" alt="Description of the button action" width="30px">
             </a></button>
             <!-- to refresh, just /index.html instead of history.back() -->
             
-
-
         <div class="add-policy-panel">  <!-- add policy panel should be moved to content div TODO:// -->
             <button id="add-policy">Add Policy</button>
                         <form id="add-policy-form" class="add-policy-form hidden">
@@ -54,11 +46,29 @@
                 <p class="form-feedback hidden" id="add-policy-feedback"></p>
             </form>
         </div>
-    </div>
 
-    <div class="main">
+        <!-- Notification Badge and List in Sidebar -->
+        <div class="sidebar-notifications">
+            <div class="sidebar-notifications-title">
+                <span>Unfinished</span>
+                <span class="notification-badge" id="notification-badge">0</span>
+            </div>
+            <div class="sidebar-notifications-list" id="sidebar-notifications-list">
+                <!-- Notification items will be populated here -->
+            </div>
+        </div>
+        </div>
+
+        <main class="main">
         <div class="topbar">
             <div style="color: #7279db;"> Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.</div>
+            <div class="topbar-icons">
+                <div class="notification-icon-wrapper" id="topbar-notification-icon">
+                    <div class="notification-circle">
+                        <span id="topbar-notification-count">0</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="content">
@@ -83,11 +93,21 @@
 
 
         <div id="policy-list"></div>
+        </div>
+
+        <div class="bottombar">
+            <div style="color: #7279db;"> Audendo magnus tegitur, timor vincit qui patitur.</div>
+        </div>
+        
+
+        
+    </main>
+
+  
 
     </div>
 
-        <div class="status-strip">
-
+    <footer class="status-strip">
             <div class="status-item" title="10.244.10.15">
                 <span class="status-dot online"></span>
                 <span>Database</span>
@@ -102,20 +122,45 @@
                 <span class="status-dot warning"></span>
                 <span>VPN Relay</span>
             </div>
+            
 
+</footer>
+
+<!-- Notification Modal Popup -->
+<div id="notification-modal" class="notification-modal">
+    <div class="notification-modal-content">
+        <div class="notification-modal-header">
+            <h2>⚠️ Unfinished Policies</h2>
+            <button class="notification-modal-close" id="notification-modal-close">&times;</button>
         </div>
-
-        <div class="bottombar">
-            <div style="color: #7279db;"> Audendo magnus tegitur, timor vincit qui patitur.</div>
+        <p style="color: #aaa; font-size: 0.9rem; margin: 0 0 15px 0;">
+            The following policies have passed their end date and are not yet archived:
+        </p>
+        <table class="notification-table">
+            <thead>
+                <tr>
+                    <th>Policy Name</th>
+                    <th>Planned End</th>
+                    <th>Days Overdue</th>
+                    <th>Priority</th>
+                </tr>
+            </thead>
+            <tbody id="notification-table-body">
+                <!-- Table rows will be populated here -->
+            </tbody>
+        </table>
+        <div id="notification-empty-message" class="notification-empty" style="display: none;">
+            No unfinished policies to show.
         </div>
-
     </div>
-
 </div>
+
+</header>
+
 
 <script src="/js/utils/helpers.js"></script>
 <script type="module" src="/js/pages/index.js"></script>
 <script type="module" src="/js/main.js"></script>
-
 </body>
 </html>
+

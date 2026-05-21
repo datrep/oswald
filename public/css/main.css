@@ -63,6 +63,7 @@ html, body {
     border-bottom: 1px solid #444;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 0 20px;
     background: #111;
 }
@@ -653,7 +654,20 @@ button:hover {
 .input-lg { max-width: 100%; }
 
 /* Full-width form controls (exclude checkbox/radio, which are used in tables/lists) */
-input:not([type="checkbox"]):not([type="radio"]),
+
+
+/* Style for elements with 'bar' in class name */
+[class*="bar"] {
+  color: #7279db;
+  border-top: 1px solid #444;
+  border-bottom: 1px solid #444;
+}
+
+/* Explicitly exclude .status-strip from bar styling */
+.status-strip {
+  border-top: none !important;
+}
+
 textarea,
 select {
   width: 100%;
@@ -907,5 +921,296 @@ display: none;
 .offline {
     background: #d9534f;
 }   
+
+/* Notification Popup Modal */
+.notification-modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    animation: fadeIn 0.3s ease;
+}
+
+.notification-modal.show {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.notification-modal-content {
+    background-color: #1c1c1c;
+    padding: 30px;
+    border: 1px solid #444;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    animation: slideIn 0.3s ease;
+}
+
+/* ===========================
+   TOPBAR NOTIFICATION ICON
+   =========================== */
+
+.topbar-icons {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.notification-icon-wrapper {
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.notification-icon-wrapper:hover {
+    transform: scale(1.1);
+}
+
+.notification-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #7279db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: #111;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 8px rgba(114, 121, 219, 0.3);
+    transition: all 0.2s ease;
+}
+
+.notification-icon-wrapper:hover .notification-circle {
+    background-color: #8a92e8;
+    box-shadow: 0 4px 12px rgba(114, 121, 219, 0.5);
+}
+
+.notification-circle:empty,
+.notification-circle:has(span:empty) {
+    background-color: #444;
+    color: #aaa;
+}
+
+.notification-icon-wrapper:hover .notification-circle:empty,
+.notification-icon-wrapper:hover .notification-circle:has(span:empty) {
+    background-color: #555;
+    color: #ccc;
+}
+
+/* ===========================
+   END TOPBAR NOTIFICATION ICON
+   =========================== */
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.notification-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 15px;
+}
+
+.notification-modal-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #f3f3f3;
+}
+
+.notification-modal-close {
+    background: #333;
+    border: 1px solid #555;
+    color: #eee;
+    font-size: 1.5rem;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+}
+
+.notification-modal-close:hover {
+    background: #444;
+}
+
+.notification-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.notification-table thead {
+    background: #222;
+    border-bottom: 2px solid #444;
+}
+
+.notification-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #ccc;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.notification-table tbody tr {
+    border-bottom: 1px solid #333;
+    transition: background 0.2s ease;
+}
+
+.notification-table tbody tr:hover {
+    background: #252525;
+}
+
+.notification-table td {
+    padding: 12px;
+    font-size: 0.9rem;
+    color: #ddd;
+}
+
+.notification-table td:nth-child(3) {
+    color: #ff6b6b;
+    font-weight: 600;
+}
+
+.notification-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #aaa;
+    font-size: 0.95rem;
+}
+
+/* Notification Badge in Sidebar */
+.sidebar-notifications {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #444;
+}
+
+.sidebar-notifications-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #ccc;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notification-badge {
+    background: #ff6b6b;
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.notification-badge.none {
+    background: #333;
+    color: #aaa;
+}
+
+.sidebar-notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #444 #1c1c1c;
+    overflow-x: hidden;
+    direction: rtl; 
+}
+
+.sidebar-notifications-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-notifications-list::-webkit-scrollbar-track {
+    background: #1c1c1c;
+}
+
+.sidebar-notifications-list::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}
+
+.notification-item {
+    background: #222;
+    border: 1px solid #333;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notification-item:hover {
+    background: #282828;
+    border-color: #444;
+    transform: translateX(2px);
+}
+
+.notification-item-name {
+    font-weight: 600;
+    color: #f3f3f3;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.notification-item-date {
+    color: #ff6b6b;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.notification-item-priority {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 6px;
+    background: #333;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    color: #aaa;
+}
 
 
