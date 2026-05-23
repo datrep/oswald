@@ -126,6 +126,5 @@ const corsOptions = {
 };
 
 //app.use(cors(corsOptions));
-
 // actually start
 startServer();
