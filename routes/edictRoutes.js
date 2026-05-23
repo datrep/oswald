@@ -5,7 +5,7 @@ const edictController = require('../controllers/edictController');
 
 
 router.get('/', edictController.getAllEdicts);
-//router.get('/unfinished', edictController.getUnfinishedEdicts);
+//  router.get('/unfinished', edictController.getUnfinishedEdicts);
 router.get('/:id', edictController.getEdictById);
 router.post('/', edictController.createEdict);
 router.put('/:id', edictController.updateEdict);
