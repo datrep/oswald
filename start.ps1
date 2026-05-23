@@ -18,6 +18,10 @@ if (Test-Path $envFile) {
 #Start-Process -NoNewWindow -FilePath "node" -ArgumentList "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "C:\Users\datrep\Desktop\oswald"
 #Start-Sleep -Seconds 2
 
+Write-Host "Starting MCP Filesystem Server..."
+Start-Process -NoNewWindow -FilePath "node" -ArgumentList "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "C:\Users\datrep\Desktop\oswald"
+Start-Sleep -Seconds 2
+
 # Interactive menu with input validation
 do {
     $choice = Read-Host "Start server locally (1) or remotely (2)? [1/2]"
