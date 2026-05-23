@@ -1,4 +1,4 @@
-const { getAllEdicts: modelGetAllEdicts, getEdictById: modelGetEdictById, getTasksByEdict: modelGetTasksByEdict, createEdict: modelCreateEdict, updateEdict: modelUpdateEdict, deleteEdict: modelDeleteEdict } = require('../models/edictModel');
+const { getAllEdicts: modelGetAllEdicts, getEdictById: modelGetEdictById, getTasksByEdict: modelGetTasksByEdict, createEdict: modelCreateEdict, updateEdict: modelUpdateEdict, deleteEdict: modelDeleteEdict, getUnfinishedEdicts: modelGetUnfinishedEdicts } = require('../models/edictModel');
 
 
 // GET all edicts
@@ -83,13 +83,27 @@ async function  deleteEdict (req, res) {
     }
 };
 
+// GET unfinished edicts (policies that have passed their end date but not archived)
+async function getUnfinishedEdicts(req, res) {
+    console.log("[API] GET /api/edicts/unfinished triggered");
+    try {
+        const unfinishedEdicts = await modelGetUnfinishedEdicts();
+        console.log(`Retrieved ${unfinishedEdicts.length} unfinished edicts`);
+        res.json(unfinishedEdicts);
+    } catch (err) {
+        console.error("[API] GET /api/edicts/unfinished failed", err);
+        res.status(500).json({ error: "Failed to fetch unfinished edicts" });
+    }
+};
+
 module.exports = {
     getAllEdicts,
     getEdictById,
     getTasksByEdict,
     createEdict,
     updateEdict,
-    deleteEdict
+    deleteEdict,
+    getUnfinishedEdicts
 };
 
 // GET /api/edicts

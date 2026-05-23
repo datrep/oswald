@@ -530,13 +530,14 @@ function renderNotificationModal() {
 
     unfinishedEdicts.forEach((edict) => {
         const row = document.createElement("tr");
-        const daysOverdue = calculateDaysOverdue(edict.plannedEnd);
+        const DaysOverdue = calculateDaysOverdue(edict.plannedEnd);
         const priorityLabel = edict.priority ? `P${edict.priority}` : "-";
 
+        // DaysOverdue also name of text, so renamed CamelCase 
         row.innerHTML = `
             <td>${edict.name || "-"}</td>
             <td>${formatDate(edict.plannedEnd)}</td>
-            <td>${daysOverdue} day${daysOverdue !== 1 ? "s" : ""}</td>
+            <td>${DaysOverdue} day${DaysOverdue !== 1 ? "s" : ""}</td> 
             <td>${priorityLabel}</td>
         `;
 
@@ -580,7 +581,7 @@ function renderNotificationSidebar() {
 
         item.innerHTML = `
             <div class="notification-item-name">${edict.name}</div>
-            <div class="notification-item-date">${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} overdue</div>
+            <div class="notification-item-date">${daysOverdue} Day${daysOverdue !== 1 ? "s" : ""} overdue </div>
             ${edict.priority ? `<div class="notification-item-priority">Priority ${edict.priority}</div>` : ""}
         `;
 

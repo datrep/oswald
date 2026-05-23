@@ -80,11 +80,25 @@ async function deleteEdict(id) {
         .query(`DELETE FROM Edicts WHERE id = @id`);
 }
 
+async function getUnfinishedEdicts() {
+    const pool = await getPool();
+    const result = await pool.request()
+        .query(`
+            SELECT * FROM Edicts 
+            WHERE plannedEnd IS NOT NULL 
+            AND GETDATE() > plannedEnd 
+            AND state != 3
+            ORDER BY plannedEnd ASC
+        `);
+    return result.recordset;
+}
+
 module.exports = {
     getAllEdicts,
     getEdictById,
     getTasksByEdict,
     createEdict,
     updateEdict,
-    deleteEdict
+    deleteEdict,
+    getUnfinishedEdicts
 };

@@ -657,7 +657,7 @@ button:hover {
 
 
 /* Style for elements with 'bar' in class name */
-[class*="bar"] {
+main [class*="bar"] {
   color: #7279db;
   border-top: 1px solid #444;
   border-bottom: 1px solid #444;
@@ -948,6 +948,23 @@ display: none;
     to {
         opacity: 1;
     }
+}
+
+.modal-content {
+    background-color: #1c1c1c; /* Dark background */
+    backdrop-filter: blur(4px); /* Frosted glass effect (optional) */
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    width: 90%; /* Scale with viewport width */
+    max-width: 600px; /* Prevent overflow on small screens */
+    height: auto; /* Allow content to dictate height */
+    max-height: 80vh; /* Limit modal height to 80% of viewport */
+    overflow-y: auto; /* Enable scrolling if content overflows */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .notification-modal-content {
