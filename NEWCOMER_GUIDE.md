@@ -100,7 +100,7 @@ This script scans `public/resources/` and removes files not referenced by `Edict
 
 ## Important gotchas to know early
 
-1. **Host binding in `server.js` is specific** (`10.244.10.3`). In many environments this can make local access fail unless that interface exists.
+1. **Host binding in `server.js` is not specific**.
 2. **`resource` static path mismatch risk**: server exposes `/resources` from `resources/`, while uploads are saved to `public/resources/`. Verify actual runtime paths before changing resource links.
 3. **Auth routes are present but currently not mounted** in `server.js` (user routes are commented out).
 4. **User schema mismatch risk**: user controller expects `userID` column patterns like `U123`, while SQL bootstrap defines `Users.id` as integer PK. Treat auth/user area as partially integrated.
