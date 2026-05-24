@@ -663,6 +663,16 @@ main [class*="bar"] {
   border-bottom: 1px solid #444;
 }
 
+/* Style for elements with 'bar' in class sidebar */
+.sidebar [class="bar"] {
+  padding-bottom: 20px;
+  border-top: #858585 solid 1px;
+}
+
+.topbar [class*="bar"] {
+    border-bottom: none;
+}
+
 /* Explicitly exclude .status-strip from bar styling */
 .status-strip {
   border-top: none !important;
@@ -1231,3 +1241,51 @@ display: none;
 }
 
 
+.item [class*="bar"] {
+
+}
+
+.services-tray {
+    position: relative;
+}
+
+.service-item {
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+}
+
+.services-item {
+    font-family: Arial, sans-serif;
+    border: 1px solid #333;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.services-menu {
+    top: 100%;
+    left: 0;
+    background: #1c1c1c;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 10px 0;
+    margin-top: 4px;
+    z-index: 1000;
+    position: absolute;
+    right: 0;
+    flex-direction: column;
+
+}
+
+.service-icon {
+
+    width: 16px;
+    height: 16px;
+
+}

@@ -23,6 +23,9 @@ const auditRoutes = require('./routes/audit');
 const resourceRoutes = require('./routes/resourceRoutes'); // this is OSWALD file upload routes. not imageRoutes
 const ipRoutes = require('./routes/ipRoutes');
 
+const servicesRoutes = require("./routes/servicesRoutes");
+
+
 // unused routes, likely used in future
 // const imageRoutes = require("./routes/imageRoutes");
 // const tagRoutes = require('./routes/tagRoutes');
@@ -84,6 +87,10 @@ app.use("/resources", express.static("resources"));
 // app.use("/images", imageRoutes);
 // app.use("/api/users", userRoutes);
 // app.use('/tags', tagRoutes);
+
+app.use("/api/services", servicesRoutes);
+
+
 
 // Graceful shutdown
 process.on("SIGINT", async () => {

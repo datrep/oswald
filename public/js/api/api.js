@@ -1,7 +1,11 @@
 // Place for API call functions (fetch) to backend routes
 // please do not code fetch everywhere else
+// I CANNOT MAKE IT MORE EXPLICIT USE /API/...
+// do it.
     
+
 // Generic request wrapper
+
 
 async function request(method, url, data = null) {
 

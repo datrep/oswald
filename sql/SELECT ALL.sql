@@ -7,3 +7,4 @@ SELECT * FROM EdictResources;
 SELECT * FROM Edicts;
 SELECT * FROM Users;
 SELECT * FROM Tasks;
+SELECT * FROM Services;

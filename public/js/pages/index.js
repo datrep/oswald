@@ -2,13 +2,38 @@
 // index.js purpose to display all policies, and links to their individual pages
 
 // api/api.js
-import { apiGet } from "../api/api.js";
+import { apiGet } from "../api/api.js"; // generic API wrapper functions for calling backend routes. all fetch calls should be made through these functions for better error handling and consistency. do not use fetch() directly in other files, use these apiGet/apiPost/etc functions instead.
+// components
+//import "../components/policyRow.js"; // not currently used, but may be useful for future refactor to make code more modular
+import "../components/servicesTray.js";  // the services tray in the top right corner
+
+
 
 const policyCountEl = document.getElementById("policy-count");
 const policyListEl = document.getElementById("policy-list");
 
 let edictsCache = [];
 let globalSettings = null;
+
+
+const toggle = document.getElementById("services-toggle");
+const menu = document.getElementById("services-menu");
+
+toggle.addEventListener("click", () => {
+    menu.classList.toggle("hidden");
+});
+
+document.addEventListener("click", (event) => {
+
+    if (!menu.contains(event.target)
+        && !toggle.contains(event.target)) {
+
+        menu.classList.add("hidden");
+    }
+
+});
+
+
 
 // Load settings from server. Browser caches HTTP responses by default (304 Not Modified),
 // so we use cache: 'no-store' to bypass browser cache. On page load, this ensures we get
@@ -396,7 +421,8 @@ async function fetchIPStatuses() {
         }
         renderIPResults(resp.results || []);
     } catch (err) {
-        console.error('[IP] Failed to fetch statuses', err);
+        console.warn('[IP] Failed to fetch statuses', err);
+        console.warn('[IP] This may be expected if the backend is not configured to /api/ip/check or if there is no network connectivity.');
         renderIPResults([]);
     }
 }
@@ -673,6 +699,25 @@ function registerUnfinishedPoliciesPopup() {
         element: document.getElementById('notification-modal')
     });
 }
+
+apiGet("/api/services") // Preload services for the tray
+    .then((services) => {
+        console.log("[ServicesTray] Preloaded services:", services);
+    })
+    .catch((err) => {
+        console.error("[ServicesTray] Failed to preload services", err);
+    });
+
+    // ===========================
+    // FUTURE EXTENSIONS (IDEAS, NOT IMPLEMENTED)
+    // service.type could be used to determine how to render the service item in the tray. For example:
+    // - type "url": render as a simple link with icon
+    // - type "local_app": render with a launch button that calls an API to start the app
+    // - type "script": render with a run button that executes a predefined script on the server
+    //service.type === "url"
+    //service.type === "local_app"
+    //service.type === "script"
+// ===========================
 
 // ===========================
 // END UNFINISHED POLICIES NOTIFICATIONS
