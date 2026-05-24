@@ -28,6 +28,7 @@ const serviceIconInput =
 
 
 
+
 servicesToggle.addEventListener("click", () => {
 
     servicesList.classList.toggle("services-menu"); 
@@ -73,57 +74,48 @@ saveServiceButton.addEventListener("click", async () => {
 
     
 function getServiceIcon(service) {
-    // Fallback icons based on service type
-    if (service.type === "Url") {
+    // Priority: 1. Custom icon path (if provided), 2. Google favicon, 3. Fallback
+    if (service.iconPath && service.iconPath.startsWith("http")) {
+        return service.iconPath; // Use remote icons directly if valid HTTP/HTTPS
+    }
 
-        // may be broken, TODO
-        // make icon downloader too? 
-        try {
-            const url = new URL(service.target);
-            return `https://www.google.com/s2/favicons?domain=${url.hostname}`;
-        } catch (err) {
-            console.warn("[ServicesTray] Invalid URL for service target:", service.target);
-            return "/assets/icons/default.png";
-        }
+    try {
+        const url = new URL(service.target);
+        const domain = url.hostname.replace(/^www\./, ''); // Remove 'www.' prefix
+
+        // Google's favicon API supports sizes (16, 32, 48)
+        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
+    } catch (err) {
+        console.warn("[ServicesTray] Invalid URL for service target:", service.target);
+        return "/assets/icons/default.png"; // Fallback
     }
-    return "/assets/icons/default.png";
-    if (service.iconPath) {
-        return service.iconPath;
-    }
-    
-    console.log("[ServicesTray] No icon found for service:", service.name);
 }
 
 // servicesList
 function renderServices(services) {
-
-    // clear existing services
     servicesList.innerHTML = "";
 
     services.forEach((service) => {
-
         const item = document.createElement("a");
-
         item.className = "service-item";
-
         item.href = service.target;
-
         item.target = "_blank";
+
+        // Use dynamic favicon logic
+        const iconSrc = getServiceIcon(service);
 
         item.innerHTML = `
             <img
                 class="service-icon"
-                src="${getServiceIcon(service)}"
+                src="${iconSrc}"
                 alt="${service.name}"
+                onerror="this.src='/assets/icons/default.png'"
             >
-
             <span>${service.name}</span>
         `;
 
         servicesList.appendChild(item);
-
     });
-
 }
 
 
