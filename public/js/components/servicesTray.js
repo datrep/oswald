@@ -1,20 +1,34 @@
 import { apiGet } from "../api/api.js";
 
-const servicesMenu =
-    document.getElementById("services-menu");
-
+// Services Tray Component
+const servicesList =
+    document.getElementById("services-list");
 const servicesToggle =
     document.getElementById("services-toggle");
+const addButton =
+    document.getElementById("service-add-button");
+const addForm =
+    document.getElementById("service-add-form");
+
 
 
 servicesToggle.addEventListener("click", () => {
 
-    servicesMenu.classList.toggle("hidden"); 
+    servicesList.classList.toggle("services-menu"); 
 });
 
+
+addButton.addEventListener("click", () => {
+
+    addForm.classList.toggle("hidden");
+
+});
+
+// servicesList
 function renderServices(services) {
 
-    servicesMenu.innerHTML = "";
+    // clear existing services
+    servicesList.innerHTML = "";
 
     services.forEach((service) => {
 
@@ -36,11 +50,12 @@ function renderServices(services) {
             <span>${service.name}</span>
         `;
 
-        servicesMenu.appendChild(item);
+        servicesList.appendChild(item);
 
     });
 
 }
+
 
 async function loadServices() {
 
@@ -64,3 +79,4 @@ async function loadServices() {
 
 
 loadServices();
+console.log("[ServicesTray] loaded");

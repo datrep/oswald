@@ -61,40 +61,83 @@
 
         <nav class="services-tray">
 
-        <button id="services-toggle" class="services-toggle">
-            Services ▼
-        </button>
-
-        <div id="services-menu" class="services-menu hidden">
-            <!-- dynamically generated -->
-            <a class="service-item" href="https://wikipedia.org" target="_blank">
-
-                <img
-                    class="service-icon"
-                    src="/assets/icons/wikipedia.png"
-                    alt="Wikipedia"
-                >
-
-                <span>Wikipedia</span>
-
-            </a>
-            <a class="service-item" href="https://danbooru.donmai.us" target="_blank">
-
-                <img
-                    class="service-icon"
-                    src="/assets/icons/danbooru.png"
-                    alt="Danbooru"
-                >
-
-                <span>Danbooru</span>
-
-            </a>
-            <button class="service-add-button">
-                + Add More
+            <button id="services-toggle" class="services-toggle">
+                Services ▼
             </button>
-        </div>
 
-        </nav >
+                <div id="services-menu" class="services-menu hidden">
+                    <!-- dynamically generated -->
+                    <div id="services-list">
+                        <a class="service-item" href="https://wikipedia.org" target="_blank">
+
+                            <img
+                                class="service-icon"
+                                src="/assets/icons/wikipedia.png"
+                                alt="Wikipedia"
+                            >
+
+                            <span>Wikipedia</span>
+
+                        </a>
+                        <a class="service-item" href="https://danbooru.donmai.us" target="_blank">
+
+                            <img
+                                class="service-icon"
+                                src="/assets/icons/danbooru.png"
+                                alt="Danbooru"
+                            >
+
+                            <span>Danbooru</span>
+
+                        </a>
+                    </div>
+                        <div id="service-control">
+                            <button id="service-add-button" class="service-add-button">
+                            + Add More
+                            </button>
+                        
+                        <div id="service-add-form" class="service-add-form hidden">
+
+                                <input
+                                    type="text"
+                                    id="service-name"
+                                    placeholder="Service Name"
+                                >
+
+                                <select id="service-type">
+
+                                    <option value="url">
+                                        Website
+                                    </option>
+
+                                    <option value="local_app">
+                                        Local Application
+                                    </option>
+
+                                </select>
+
+                                <input
+                                    type="text"
+                                    id="service-target"
+                                    placeholder="URL or executable path"
+                                >
+
+                                <input
+                                    type="text"
+                                    id="service-icon"
+                                    placeholder="Icon path (optional)"
+                                >
+
+                                <button id="save-service-button">
+                                    Save
+                                </button>
+
+                        </div>
+                    </div>
+                
+                </div>
+
+        </nav>
         </aside>
 
         <main class="main">
