@@ -19,6 +19,22 @@ async function getAllServices(req, res) {
     }
 }
 
+async function createService(req, res) {
+
+    try {
+        const serviceData = req.body;
+        const result = await servicesModel.createService(serviceData);
+        res.status(201).json(result);
+    } catch (err) {
+        console.error("[ServicesController][createService]", err);
+        res.status(500).json({
+            error: "Failed to create service"
+        });
+    }
+}
+
+
 module.exports = {
-    getAllServices
+    getAllServices,
+    createService
 };

@@ -6,5 +6,6 @@ const servicesController =
     require("../controllers/servicesController");
 
 router.get("/", servicesController.getAllServices);
+router.post("/", servicesController.createService);
 
 module.exports = router;
