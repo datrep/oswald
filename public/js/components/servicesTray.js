@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from "../api/api.js"; // Helper function to make GET requests to the API
+import { apiGet, apiPost } from "../api/api.js"; // Helper function to make GET requests to the API
 
 // Services Tray Component
 const servicesList =
@@ -9,6 +10,22 @@ const addButton =
     document.getElementById("service-add-button");
 const addForm =
     document.getElementById("service-add-form");
+
+// form elements
+const saveServiceButton =
+    document.getElementById("save-service-button");
+
+const serviceNameInput =
+    document.getElementById("service-name");
+
+const serviceTypeInput =
+    document.getElementById("service-type");
+
+const serviceTargetInput =
+    document.getElementById("service-target");
+
+const serviceIconInput =
+    document.getElementById("service-icon");
 
 // form elements
 const saveServiceButton =

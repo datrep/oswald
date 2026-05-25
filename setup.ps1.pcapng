@@ -26,7 +26,7 @@ Write-Host " Running SQL script to initialize database..."
 $server = "localhost"
 $dbUser = "imagesapi_user"  # change if different user
 $dbPassword = "imagesapi_user"  # change accordingly
-$sqlScriptPath = Join-Path $PSS criptRoot "sql\DB_init_table.sql"
+$sqlScriptPath = Join-Path $PSScriptRoot "sql\DB_init_table.sql"
 
 $sqlcmdArgs = @(
   "-S", $server
