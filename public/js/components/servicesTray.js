@@ -1,5 +1,6 @@
 import { apiGet, apiPost } from "../api/api.js"; // Helper function to make GET requests to the API
 
+
 // Services Tray Component
 const servicesList =
     document.getElementById("services-list");
