@@ -33,8 +33,46 @@ async function createService(req, res) {
     }
 }
 
+async function deleteService(req, res) {
+
+    try {
+        const id = req.params.id;
+        const result = await servicesModel.deleteService(id);
+        if (result) {
+            res.status(200).json({ message: 'Service deleted successfully' });
+        } else {
+            res.status(404).json({ error: 'Service not found' });
+        }
+    } catch (err) {
+        console.error('[ServicesController][deleteService]', err);
+        res.status(500).json({
+            error: 'Failed to delete service'
+        });
+    }
+}
+
+async function updateService(req, res) {
+
+    try {
+        const id = req.params.id;
+        const serviceData = req.body;
+        const result = await servicesModel.updateService(id, serviceData);
+        if (result) {
+            res.status(200).json(result);
+        } else {
+            res.status(404).json({ error: 'Service not found' });
+        }
+    } catch (err) {
+        console.error('[ServicesController][updateService]', err);
+        res.status(500).json({
+            error: 'Failed to update service'
+        });
+    }
+}
 
 module.exports = {
     getAllServices,
-    createService
+    createService,
+    deleteService,
+    updateService
 };
