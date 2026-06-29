@@ -10,7 +10,7 @@ const dbRoutes = require('./routes/dbRoutes');
 
 const edictRoutes = require('./routes/edictRoutes');
 const taskRoutes = require('./routes/taskRoutes');
-const auditRoutes = require('./routes/audit');
+const auditRoutes = require('./routes/audit-logs');
 const resourceRoutes = require('./routes/resourceRoutes');
 const ipRoutes = require('./routes/ipRoutes');
 
@@ -40,15 +40,12 @@ app.use('/api', (req, res, next) => {
 });
 
 app.use('/api/db', dbRoutes);
-
 app.use('/api/edicts', edictRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/resources', resourceRoutes);
-app.use('/api/audit', auditRoutes);
-app.use('/api/ip', ipRoutes);
-
-app.use("/resources", express.static("resources"));
-
+app.use('/api/audit-logs', auditLogs);
+app.use('/api/ips', ips);
+app.use("/resources", express.static("resources")); //??
 app.use("/api/services", servicesRoutes);
 
 process.on("SIGINT", async () => {

@@ -2,7 +2,7 @@ const sql = require("mssql");
 const dbConfig = require("../config/db");
 
 async function getAllServices() {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const result = await pool.request()
         .query(`
             SELECT *
@@ -14,7 +14,7 @@ async function getAllServices() {
 }
 
 async function createService(serviceData) {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const result = await pool.request()
         // Map service properties to SQL parameters
         .input("name", sql.NVarChar, serviceData.name)
@@ -32,7 +32,7 @@ async function createService(serviceData) {
 }
 
 async function getServiceById(id) {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const result = await pool.request()
         .input('id', sql.Int, id)
         .query(`
@@ -44,7 +44,7 @@ async function getServiceById(id) {
 }
 
 async function updateService(id, serviceData) {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
 
     // Only include fields that are being updated and exist in the serviceData
     const updates = [];
@@ -95,7 +95,7 @@ async function updateService(id, serviceData) {
 }
 
 async function deleteService(id) {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const result = await pool.request()
         .input('id', sql.Int, id)
         .query(`
