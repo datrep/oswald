@@ -1,23 +1,23 @@
 const servicesModel = require("../models/servicesModel");
 
-async function getAllServices(req, res) {
+    async function getAllServices(req, res) {
 
-    try {
+        try {
 
-        const services = await servicesModel.getAllServices();
+            const services = await servicesModel.getAllServices();
 
-        res.json(services);
+            res.json(services);
 
-    } catch (err) {
+        } catch (err) {
 
-        console.error("[ServicesController][getAllServices]", err);
+                    console.error("[ServicesController][getAllServices] Error:", err.stack);
+            res.status(500).json({
+                error: "Failed to fetch services",
+                details: process.env.NODE_ENV === 'development' ? err.message : undefined
+            });
 
-        res.status(500).json({
-            error: "Failed to fetch services"
-        });
-
+        }
     }
-}
 
 async function createService(req, res) {
 
