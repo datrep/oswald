@@ -16,14 +16,27 @@ const ipRoutes = require('./routes/ipRoutes');
 
 const servicesRoutes = require("./routes/servicesRoutes");
 
+const userRoutes = require("./routes/userRoutes");
+
+
+const { globalErrorHandler, notFoundHandler } = require("./middlewares/errorHandler");
 dotenv.config();
 const { getPool } = require('./config/db');
 
   const app = express();
   const port = process.env.PORT || 3000;
 
-app.use(logger);
-  app.use(express.json());
+app.use(logger); //logger before all app.use
+
+const corsOptions = {
+    origin: ['172.22.160.*', 'http://localhost:3000'],
+    methods: 'GET,POST,PUT,DELETE',
+    allowedHeaders: 'Content-Type,Authorization',
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
+app.use(express.json());
 
 app.use(express.static("public"));
 app.use(express.static("public/pages"));
@@ -43,11 +56,16 @@ app.use('/api/db', dbRoutes);
 app.use('/api/edicts', edictRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/resources', resourceRoutes);
-app.use('/api/audit-logs', auditLogs);
-app.use('/api/ips', ips);
+app.use('/api/audit-logs', auditRoutes);
+app.use('/api/ips', ipRoutes);
 app.use("/resources", express.static("resources")); //??
 app.use("/api/services", servicesRoutes);
+app.use("/api/users", userRoutes);
 
+app.use(notFoundHandler);
+app.use(globalErrorHandler);
+
+// finally stop the server.
 process.on("SIGINT", async () => {
   console.log("Server is gracefully shutting down");
   try {
@@ -77,13 +95,6 @@ async function startServer() {
   }
 }
 
-const corsOptions = {
-  origin: '172.22.160.*, http://localhost:3000',
-  methods: 'GET,POST,PUT,DELETE',
-  allowedHeaders: 'Content-Type,Authorization',
-  optionsSuccessStatus: 200
-};
 
-app.use(cors(corsOptions));
 startServer();
 

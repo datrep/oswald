@@ -1,5 +1,8 @@
 const { getAllEdicts: modelGetAllEdicts, getEdictById: modelGetEdictById, getTasksByEdict: modelGetTasksByEdict, createEdict: modelCreateEdict, updateEdict: modelUpdateEdict, deleteEdict: modelDeleteEdict, getUnfinishedEdicts: modelGetUnfinishedEdicts } = require('../models/edictModel');
+// holy shit
 
+
+const { NotFoundError } = require('../middlewares/errorHandler');
 
 // GET all edicts
 async function getAllEdicts (req, res) {
@@ -16,17 +19,18 @@ async function getAllEdicts (req, res) {
 
 
 // GET edict by id
-async function getEdictById(req, res) {
-    const id = req.params.id;
 
+async function getEdictById(req, res, next) {
     try {
-        const edict = await modelGetEdictById(id);
+        const edict = await modelGetEdictById(req.params.id);
+        if (!edict) {
+            throw new NotFoundError('Edict not found');
+        }
         res.json(edict);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Failed to fetch edict" });
+        next(err);  // ← passes to global handler
     }
-};
+}
 
 // GET /api/tasks/edict/:edictId
 async function getTasksByEdict(req, res) {

@@ -7,13 +7,13 @@ const path = require('path');
 const sql = require('mssql');
 
 // codebase generated dependency imports
-const dbConfig = require('./dbConfig');
+const db = require('./db');
 const imageModel = require('./models/imageModel');
 
 
 async function syncImagesFolderToDatabase() {
   try {
-    await sql.connect(dbConfig);
+    await sql.connect(db);
 
     const imagesDir = path.join(__dirname, 'public/images');
     const files = fs.readdirSync(imagesDir);

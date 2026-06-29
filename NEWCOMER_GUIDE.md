@@ -78,7 +78,7 @@ Useful for debugging table contents (`/api/db/tables`, `/api/db/:tableName`).
 ## Database and schema
 
 - SQL bootstrap/reset script: `sql/DB_init_table.sql`
-- Connection config from env vars: `utils/dbConfig.js`
+- Connection config from env vars: `utils/db.js`
 - Shared connection pool logic: `config/db.js`
 
 Schema includes `Edicts`, `Tasks`, `Users`, `EdictResources`, `AuditLogs` with FK relationships.

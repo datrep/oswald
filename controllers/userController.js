@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const sql = require('mssql');
-const dbConfig = require('../dbConfig');
+const { getPool } = require('../config/db');
 
 async function registerUser(req, res) {
   const { username, password } = req.body;
@@ -12,7 +12,7 @@ async function registerUser(req, res) {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
 
     // Filter to only valid U-prefixed IDs with numeric suffixes
     const result = await pool.request().query(`
@@ -49,7 +49,7 @@ async function loginUser(req, res) {
   }
 
   try {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const result = await pool.request()
       .input('username', sql.VarChar(50), username)
       .query('SELECT * FROM Users WHERE username = @username');
@@ -74,7 +74,7 @@ async function updateUser(req, res) {
   const userID = req.user.userID;
 
   try {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.request()
@@ -97,7 +97,7 @@ async function deleteUser(req, res) {
   const userID = req.user.userID;
 
   try {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     await pool.request()
       .input('userID', sql.VarChar(20), userID)
       .query(`DELETE FROM Users WHERE userID = @userID`);
@@ -113,7 +113,7 @@ async function getUserInfo(req, res) {
   const { userID } = req.user;
 
   try {
-    const pool = await sql.connect(dbConfig);
+    const pool = await getPool();
     const result = await pool
       .request()
       .input('userID', sql.VarChar(20), userID)

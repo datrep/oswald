@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 router.post('/', upload.single('file'), resourceController.createResource);
-router.delete('/:id', resourceController.deleteResourceById);
+router.delete('/:resourceid', resourceController.deleteResourceById);
 router.get('/edict/:edictId', resourceController.getResourcesByEdict);
 
 module.exports = router;    

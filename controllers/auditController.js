@@ -1,6 +1,6 @@
 const { createAuditLog, getAllAuditLogs, getAuditLogsByEdict, getAuditLogsByTask } = require('../models/auditModel');
 
-// POST /api/audit
+// POST /api/audit-logs
 exports.createAuditLog = async (req, res) => {
     try {
         const { edictId, taskId, eventType, notes } = req.body;
@@ -12,7 +12,7 @@ exports.createAuditLog = async (req, res) => {
     }
 };
 
-// GET /api/audit
+// GET /api/audit-logs
 exports.getAllAuditLogs = async (req, res) => {
     try {
         const auditLogs = await getAllAuditLogs();
@@ -24,7 +24,7 @@ exports.getAllAuditLogs = async (req, res) => {
     }
 };
 
-// GET /api/audit/edict/:id
+// GET /api/audit-logs/edict/:id
 exports.getAuditLogsByEdict = async (req, res) => {
     try {
         const { id } = req.params;
@@ -36,7 +36,7 @@ exports.getAuditLogsByEdict = async (req, res) => {
     }
 };
 
-// GET /api/audit/task/:id
+// GET /api/audit-logs/task/:id
 exports.getAuditLogsByTask = async (req, res) => {
     try {
         const { id } = req.params;
@@ -48,7 +48,7 @@ exports.getAuditLogsByTask = async (req, res) => {
     }
 };
 
-// GET /api/audit/task/:id
-// GET /api/audit/edict/:id
-// GET /api/audit
-// POST /api/audit
+// GET /api/audit-logs/task/:id
+// GET /api/audit-logs/edict/:id
+// GET /api/audit-logs
+// POST /api/audit-logs

@@ -1,5 +1,5 @@
 const sql = require("mssql");
-const dbConfig = require("../config/db");
+const db = require("../config/db");
 
 async function getAllServices() {
     const pool = await getPool();
@@ -84,7 +84,6 @@ async function updateService(id, serviceData) {
     }
 
     params.id = { type: sql.Int, value: id };
-
     const result = await pool.request()
         .query(`
             UPDATE Services

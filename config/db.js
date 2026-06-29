@@ -1,8 +1,8 @@
-// dbConfig.js
+// db.js
 // master SINGLETON connection pool for SQL 
 
 const sql = require('mssql');
-const dbConfig = require('../utils/dbConfig');
+const db = require('../utils/db');
 
 let poolPromise = null;
 
@@ -11,7 +11,7 @@ async function getPool() {
   try {
     if (!poolPromise) {
       console.log("Creating SQL connection pool...");
-      poolPromise = sql.connect(dbConfig); // multiple requests to one promise, will share connection pool instance
+      poolPromise = sql.connect(db); // multiple requests to one promise, will share connection pool instance
     }
   
 
