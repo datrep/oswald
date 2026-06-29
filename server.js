@@ -43,8 +43,8 @@ app.use('/api/db', dbRoutes);
 app.use('/api/edicts', edictRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/resources', resourceRoutes);
-app.use('/api/audit-logs', auditLogs);
-app.use('/api/ips', ips);
+app.use('/api/audit-logs', auditRoutes);
+app.use('/api/ips', ipRoutes);
 app.use("/resources", express.static("resources")); //??
 app.use("/api/services", servicesRoutes);
 

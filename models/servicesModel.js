@@ -84,7 +84,6 @@ async function updateService(id, serviceData) {
     }
 
     params.id = { type: sql.Int, value: id };
-
     const result = await pool.request()
         .query(`
             UPDATE Services

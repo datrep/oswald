@@ -413,7 +413,7 @@ async function fetchIPStatuses() {
         return;
     }
     try {
-        const resp = await apiGet('/api/ip/check');
+        const resp = await apiGet('/api/ips/check');
         if (!resp || !resp.ok) {
             console.warn('[IP] bad response', resp);
             renderIPResults([]);
@@ -422,7 +422,7 @@ async function fetchIPStatuses() {
         renderIPResults(resp.results || []);
     } catch (err) {
         console.warn('[IP] Failed to fetch statuses', err);
-        console.warn('[IP] This may be expected if the backend is not configured to /api/ip/check or if there is no network connectivity.');
+        console.warn('[IP] This may be expected if the backend is not configured to /api/ips/check or if there is no network connectivity.');
         renderIPResults([]);
     }
 }

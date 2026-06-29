@@ -7,7 +7,7 @@ function logall(req, res, next) {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if ((req.originalUrl === "/api/ip/check") && (res.statusCode === 200)) { // nuke all /api/ip/check logs, PLEASE CHANGE THIS LATER //TODO://
+    if ((req.originalUrl === "/api/ips/check") && (res.statusCode === 200)) { // nuke all /api/ips/check logs, PLEASE CHANGE THIS LATER //TODO://
       //skip
     } else {
        console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
