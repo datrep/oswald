@@ -1,4 +1,6 @@
 const servicesModel = require("../models/servicesModel");
+const { getPool } = require('../config/db');
+
 
     async function getAllServices(req, res) {
 

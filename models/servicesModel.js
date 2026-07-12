@@ -1,5 +1,5 @@
 const sql = require("mssql");
-const db = require("../config/db");
+const { getPool } = require('../config/db');
 
 async function getAllServices() {
     const pool = await getPool();
@@ -13,6 +13,8 @@ async function getAllServices() {
     return result.recordset;
 }
 
+
+
 async function createService(serviceData) {
     const pool = await getPool();
     const result = await pool.request()
@@ -25,7 +27,7 @@ async function createService(serviceData) {
         .input("enabled", sql.Bit, serviceData.enabled ?? true)
         .input("sortOrder", sql.Int, serviceData.sortOrder ?? 0)
         .query(`
-            Insert into services (name, description, type, target, iconPath, enabled, sortOrder)
+            INSERT INTO Services (name, description, type, target, iconPath, enabled, sortOrder)
             VALUES (@name, @description, @type, @target, @iconPath, @enabled, @sortOrder)
         `);
     return result;
@@ -84,12 +86,15 @@ async function updateService(id, serviceData) {
     }
 
     params.id = { type: sql.Int, value: id };
-    const result = await pool.request()
-        .query(`
+    const request = pool.request();
+    Object.entries(params).forEach(([name, { type, value }]) => {
+        request.input(name, type, value);
+    });
+    const result = await request.query(`
             UPDATE Services
             SET ${updates.join(', ')}
             WHERE id = @id
-        `, params);
+        `);
     return result;
 }
 
