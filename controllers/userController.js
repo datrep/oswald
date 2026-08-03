@@ -11,8 +11,7 @@ async function registerUser(req, res, next) {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userID = await User.getNextUserID();
-    await User.createUser(userID, username, hashedPassword);
+    await User.createUser(username, hashedPassword);
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
@@ -34,7 +33,7 @@ async function loginUser(req, res, next) {
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid username or password' });
 
-    const token = jwt.sign({ userID: user.userID }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userID: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({ message: 'Login successful', token });
   } catch (err) {

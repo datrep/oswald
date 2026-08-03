@@ -10,5 +10,5 @@ GO
 
 PRINT 'Inserting IP addresses...';
 INSERT INTO Users (username, passwordHash) VALUES
-('oswald_admin', '$2b$10$abcdefgh1234567890ijklmnopqrstuv'); -- sample hashed password
+('oswald_admin', '$2b$10$aAzmbxTi7wV9AyyhyGC4iOiSZ2Acnv27Nd2Bw69/0TQo7WI8rXlR.'); -- password: admin
 GO

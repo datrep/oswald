@@ -51,7 +51,6 @@ CREATE TABLE Edicts (
 PRINT 'Creating Users table...';
 CREATE TABLE Users (
     id INT PRIMARY KEY IDENTITY(1,1),
-    userID NVARCHAR(20) NULL UNIQUE,
     username NVARCHAR(50) NOT NULL UNIQUE,
     passwordHash NVARCHAR(255) NOT NULL,
     createdAt DATETIME DEFAULT GETDATE(),
@@ -105,7 +104,7 @@ GO
 
 PRINT 'Inserting sample user...';
 INSERT INTO Users (username, passwordHash) VALUES
-('oswald_admin', '$2b$10$abcdefgh1234567890ijklmnopqrstuv'); -- sample hashed password
+('oswald_admin', '$2b$10$aAzmbxTi7wV9AyyhyGC4iOiSZ2Acnv27Nd2Bw69/0TQo7WI8rXlR.'); -- password: admin
 GO
 
 PRINT 'Inserting sample edicts...';
