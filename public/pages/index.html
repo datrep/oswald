@@ -5,12 +5,6 @@
     <link rel="icon" type="image/png" sizes="192x192" href="favicon/android-chrome-192x192.png" />
     <link rel="manifest" href="favicon/site.webmanifest" />
     <title>Policy Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="/css/main.css" />
   </head>
   <body>
@@ -84,7 +78,18 @@
 
             <div id="services-menu" class="services-menu hidden">
               <!-- dynamically generated -->
-              <div id="services-list"><!-- populated by servicesTray.js --></div>
+              <div id="services-list">
+                <a class="service-item" href="https://wikipedia.org" target="_blank">
+                  <img class="service-icon" src="/assets/icons/wikipedia.png" alt="Wikipedia" />
+
+                  <span>Wikipedia</span>
+                </a>
+                <a class="service-item" href="https://danbooru.donmai.us" target="_blank">
+                  <img class="service-icon" src="/assets/icons/danbooru.png" alt="Danbooru" />
+
+                  <span>Danbooru</span>
+                </a>
+              </div>
               <div id="service-control">
                 <button id="service-add-button" class="service-add-button">+ Add More</button>
 
@@ -107,12 +112,9 @@
             </div>
           </nav>
 
-          <h3 class="sidebar-section">Server</h3>
-
           <div id="mcp-control"></div>
 
-          <h3 class="sidebar-section">Links</h3>
-
+          <!--hard coded div's, just patchwork.-->
           <div class="html">
             <a href="experiments/seter.html" target="_blank" rel="noopener">Seter</a>
           </div>
@@ -144,8 +146,6 @@
 
           <div class="content">
             <h1>Policies</h1>
-
-            <div id="policy-stats" class="policy-stats"></div>
 
             <div class="policy-count">
               <div id="policy-count">

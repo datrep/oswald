@@ -1,9 +1,5 @@
 import { apiGet, apiPost } from '../api/api.js'; // Helper function to make GET requests to the API
 
-// Inline SVG fallback so a missing icon never 404s.
-const FALLBACK_ICON =
-  'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%227%22%20fill%3D%22%237c8cf8%22%2F%3E%3C%2Fsvg%3E';
-
 // Services Tray Component
 const servicesList = document.getElementById('services-list');
 const servicesToggle = document.getElementById('services-toggle');
@@ -73,7 +69,7 @@ function getServiceIcon(service) {
     return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
   } catch (err) {
     console.warn('[ServicesTray] Invalid URL for service target:', service.target);
-    return FALLBACK_ICON; // Fallback
+    return '/assets/icons/default.png'; // Fallback
   }
 }
 

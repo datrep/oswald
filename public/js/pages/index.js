@@ -344,28 +344,15 @@ function renderPolicyRows(edicts) {
 
     // Include description inside the same row, below the main info
     //policy-row not congruent with policy-main?
-    const stateLabel = formatState(edict.state);
-    const stateChip = ['Draft', 'Published', 'Archived'].includes(stateLabel)
-      ? `<span class="state-chip state-${stateLabel.toLowerCase()}">${stateLabel}</span>`
-      : stateLabel;
-
     row.innerHTML = `\
-                <span class="col-name">${edict.name || '-'}</span>
-                <span class="col-date">${formatDate(edict.plannedStart)}</span>
-                <span class="col-date">${formatDate(edict.plannedEnd)}</span>
-                <span class="col-tasks">${edict.taskCount ?? 0} / ${edict.resourceCount ?? 0}</span>
-                <span class="col-active">${
-                  edict.active
-                    ? '<span class="pill pill-active"><span class="dot dot-on"></span>Active</span>'
-                    : '<span class="pill pill-inactive"><span class="dot dot-off"></span>Inactive</span>'
-                }</span>
-                <span class="col-priority">${
-                  edict.priority !== null && edict.priority !== undefined
-                    ? `<span class="badge badge-p${edict.priority}">P${edict.priority}</span>`
-                    : '-'
-                }</span>
-                <span class="col-state">${stateChip}</span>
-                <span class="col-info">${edict.info || 'No description available.'}</span>
+                <span>${edict.name || '-'}</span>
+                <span>${formatDate(edict.plannedStart)}</span>
+                <span>${formatDate(edict.plannedEnd)}</span>
+                <span>${edict.taskCount ?? 0} / ${edict.resourceCount ?? 0}</span>
+                <span>${edict.active ? 'Yes' : 'No'}</span>
+                <span>${edict.priority ?? '-'}</span>
+                <span>${formatState(edict.state)}</span>
+                <span class="policy-info">${edict.info || 'No description available. check database.'}</span>
         `;
 
     // Make row clickable
@@ -437,7 +424,6 @@ async function initPolicies() {
 
     setupSortHeader();
     applySortAndRender();
-    renderPolicyStats();
   } catch (err) {
     console.error('[UI] Failed to load policies', err);
     policyCountEl.textContent = 'Unable to load policies.';
@@ -742,7 +728,6 @@ async function loadUnfinishedPolicies() {
 
     // Render sidebar notification panel
     renderNotificationSidebar();
-    renderPolicyStats();
 
     // Show modal if there are unfinished policies
     if (unfinishedEdicts.length > 0) {

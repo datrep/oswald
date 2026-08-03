@@ -763,7 +763,7 @@ function resetResourceForm() {
 function openResourceModal() {
   const modal = document.getElementById('resource-modal');
   if (!modal) return;
-  modal.style.display = 'flex';
+  modal.style.display = 'block';
 }
 
 // responsibility: open resource modal (edit)

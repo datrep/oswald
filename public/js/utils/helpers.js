@@ -22,8 +22,7 @@ function showTime() {
 
   let fullDisplay = `${year}/${month}/${day} ${time}`;
 
-  const clockEl = document.getElementById('myClock');
-  if (clockEl) clockEl.innerText = fullDisplay;
+  document.getElementById('myClock').innerText = fullDisplay;
   setTimeout(showTime, 1000);
 }
 
