@@ -1,9 +1,9 @@
 // responsibility: standard api helpers
-import { apiGet, apiPost, apiDelete } from "../api/api.js";
+import { apiGet, apiPost, apiDelete } from '../api/api.js';
 
 // responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
-let policyId = params.get("id");
+let policyId = params.get('id');
 let isCreateMode = !policyId;
 // local queues for create-before-policy flows
 // replaced to arrays for bulk form submissions.
@@ -18,43 +18,43 @@ let currentTaskId = null;
 let currentPolicy = null;
 
 // responsibility: element lookups
-const titleEl = document.getElementById("policy-title");
-const nameEl = document.getElementById("policy-name");
-const startEl = document.getElementById("policy-start");
-const endEl = document.getElementById("policy-end");
-const priorityEl = document.getElementById("policy-priority");
-const stateEl = document.getElementById("policy-state");
-const infoEl = document.getElementById("policy-info");
+const titleEl = document.getElementById('policy-title');
+const nameEl = document.getElementById('policy-name');
+const startEl = document.getElementById('policy-start');
+const endEl = document.getElementById('policy-end');
+const priorityEl = document.getElementById('policy-priority');
+const stateEl = document.getElementById('policy-state');
+const infoEl = document.getElementById('policy-info');
 
 // responsibility: resource form elements
-const resourceFileInput = document.getElementById("resource-file");
-const resourceDescriptionInput = document.getElementById("resource-description");
-const saveResourceBtn = document.getElementById("save-resource");
+const resourceFileInput = document.getElementById('resource-file');
+const resourceDescriptionInput = document.getElementById('resource-description');
+const saveResourceBtn = document.getElementById('save-resource');
 
 // responsibility: policy buttons
-const saveBtn = document.getElementById("save-policy");
-const deleteBtn = document.getElementById("delete-policy");
-const editBtn = document.getElementById("edit-policy");
-const policyFormEl = document.getElementById("policy-form");
-const policyFormPanelEl = document.getElementById("policy-form-panel");
-const policyListEl = document.getElementById("policy-list");
+const saveBtn = document.getElementById('save-policy');
+const deleteBtn = document.getElementById('delete-policy');
+const editBtn = document.getElementById('edit-policy');
+const policyFormEl = document.getElementById('policy-form');
+const policyFormPanelEl = document.getElementById('policy-form-panel');
+const policyListEl = document.getElementById('policy-list');
 
 // responsibility: task/resource lists
-const taskListEl = document.getElementById("task-list");
-const resourceListEl = document.getElementById("resource-list");
-const resourcePreviewListEl = document.getElementById("resource-preview-list");
+const taskListEl = document.getElementById('task-list');
+const resourceListEl = document.getElementById('resource-list');
+const resourcePreviewListEl = document.getElementById('resource-preview-list');
 
 // responsibility: task modal elements
-const cancelTaskBtn = document.getElementById("cancel-task");
-const createTaskBtn = document.getElementById("create-task");
-const addTaskBtn = document.getElementById("add-task");
+const cancelTaskBtn = document.getElementById('cancel-task');
+const createTaskBtn = document.getElementById('create-task');
+const addTaskBtn = document.getElementById('add-task');
 
 // responsibility: resource modal elements
-const addResourceBtn = document.getElementById("add-resource");
-const cancelResourceBtn = document.getElementById("cancel-resource");
+const addResourceBtn = document.getElementById('add-resource');
+const cancelResourceBtn = document.getElementById('cancel-resource');
 
 // responsibility: misc constants
-const STATE_LABELS = { 1: "Draft", 2: "Published", 3: "Archived" };
+const STATE_LABELS = { 1: 'Draft', 2: 'Published', 3: 'Archived' };
 
 // ===========================
 // HELP POPOVERS (LLM-assisted)
@@ -66,82 +66,82 @@ const STATE_LABELS = { 1: "Draft", 2: "Published", 3: "Archived" };
 // - Call `attachHelpPopover(document.getElementById("help-foo"), { title, body })` in `init()`.
 // ===========================
 function attachHelpPopover(buttonEl, { title, body }) {
-    if (!buttonEl) return;
+  if (!buttonEl) return;
 
-    let popoverEl = null;
-    let isOpen = false;
+  let popoverEl = null;
+  let isOpen = false;
 
-    const close = () => {
-        if (!popoverEl) return;
-        popoverEl.remove();
-        popoverEl = null;
-        isOpen = false;
-        buttonEl.setAttribute("aria-expanded", "false");
-    };
+  const close = () => {
+    if (!popoverEl) return;
+    popoverEl.remove();
+    popoverEl = null;
+    isOpen = false;
+    buttonEl.setAttribute('aria-expanded', 'false');
+  };
 
-    const open = () => {
-        close();
+  const open = () => {
+    close();
 
-        popoverEl = document.createElement("div");
-        popoverEl.className = "help-popover";
-        popoverEl.setAttribute("role", "tooltip");
-        popoverEl.innerHTML = `
+    popoverEl = document.createElement('div');
+    popoverEl.className = 'help-popover';
+    popoverEl.setAttribute('role', 'tooltip');
+    popoverEl.innerHTML = `
             <div class="help-popover-title"></div>
             <div class="help-popover-body"></div>
         `;
-        popoverEl.querySelector(".help-popover-title").textContent = title || "More info";
-        popoverEl.querySelector(".help-popover-body").textContent = body || "";
+    popoverEl.querySelector('.help-popover-title').textContent = title || 'More info';
+    popoverEl.querySelector('.help-popover-body').textContent = body || '';
 
-        document.body.appendChild(popoverEl);
+    document.body.appendChild(popoverEl);
 
-        const rect = buttonEl.getBoundingClientRect();
-        const gap = 8;
-        const maxRight = window.innerWidth - 12;
+    const rect = buttonEl.getBoundingClientRect();
+    const gap = 8;
+    const maxRight = window.innerWidth - 12;
 
-        // Position under the button; clamp horizontally to stay on screen.
-        let left = rect.left;
-        let top = rect.bottom + gap;
+    // Position under the button; clamp horizontally to stay on screen.
+    let left = rect.left;
+    let top = rect.bottom + gap;
 
-        const popRect = popoverEl.getBoundingClientRect();
-        if (left + popRect.width > maxRight) {
-            left = Math.max(12, maxRight - popRect.width);
-        }
-        if (top + popRect.height > window.innerHeight - 12) {
-            top = Math.max(12, rect.top - gap - popRect.height);
-        }
+    const popRect = popoverEl.getBoundingClientRect();
+    if (left + popRect.width > maxRight) {
+      left = Math.max(12, maxRight - popRect.width);
+    }
+    if (top + popRect.height > window.innerHeight - 12) {
+      top = Math.max(12, rect.top - gap - popRect.height);
+    }
 
-        popoverEl.style.left = `${left}px`;
-        popoverEl.style.top = `${top}px`;
+    popoverEl.style.left = `${left}px`;
+    popoverEl.style.top = `${top}px`;
 
-        isOpen = true;
-        buttonEl.setAttribute("aria-expanded", "true");
-    };
+    isOpen = true;
+    buttonEl.setAttribute('aria-expanded', 'true');
+  };
 
-    const toggle = () => {
-        if (isOpen) close();
-        else open();
-    };
+  const toggle = () => {
+    if (isOpen) close();
+    else open();
+  };
 
-    buttonEl.setAttribute("aria-haspopup", "true");
-    buttonEl.setAttribute("aria-expanded", "false");
+  buttonEl.setAttribute('aria-haspopup', 'true');
+  buttonEl.setAttribute('aria-expanded', 'false');
 
-    buttonEl.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggle();
-    });
+  buttonEl.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggle();
+  });
 
-    document.addEventListener("click", (e) => {
-        if (!isOpen) return;
-        if (e.target === buttonEl) return;
-        if (popoverEl && popoverEl.contains(e.target)) return;
-        close();
-    });
+  document.addEventListener('click', (e) => {
+    if (!isOpen) return;
+    if (e.target === buttonEl) return;
+    if (popoverEl && popoverEl.contains(e.target)) return;
+    close();
+  });
 
-    document.addEventListener("keydown", (e) => {
-        if (!isOpen) return;
-        if (e.key === "Escape") close();
-    });
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen) return;
+    if (e.key === 'Escape') close();
+  });
 }
 // ===========================
 // END HELP POPOVERS (LLM-assisted)
@@ -149,154 +149,154 @@ function attachHelpPopover(buttonEl, { title, body }) {
 
 // responsibility: safe event binding helper
 const bind = (el, evt, fn) => {
-    if (el && fn) el.addEventListener(evt, fn);
+  if (el && fn) el.addEventListener(evt, fn);
 };
 
 // responsibility: field edit toggles
 function configurePageMode() {
-    const show = (el, visible) => {
-        if (!el) return;
-        el.style.display = visible ? "" : "none";
-    };
+  const show = (el, visible) => {
+    if (!el) return;
+    el.style.display = visible ? '' : 'none';
+  };
 
-    if (isCreateMode) {
-        show(saveBtn, true);
-        show(editBtn, false);
-        show(deleteBtn, false);
-    } else {
-        show(saveBtn, true);
-        show(editBtn, true);
-        show(deleteBtn, true);
-    }
+  if (isCreateMode) {
+    show(saveBtn, true);
+    show(editBtn, false);
+    show(deleteBtn, false);
+  } else {
+    show(saveBtn, true);
+    show(editBtn, true);
+    show(deleteBtn, true);
+  }
 }
 
 // responsibility: enable/disable base fields
 function setFieldsEditable(enabled) {
-    nameEl.disabled = !enabled;
-    startEl.disabled = !enabled;
-    endEl.disabled = !enabled;
-    priorityEl.disabled = !enabled;
-    stateEl.disabled = !enabled;
-    infoEl.disabled = !enabled;
+  nameEl.disabled = !enabled;
+  startEl.disabled = !enabled;
+  endEl.disabled = !enabled;
+  priorityEl.disabled = !enabled;
+  stateEl.disabled = !enabled;
+  infoEl.disabled = !enabled;
 }
 
 function setPolicyFormVisible(visible) {
-    if (!policyFormPanelEl) return;
-    policyFormPanelEl.classList.toggle("hidden", !visible);
+  if (!policyFormPanelEl) return;
+  policyFormPanelEl.classList.toggle('hidden', !visible);
 }
 
 function togglePolicyEditor() {
-    if (!policyFormPanelEl) return;
-    const isHidden = policyFormPanelEl.classList.contains("hidden");
-    const show = isHidden;
-    setPolicyFormVisible(show);
-    setFieldsEditable(show);
-    if (editBtn) editBtn.textContent = show ? "Hide Editor" : "Edit Policy";
+  if (!policyFormPanelEl) return;
+  const isHidden = policyFormPanelEl.classList.contains('hidden');
+  const show = isHidden;
+  setPolicyFormVisible(show);
+  setFieldsEditable(show);
+  if (editBtn) editBtn.textContent = show ? 'Hide Editor' : 'Edit Policy';
 }
 
 // responsibility: date formatting helpers
 function formatDateInput(value) {
-    // Return a value compatible with <input type="datetime-local"> in the user's local timezone.
-    if (!value) return "";
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) return "";
-    const pad2 = (n) => String(n).padStart(2, "0");
-    const yyyy = date.getFullYear();
-    const mm = pad2(date.getMonth() + 1);
-    const dd = pad2(date.getDate());
-    const hh = pad2(date.getHours());
-    const min = pad2(date.getMinutes());
-    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+  // Return a value compatible with <input type="datetime-local"> in the user's local timezone.
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const mm = pad2(date.getMonth() + 1);
+  const dd = pad2(date.getDate());
+  const hh = pad2(date.getHours());
+  const min = pad2(date.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
 function formatDate(value) {
-    if (!value) return "-";
-    const date = new Date(value);
-    return date.toLocaleDateString();
+  if (!value) return '-';
+  const date = new Date(value);
+  return date.toLocaleDateString();
 }
 
 function formatState(state) {
-    return STATE_LABELS[state] || state;
+  return STATE_LABELS[state] || state;
 }
 
 // responsibility: simple helpers
 function extractFilename(path) {
-    if (!path) return "-";
-    return path.split("/").pop();
+  if (!path) return '-';
+  return path.split('/').pop();
 }
 
 function roundToClosestMinute(date) {
-    const d = new Date(date);
-    if (!Number.isFinite(d.getTime())) return new Date();
-    const seconds = d.getSeconds();
-    d.setSeconds(0, 0);
-    if (seconds >= 30) d.setMinutes(d.getMinutes() + 1);
-    return d;
+  const d = new Date(date);
+  if (!Number.isFinite(d.getTime())) return new Date();
+  const seconds = d.getSeconds();
+  d.setSeconds(0, 0);
+  if (seconds >= 30) d.setMinutes(d.getMinutes() + 1);
+  return d;
 }
 
 function setDatetimeLocalNow(inputEl) {
-    if (!inputEl) return;
-    inputEl.value = formatDateInput(roundToClosestMinute(new Date()));
+  if (!inputEl) return;
+  inputEl.value = formatDateInput(roundToClosestMinute(new Date()));
 }
 
 function setInputBlank(inputEl) {
-    if (!inputEl) return;
-    inputEl.value = "";
+  if (!inputEl) return;
+  inputEl.value = '';
 }
 
 function toOptionalInt(value) {
-    if (value === null || value === undefined) return null;
-    const trimmed = String(value).trim();
-    if (trimmed === "") return null;
-    const n = Number.parseInt(trimmed, 10);
-    return Number.isFinite(n) ? n : null;
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  if (trimmed === '') return null;
+  const n = Number.parseInt(trimmed, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 function ensureSelectHasValue(selectEl, value) {
-    if (!selectEl) return;
-    if (value === null || value === undefined) return;
-    const str = String(value);
-    const has = [...selectEl.options].some(o => o.value === str);
-    if (has) return;
-    const opt = document.createElement("option");
-    opt.value = str;
-    opt.textContent = str;
-    selectEl.appendChild(opt);
+  if (!selectEl) return;
+  if (value === null || value === undefined) return;
+  const str = String(value);
+  const has = [...selectEl.options].some((o) => o.value === str);
+  if (has) return;
+  const opt = document.createElement('option');
+  opt.value = str;
+  opt.textContent = str;
+  selectEl.appendChild(opt);
 }
 
 function populateStateSelect(selectEl) {
-    if (!selectEl) return;
-    const currentValue = selectEl.value;
-    selectEl.innerHTML = "";
+  if (!selectEl) return;
+  const currentValue = selectEl.value;
+  selectEl.innerHTML = '';
 
-    const blank = document.createElement("option");
-    blank.value = "";
-    blank.textContent = "-";
-    selectEl.appendChild(blank);
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = '-';
+  selectEl.appendChild(blank);
 
-    Object.entries(STATE_LABELS).forEach(([value, label]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        selectEl.appendChild(option);
-    });
+  Object.entries(STATE_LABELS).forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    selectEl.appendChild(option);
+  });
 
-    if (currentValue) selectEl.value = currentValue;
+  if (currentValue) selectEl.value = currentValue;
 }
 
 function collectPolicyData() {
-    if (!nameEl || !startEl || !endEl || !priorityEl || !stateEl || !infoEl) {
-        console.error("One or more form elements are missing");
-        throw new Error("Form elements not found");
-    }
-    return {
-        name: nameEl.value,
-        plannedStart: startEl.value || null,
-        plannedEnd: endEl.value || null, // optional
-        priority: toOptionalInt(priorityEl.value),
-        state: toOptionalInt(stateEl.value),
-        info: infoEl.value
-    };
+  if (!nameEl || !startEl || !endEl || !priorityEl || !stateEl || !infoEl) {
+    console.error('One or more form elements are missing');
+    throw new Error('Form elements not found');
+  }
+  return {
+    name: nameEl.value,
+    plannedStart: startEl.value || null,
+    plannedEnd: endEl.value || null, // optional
+    priority: toOptionalInt(priorityEl.value),
+    state: toOptionalInt(stateEl.value),
+    info: infoEl.value,
+  };
 }
 
 // ===========================
@@ -305,29 +305,29 @@ function collectPolicyData() {
 // ===========================
 
 function updateTaskContextToolbar() {
-    const selected = getSelectedTaskIds();
-    const toolbar = document.getElementById("task-context-toolbar");
-    const countEl = document.getElementById("task-selected-count");
-    if (!toolbar) return;
-    if (selected.length === 0) {
-        toolbar.classList.add("hidden");
-    } else {
-        toolbar.classList.remove("hidden");
-        countEl.textContent = `${selected.length} selected`;
-    }
+  const selected = getSelectedTaskIds();
+  const toolbar = document.getElementById('task-context-toolbar');
+  const countEl = document.getElementById('task-selected-count');
+  if (!toolbar) return;
+  if (selected.length === 0) {
+    toolbar.classList.add('hidden');
+  } else {
+    toolbar.classList.remove('hidden');
+    countEl.textContent = `${selected.length} selected`;
+  }
 }
 
 function updateResourceContextToolbar() {
-    const selected = document.querySelectorAll(".resource-select:checked");
-    const toolbar = document.getElementById("resource-context-toolbar");
-    const countEl = document.getElementById("resource-selected-count");
-    if (!toolbar) return;
-    if (selected.length === 0) {
-        toolbar.classList.add("hidden");
-    } else {
-        toolbar.classList.remove("hidden");
-        countEl.textContent = `${selected.length} selected`;
-    }
+  const selected = document.querySelectorAll('.resource-select:checked');
+  const toolbar = document.getElementById('resource-context-toolbar');
+  const countEl = document.getElementById('resource-selected-count');
+  if (!toolbar) return;
+  if (selected.length === 0) {
+    toolbar.classList.add('hidden');
+  } else {
+    toolbar.classList.remove('hidden');
+    countEl.textContent = `${selected.length} selected`;
+  }
 }
 
 // ===========================
@@ -336,553 +336,558 @@ function updateResourceContextToolbar() {
 
 // responsibility: render helpers
 function renderTaskRow(task) {
-    const row = document.createElement("div");
-    row.className = "task-row";
-    row.innerHTML = `
+  const row = document.createElement('div');
+  row.className = 'task-row';
+  row.innerHTML = `
         <div class="task-header-row">
-            <span class="task-name">${task.name || "-"}</span>
-            <span class="task-active">${task.active ? "Yes" : "No"}</span>
+            <span class="task-name">${task.name || '-'}</span>
+            <span class="task-active">${task.active ? 'Yes' : 'No'}</span>
             <input type="checkbox" class="task-select" data-id="${task.id ?? task._tempId ?? ''}">
         </div>
         <div class="task-dates">${formatDate(task.plannedStart)} - ${formatDate(task.plannedEnd)}</div>
-        <div class="task-description">${task.info || ""}</div>
+        <div class="task-description">${task.info || ''}</div>
         <div class="task-footer">
-            <span class="task-priority">${task.priority ?? "-"}</span>
+            <span class="task-priority">${task.priority ?? '-'}</span>
         </div>
     `;
-    
-    // LLM-assisted: Add listener to checkbox for contextual toolbar updates
-    const checkbox = row.querySelector(".task-select");
-    if (checkbox) {
-        checkbox.addEventListener("change", updateTaskContextToolbar);
-    }
-    
-    return row;
+
+  // LLM-assisted: Add listener to checkbox for contextual toolbar updates
+  const checkbox = row.querySelector('.task-select');
+  if (checkbox) {
+    checkbox.addEventListener('change', updateTaskContextToolbar);
+  }
+
+  return row;
 }
 
 function renderResourceRow(resource) {
-    const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
+  const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
 
-    const row = document.createElement("div");
-    row.className = "resource-row";
-    const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
-    row.innerHTML = `
+  const row = document.createElement('div');
+  row.className = 'resource-row';
+  const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
+  row.innerHTML = `
         <!-- <span class="resource-file">${fileName}</span> -->    
         <span class="resource-webpath">${resource.resourcePath ? `<a href="/${webPath}" download>${webPath}</a>` : fileName}</span>
         <span class="resource-path">${resource.resourcePath || fileName}</span>
-        <span class="resource-description">${resource.description || "no description"}</span>
+        <span class="resource-description">${resource.description || 'no description'}</span>
         <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id ?? resource._tempId ?? ''}"></span>
     `;
-    
-    const checkbox = row.querySelector(".resource-select");
-    if (checkbox) {
-        checkbox.addEventListener("change", updateResourceContextToolbar);
-    }
-    
-    return row;
+
+  const checkbox = row.querySelector('.resource-select');
+  if (checkbox) {
+    checkbox.addEventListener('change', updateResourceContextToolbar);
+  }
+
+  return row;
 }
 
 function renderResourcePreview(resource) {
-    const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
-    const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
-    const row = document.createElement("div");
-    row.className = "resource-preview-row";
-    row.innerHTML = `
+  const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
+  const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
+  const row = document.createElement('div');
+  row.className = 'resource-preview-row';
+  row.innerHTML = `
         <div class="thumbnail-preview">
             ${webPath ? `<img src="/${webPath}" alt="${fileName}">` : `<div class="thumbnail-placeholder">No preview available</div>`}
         </div>
         <div class="resource-preview-text">
             <div class="resource-preview-path">${resource.resourcePath ? resource.resourcePath : fileName}</div>
-            <div class="resource-preview-description">${resource.description || "No description"}</div>
+            <div class="resource-preview-description">${resource.description || 'No description'}</div>
         </div>
         <div class="resource-actions">
             ${webPath ? `<a href="/${webPath}" target="_blank" rel="noopener noreferrer" title="View ${fileName}">View</a>` : `<span class="resource-missing">No preview</span>`}
         </div>
     `;
-    return row;
+  return row;
 }
 
 function getSelectedTaskIds() {
-    return Array.from(document.querySelectorAll(".task-select:checked"))
-        .map(cb => cb.dataset.id)
-        .filter(Boolean);
+  return Array.from(document.querySelectorAll('.task-select:checked'))
+    .map((cb) => cb.dataset.id)
+    .filter(Boolean);
 }
 
 function getSelectedResource() {
-    const selected = document.querySelectorAll(".resource-select:checked");
-    if (selected.length === 0) {
-        alert("Select a resource to edit.");
-        return null;
-    }
-    if (selected.length > 1) {
-        alert("Only one resource can be edited at a time.");
-        return null;
-    }
-    const rawId = selected[0].dataset.id;
-    // numeric id -> existing resource from server
-    const numeric = Number.parseInt(rawId, 10);
-    if (Number.isFinite(numeric)) {
-        return resourcesCache.find(r => r.id === numeric);
-    }
-    // otherwise look in pendingResources by _tempId
-    return pendingResources.find(r => r._tempId === rawId) || null;
+  const selected = document.querySelectorAll('.resource-select:checked');
+  if (selected.length === 0) {
+    alert('Select a resource to edit.');
+    return null;
+  }
+  if (selected.length > 1) {
+    alert('Only one resource can be edited at a time.');
+    return null;
+  }
+  const rawId = selected[0].dataset.id;
+  // numeric id -> existing resource from server
+  const numeric = Number.parseInt(rawId, 10);
+  if (Number.isFinite(numeric)) {
+    return resourcesCache.find((r) => r.id === numeric);
+  }
+  // otherwise look in pendingResources by _tempId
+  return pendingResources.find((r) => r._tempId === rawId) || null;
 }
 
 // responsibility: load policy data
 async function loadPolicy() {
-    if (!policyId) {
-        titleEl.textContent = "Policy";
-        currentPolicy = null;
-        renderPolicyRows(null);
-        return;
-    }
-    try {
-        const policy = await apiGet(`/api/edicts/${policyId}`);
-        currentPolicy = policy;
-        titleEl.textContent = policy.name;
-        nameEl.value = policy.name || "";
-        startEl.value = formatDateInput(policy.plannedStart);
-        endEl.value = formatDateInput(policy.plannedEnd);
-        ensureSelectHasValue(priorityEl, policy.priority);
-        priorityEl.value = policy.priority ?? "";
-        stateEl.value = policy.state ?? "";
-        infoEl.value = policy.info ?? "";
-        renderPolicyRows(currentPolicy);
-    } catch (err) {
-        console.error("[UI] Failed to load policy", err);
-        currentPolicy = null;
-        renderPolicyRows(null);
-    }
+  if (!policyId) {
+    titleEl.textContent = 'Policy';
+    currentPolicy = null;
+    renderPolicyRows(null);
+    return;
+  }
+  try {
+    const policy = await apiGet(`/api/edicts/${policyId}`);
+    currentPolicy = policy;
+    titleEl.textContent = policy.name;
+    nameEl.value = policy.name || '';
+    startEl.value = formatDateInput(policy.plannedStart);
+    endEl.value = formatDateInput(policy.plannedEnd);
+    ensureSelectHasValue(priorityEl, policy.priority);
+    priorityEl.value = policy.priority ?? '';
+    stateEl.value = policy.state ?? '';
+    infoEl.value = policy.info ?? '';
+    renderPolicyRows(currentPolicy);
+  } catch (err) {
+    console.error('[UI] Failed to load policy', err);
+    currentPolicy = null;
+    renderPolicyRows(null);
+  }
 }
 
 // responsibility: load tasks list
 async function loadTasks() {
-    if (!policyId) return;
-    try {
-        const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
-        currentTasks = tasks;
-        taskListEl.innerHTML = "";
-        tasks.forEach(task => taskListEl.appendChild(renderTaskRow(task)));
-        renderPolicyRows(currentPolicy);
-    } catch (err) {
-        console.error("[UI] Failed to load tasks", err);
-        currentTasks = [];
-        renderPolicyRows(currentPolicy);
-    }
+  if (!policyId) return;
+  try {
+    const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
+    currentTasks = tasks;
+    taskListEl.innerHTML = '';
+    tasks.forEach((task) => taskListEl.appendChild(renderTaskRow(task)));
+    renderPolicyRows(currentPolicy);
+  } catch (err) {
+    console.error('[UI] Failed to load tasks', err);
+    currentTasks = [];
+    renderPolicyRows(currentPolicy);
+  }
 }
 
 // responsibility: load resources list
 async function loadResources() {
-    if (!policyId) return;
-    try {
-        const resources = await apiGet(`/api/resources/edict/${policyId}`);
-        resourcesCache = resources;
-        resourceListEl.innerHTML = "";
-        if (resourcePreviewListEl) resourcePreviewListEl.innerHTML = "";
-        resources.forEach(resource => {
-            resourceListEl.appendChild(renderResourceRow(resource));
-            if (resourcePreviewListEl) resourcePreviewListEl.appendChild(renderResourcePreview(resource));
-        });
-        renderPolicyRows(currentPolicy);
-    } catch (err) {
-        console.error("[UI] Failed to load resources", err);
-        resourcesCache = [];
-        renderPolicyRows(currentPolicy);
-    }
+  if (!policyId) return;
+  try {
+    const resources = await apiGet(`/api/resources/edict/${policyId}`);
+    resourcesCache = resources;
+    resourceListEl.innerHTML = '';
+    if (resourcePreviewListEl) resourcePreviewListEl.innerHTML = '';
+    resources.forEach((resource) => {
+      resourceListEl.appendChild(renderResourceRow(resource));
+      if (resourcePreviewListEl) resourcePreviewListEl.appendChild(renderResourcePreview(resource));
+    });
+    renderPolicyRows(currentPolicy);
+  } catch (err) {
+    console.error('[UI] Failed to load resources', err);
+    resourcesCache = [];
+    renderPolicyRows(currentPolicy);
+  }
 }
 
 // responsibility: create policy
 async function createPolicy() {
-    try {
-        const data = collectPolicyData();
-        if (!data.plannedStart) {
-            alert("Policy planned start is required.");
-            return;
-        }
-        console.log("[Policy.save_policy] Executed: create_policy");
-        const response = await fetch("/api/edicts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-        });
-        const result = await response.json();
-        if (!response.ok) {
-            alert(result.message || "Failed to create policy");
-            return;
-        }
-        console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
-        alert("Policy created successfully");
-        // Switch the current page into view-mode for the newly created policy
-        policyId = result.id;
-        isCreateMode = false;
-        // Flush any queued tasks/resources that were added while policy did not exist
-        await flushPendingSubmissions(policyId);
-        // Reload server-backed lists
-        await loadPolicy();
-        await loadTasks();
-        await loadResources();
-        // Hide editor now that policy is created
-        setPolicyFormVisible(false);
-        setFieldsEditable(false);
-    } catch (err) {
-        console.error("[Policy] Create failed", err);
-        alert("Error creating policy");
+  try {
+    const data = collectPolicyData();
+    if (!data.plannedStart) {
+      alert('Policy planned start is required.');
+      return;
     }
+    console.log('[Policy.save_policy] Executed: create_policy');
+    const response = await fetch('/api/edicts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      alert(result.message || 'Failed to create policy');
+      return;
+    }
+    console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
+    alert('Policy created successfully');
+    // Switch the current page into view-mode for the newly created policy
+    policyId = result.id;
+    isCreateMode = false;
+    // Flush any queued tasks/resources that were added while policy did not exist
+    await flushPendingSubmissions(policyId);
+    // Reload server-backed lists
+    await loadPolicy();
+    await loadTasks();
+    await loadResources();
+    // Hide editor now that policy is created
+    setPolicyFormVisible(false);
+    setFieldsEditable(false);
+  } catch (err) {
+    console.error('[Policy] Create failed', err);
+    alert('Error creating policy');
+  }
 }
 
 // Flush pending tasks and resources after a policy has been created
 async function flushPendingSubmissions(createdPolicyId) {
-    if (!createdPolicyId) return;
+  if (!createdPolicyId) return;
 
-    // Submit tasks first
-    if (pendingTasks.length) {
-        console.log(`[Policy] Flushing ${pendingTasks.length} pending task(s)`);
-        for (const t of pendingTasks) {
-            try {
-                const payload = Object.assign({}, t, { edictId: createdPolicyId });
-                await apiPost('/api/tasks', payload);
-            } catch (err) {
-                console.error('[Policy] Failed to flush pending task', err, t);
-            }
-        }
-        pendingTasks = [];
+  // Submit tasks first
+  if (pendingTasks.length) {
+    console.log(`[Policy] Flushing ${pendingTasks.length} pending task(s)`);
+    for (const t of pendingTasks) {
+      try {
+        const payload = Object.assign({}, t, { edictId: createdPolicyId });
+        await apiPost('/api/tasks', payload);
+      } catch (err) {
+        console.error('[Policy] Failed to flush pending task', err, t);
+      }
     }
+    pendingTasks = [];
+  }
 
-    // Then submit resources (uploads)
-    if (pendingResources.length) {
-        console.log(`[Policy] Flushing ${pendingResources.length} pending resource(s)`);
-        for (const r of pendingResources) {
-            try {
-                const form = new FormData();
-                form.append('file', r.file);
-                // resourceController tolerates different edict param names
-                form.append('edictID', createdPolicyId);
-                form.append('description', r.description || '');
-                await fetch('/api/resources', { method: 'POST', body: form });
-            } catch (err) {
-                console.error('[Policy] Failed to flush pending resource', err, r);
-            }
-        }
-        pendingResources = [];
+  // Then submit resources (uploads)
+  if (pendingResources.length) {
+    console.log(`[Policy] Flushing ${pendingResources.length} pending resource(s)`);
+    for (const r of pendingResources) {
+      try {
+        const form = new FormData();
+        form.append('file', r.file);
+        // resourceController tolerates different edict param names
+        form.append('edictID', createdPolicyId);
+        form.append('description', r.description || '');
+        await apiPost('/api/resources', form);
+      } catch (err) {
+        console.error('[Policy] Failed to flush pending resource', err, r);
+      }
     }
+    pendingResources = [];
+  }
 
-    alert('Pending tasks and resources have been saved.');
+  alert('Pending tasks and resources have been saved.');
 }
 
 // responsibility: update policy
 async function updatePolicy() {
-    if (!policyId) {
-        alert("No policy selected.");
-        return;
+  if (!policyId) {
+    alert('No policy selected.');
+    return;
+  }
+  try {
+    const data = collectPolicyData();
+    if (!data.plannedStart) {
+      alert('Policy planned start is required.');
+      return;
     }
-    try {
-        const data = collectPolicyData();
-        if (!data.plannedStart) {
-            alert("Policy planned start is required.");
-            return;
-        }
-        console.log(`[Policy.save_policy] Executed: update_policy (id: ${policyId})`);
-        const response = await fetch(`/api/edicts/${policyId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-        });
-        const result = await response.json();
-        if (!response.ok) {
-            alert(result.message || "Failed to update policy");
-            return;
-        }
-        console.log(`[Policy.save_policy] Completed: update_policy (id: ${policyId})`);
-        await loadPolicy();
-        alert("Policy updated successfully");
-    } catch (err) {
-        console.error("[Policy] Update failed", err);
-        alert("Error updating policy");
+    console.log(`[Policy.save_policy] Executed: update_policy (id: ${policyId})`);
+    const response = await fetch(`/api/edicts/${policyId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      alert(result.message || 'Failed to update policy');
+      return;
     }
+    console.log(`[Policy.save_policy] Completed: update_policy (id: ${policyId})`);
+    await loadPolicy();
+    alert('Policy updated successfully');
+  } catch (err) {
+    console.error('[Policy] Update failed', err);
+    alert('Error updating policy');
+  }
 }
 
 // responsibility: delete policy
 async function handleDelete() {
-    if (!policyId) {
-        alert("No policy to delete.");
-        return;
+  if (!policyId) {
+    alert('No policy to delete.');
+    return;
+  }
+  const confirmDelete = confirm('Are you sure you want to delete this policy?');
+  if (!confirmDelete) return;
+  try {
+    console.log(`[Policy.delete_policy] Executed: delete_policy (id: ${policyId})`);
+    const response = await fetch(`/api/edicts/${policyId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const result = await response.json();
+      alert(result.message || 'Failed to delete policy');
+      return;
     }
-    const confirmDelete = confirm("Are you sure you want to delete this policy?");
-    if (!confirmDelete) return;
-    try {
-        console.log(`[Policy.delete_policy] Executed: delete_policy (id: ${policyId})`);
-        const response = await fetch(`/api/edicts/${policyId}`, { method: "DELETE" });
-        if (!response.ok) {
-            const result = await response.json();
-            alert(result.message || "Failed to delete policy");
-            return;
-        }
-        console.log(`[Policy.delete_policy] Completed: delete_policy (id: ${policyId})`);
-        alert("Policy deleted successfully");
-        window.location.href = "/index.html";
-    } catch (err) {
-        console.error("[Policy] Delete failed", err);
-        alert("Error deleting policy");
-    }
+    console.log(`[Policy.delete_policy] Completed: delete_policy (id: ${policyId})`);
+    alert('Policy deleted successfully');
+    window.location.href = '/index.html';
+  } catch (err) {
+    console.error('[Policy] Delete failed', err);
+    alert('Error deleting policy');
+  }
 }
 
 // responsibility: save policy (create or update)
 async function handleSave() {
-    if (isCreateMode) {
-        await createPolicy();
-    } else {
-        await updatePolicy();
-    }
+  if (isCreateMode) {
+    await createPolicy();
+  } else {
+    await updatePolicy();
+  }
 }
 
 // responsibility: reset task form fields
 function resetTaskForm() {
-    const modal = document.getElementById("task-modal");
-    if (!modal) return;
-    const fields = modal.querySelectorAll("input, textarea, select");
-    fields.forEach(field => {
-        if (field.type === "checkbox" || field.type === "radio") {
-            field.checked = false;
-        } else {
-            field.value = "";
-        }
-    });
+  const modal = document.getElementById('task-modal');
+  if (!modal) return;
+  const fields = modal.querySelectorAll('input, textarea, select');
+  fields.forEach((field) => {
+    if (field.type === 'checkbox' || field.type === 'radio') {
+      field.checked = false;
+    } else {
+      field.value = '';
+    }
+  });
 }
 
 // responsibility: open task modal
 function openTaskModal(task = null) {
-    const modal = document.getElementById("task-modal");
-    if (!modal) return;
-    currentTaskId = task ? task.id : null;
-    document.getElementById("task-name").value = task?.name ?? "";
-    document.getElementById("task-start").value = formatDateInput(task?.plannedStart);
-    document.getElementById("task-end").value = formatDateInput(task?.plannedEnd);
-    ensureSelectHasValue(document.getElementById("task-priority"), task?.priority);
-    document.getElementById("task-priority").value = task?.priority ?? "";
-    document.getElementById("task-state").value = task?.state ?? 1;
-    document.getElementById("task-info").value = task?.info ?? "";
-    document.getElementById("task-user").value = task?.assignedToUserId ?? "";
-    modal.style.display = "flex";
+  const modal = document.getElementById('task-modal');
+  if (!modal) return;
+  currentTaskId = task ? task.id : null;
+  document.getElementById('task-name').value = task?.name ?? '';
+  document.getElementById('task-start').value = formatDateInput(task?.plannedStart);
+  document.getElementById('task-end').value = formatDateInput(task?.plannedEnd);
+  ensureSelectHasValue(document.getElementById('task-priority'), task?.priority);
+  document.getElementById('task-priority').value = task?.priority ?? '';
+  document.getElementById('task-state').value = task?.state ?? 1;
+  document.getElementById('task-info').value = task?.info ?? '';
+  document.getElementById('task-user').value = task?.assignedToUserId ?? '';
+  modal.style.display = 'flex';
 }
 
 // responsibility: close task modal
 function closeTaskModal() {
-    const modal = document.getElementById("task-modal");
-    if (!modal) return;
-    modal.style.display = "none";
-    resetTaskForm();
+  const modal = document.getElementById('task-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  resetTaskForm();
 }
 
 // responsibility: create or edit task
 async function handleCreateTask() {
-    if (!document.getElementById("task-start").value) {
-        alert("Task planned start is required.");
-        return;
-    }
+  if (!document.getElementById('task-start').value) {
+    alert('Task planned start is required.');
+    return;
+  }
 
-    const payload = {
-        name: document.getElementById("task-name").value,
-        plannedStart: document.getElementById("task-start").value,
-        plannedEnd: document.getElementById("task-end").value || null, // optional
-        priority: toOptionalInt(document.getElementById("task-priority").value),
-        state: toOptionalInt(document.getElementById("task-state").value),
-        info: document.getElementById("task-info").value,
-        assignedToUserId: toOptionalInt(document.getElementById("task-user").value)
-    };
+  const payload = {
+    name: document.getElementById('task-name').value,
+    plannedStart: document.getElementById('task-start').value,
+    plannedEnd: document.getElementById('task-end').value || null, // optional
+    priority: toOptionalInt(document.getElementById('task-priority').value),
+    state: toOptionalInt(document.getElementById('task-state').value),
+    info: document.getElementById('task-info').value,
+    assignedToUserId: toOptionalInt(document.getElementById('task-user').value),
+  };
 
-    if (!policyId) {
-        // Queue task locally until policy is created
-        const tempId = `temp-${Date.now()}-${Math.round(Math.random()*1e6)}`;
-        const queued = Object.assign({}, payload, { _tempId: tempId });
-        pendingTasks.push(queued);
-        // Render immediately so user sees the queued task
-        taskListEl.appendChild(renderTaskRow(queued));
-        console.log('[Policy] Queued task until policy is created', queued);
+  if (!policyId) {
+    // Queue task locally until policy is created
+    const tempId = `temp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    const queued = Object.assign({}, payload, { _tempId: tempId });
+    pendingTasks.push(queued);
+    // Render immediately so user sees the queued task
+    taskListEl.appendChild(renderTaskRow(queued));
+    console.log('[Policy] Queued task until policy is created', queued);
+  } else {
+    if (currentTaskId) {
+      payload.id = currentTaskId;
+      console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
+      console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`); // placeholder for PUT /api/tasks/:id
     } else {
-        if (currentTaskId) {
-            payload.id = currentTaskId;
-            console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
-            console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`); // placeholder for PUT /api/tasks/:id
-        } else {
-            payload.edictId = policyId;
-            console.log("[Policy.add_task] Executed: add_task");
-            await apiPost("/api/tasks", payload);
-            console.log("[Policy.add_task] Completed: add_task");
-        }
+      payload.edictId = policyId;
+      console.log('[Policy.add_task] Executed: add_task');
+      await apiPost('/api/tasks', payload);
+      console.log('[Policy.add_task] Completed: add_task');
     }
-    closeTaskModal();
-    await loadTasks();
+  }
+  closeTaskModal();
+  await loadTasks();
 }
 
 // responsibility: remove tasks
 async function handleRemoveTasks() {
-    const selected = getSelectedTaskIds();
-    if (!selected.length) {
-        alert("Select at least one task to delete.");
-        return;
+  const selected = getSelectedTaskIds();
+  if (!selected.length) {
+    alert('Select at least one task to delete.');
+    return;
+  }
+  if (!confirm('Delete selected tasks?')) return;
+  try {
+    console.log(`[Policy.delete_task] Executed: delete_task (${selected.length} task(s))`);
+    for (const id of selected) {
+      if (String(id).startsWith('temp-')) {
+        const idx = pendingTasks.findIndex((t) => t._tempId === id);
+        if (idx !== -1) pendingTasks.splice(idx, 1);
+        // remove DOM row
+        const cb = document.querySelector(`.task-select[data-id="${id}"]`);
+        const row = cb ? cb.closest('.task-row') : null;
+        if (row) row.remove();
+      } else {
+        await apiDelete(`/api/tasks/${id}`);
+      }
     }
-    if (!confirm("Delete selected tasks?")) return;
-    try {
-        console.log(`[Policy.delete_task] Executed: delete_task (${selected.length} task(s))`);
-        for (const id of selected) {
-            if (String(id).startsWith('temp-')) {
-                const idx = pendingTasks.findIndex(t => t._tempId === id);
-                if (idx !== -1) pendingTasks.splice(idx, 1);
-                // remove DOM row
-                const cb = document.querySelector(`.task-select[data-id="${id}"]`);
-                const row = cb ? cb.closest('.task-row') : null;
-                if (row) row.remove();
-            } else {
-                await apiDelete(`/api/tasks/${id}`);
-            }
-        }
-        console.log(`[Policy.delete_task] Completed: delete_task (${selected.length} task(s) deleted)`);
-        await loadTasks();
-        updateTaskContextToolbar();
-    } catch (err) {
-        console.error("[Task] Delete failed", err);
-        alert("Failed to delete selected tasks");
-    }
+    console.log(`[Policy.delete_task] Completed: delete_task (${selected.length} task(s) deleted)`);
+    await loadTasks();
+    updateTaskContextToolbar();
+  } catch (err) {
+    console.error('[Task] Delete failed', err);
+    alert('Failed to delete selected tasks');
+  }
 }
 
 // responsibility: reset resource form
 function resetResourceForm() {
-    const modal = document.getElementById("resource-modal");
-    if (!modal) return;
-    const fields = modal.querySelectorAll("input, textarea, select");
-    fields.forEach(field => {
-        if (field.type === "checkbox" || field.type === "radio") {
-            field.checked = false;
-        } else {
-            field.value = "";
-        }
-    });
+  const modal = document.getElementById('resource-modal');
+  if (!modal) return;
+  const fields = modal.querySelectorAll('input, textarea, select');
+  fields.forEach((field) => {
+    if (field.type === 'checkbox' || field.type === 'radio') {
+      field.checked = false;
+    } else {
+      field.value = '';
+    }
+  });
 }
 
 // responsibility: open resource modal (new)
 function openResourceModal() {
-    const modal = document.getElementById("resource-modal");
-    if (!modal) return;
-    modal.style.display = "block";
+  const modal = document.getElementById('resource-modal');
+  if (!modal) return;
+  modal.style.display = 'block';
 }
 
 // responsibility: open resource modal (edit)
 function openEditResource() {
-    const resource = getSelectedResource();
-    if (!resource) return;
-    editingResourceId = resource.id;
-    openResourceModal();
-    resourceDescriptionInput.value = resource.description || "";
+  const resource = getSelectedResource();
+  if (!resource) return;
+  editingResourceId = resource.id;
+  openResourceModal();
+  resourceDescriptionInput.value = resource.description || '';
 }
 
 // responsibility: close resource modal
 function closeResourceModal() {
-    const modal = document.getElementById("resource-modal");
-    if (!modal) return;
-    modal.style.display = "none";
-    resetResourceForm();
+  const modal = document.getElementById('resource-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  resetResourceForm();
 }
 
 // responsibility: save resource (create or replace)
 async function saveResource() {
-    const file = resourceFileInput.files[0];
-    if (editingResourceId && !file) {
-        alert("Please select a file when editing a resource.");
+  const file = resourceFileInput.files[0];
+  if (editingResourceId && !file) {
+    alert('Please select a file when editing a resource.');
+    return;
+  }
+  const description = resourceDescriptionInput.value || '';
+  try {
+    if (!policyId) {
+      // Queue resource until policy is created
+      if (!file) {
+        alert('Please choose a file to add as a resource.');
         return;
-    }
-    const description = resourceDescriptionInput.value || "";
-    try {
-        if (!policyId) {
-            // Queue resource until policy is created
-            if (!file) {
-                alert('Please choose a file to add as a resource.');
-                return;
-            }
-            if (editingResourceId && String(editingResourceId).startsWith('temp-res-')) {
-                // Replace existing queued resource
-                const idx = pendingResources.findIndex(r => r._tempId === editingResourceId);
-                if (idx !== -1) {
-                    pendingResources[idx] = { _tempId: editingResourceId, file, description };
-                    // update DOM row if present
-                    const checkbox = document.querySelector(`.resource-select[data-id="${editingResourceId}"]`);
-                    const row = checkbox ? checkbox.closest('.resource-row') : null;
-                    if (row) {
-                        row.querySelector('.resource-webpath').textContent = file.name;
-                        row.querySelector('.resource-path').textContent = file.name;
-                        row.querySelector('.resource-description').textContent = description || '';
-                    }
-                    editingResourceId = null;
-                    closeResourceModal();
-                    return;
-                }
-            }
-            const tempId = `temp-res-${Date.now()}-${Math.round(Math.random()*1e6)}`;
-            pendingResources.push({ _tempId: tempId, file, description });
-            // Render immediately so user sees the queued resource
-            resourceListEl.appendChild(renderResourceRow({ _tempId: tempId, file, description }));
-            closeResourceModal();
-            console.log('[Policy] Queued resource until policy is created', file.name);
-            return;
+      }
+      if (editingResourceId && String(editingResourceId).startsWith('temp-res-')) {
+        // Replace existing queued resource
+        const idx = pendingResources.findIndex((r) => r._tempId === editingResourceId);
+        if (idx !== -1) {
+          pendingResources[idx] = { _tempId: editingResourceId, file, description };
+          // update DOM row if present
+          const checkbox = document.querySelector(
+            `.resource-select[data-id="${editingResourceId}"]`
+          );
+          const row = checkbox ? checkbox.closest('.resource-row') : null;
+          if (row) {
+            row.querySelector('.resource-webpath').textContent = file.name;
+            row.querySelector('.resource-path').textContent = file.name;
+            row.querySelector('.resource-description').textContent = description || '';
+          }
+          editingResourceId = null;
+          closeResourceModal();
+          return;
         }
+      }
+      const tempId = `temp-res-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      pendingResources.push({ _tempId: tempId, file, description });
+      // Render immediately so user sees the queued resource
+      resourceListEl.appendChild(renderResourceRow({ _tempId: tempId, file, description }));
+      closeResourceModal();
+      console.log('[Policy] Queued resource until policy is created', file.name);
+      return;
+    }
 
-        if (editingResourceId) {
-            console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId})`);
-            await fetch(`/api/resources/${editingResourceId}`, { method: "DELETE" });
-        } else {
-            console.log("[Policy.add_resource] Executed: add_resource");
-        }
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("edictID", policyId);
-        formData.append("filesize", file.size);
-        formData.append("description", description);
-        const response = await fetch("/api/resources", { method: "POST", body: formData });
-        if (!response.ok) throw new Error("Upload failed");
-        if (editingResourceId) {
-            console.log(`[Policy.edit_resource] Completed: edit_resource (id: ${editingResourceId})`);
-        } else {
-            console.log("[Policy.add_resource] Completed: add_resource");
-        }
-        editingResourceId = null;
-        closeResourceModal();
-        await loadResources();
-    } catch (err) {
-        console.error("[UI] Failed to save resource", err);
-        alert("Resource save failed");
+    if (editingResourceId) {
+      console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId})`);
+      await apiDelete(`/api/resources/${editingResourceId}`);
+    } else {
+      console.log('[Policy.add_resource] Executed: add_resource');
     }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('edictID', policyId);
+    formData.append('filesize', file.size);
+    formData.append('description', description);
+    await apiPost('/api/resources', formData);
+    if (editingResourceId) {
+      console.log(`[Policy.edit_resource] Completed: edit_resource (id: ${editingResourceId})`);
+    } else {
+      console.log('[Policy.add_resource] Completed: add_resource');
+    }
+    editingResourceId = null;
+    closeResourceModal();
+    await loadResources();
+  } catch (err) {
+    console.error('[UI] Failed to save resource', err);
+    alert('Resource save failed');
+  }
 }
 
 // responsibility: delete resources
 async function deleteSelectedResources() {
-    const selected = document.querySelectorAll(".resource-select:checked");
-    if (selected.length === 0) {
-        alert("No resources selected.");
-        return;
+  const selected = document.querySelectorAll('.resource-select:checked');
+  if (selected.length === 0) {
+    alert('No resources selected.');
+    return;
+  }
+  if (!confirm('Delete selected resources?')) return;
+  try {
+    console.log(
+      `[Policy.delete_resource] Executed: delete_resource (${selected.length} resource(s))`
+    );
+    for (const checkbox of selected) {
+      const id = checkbox.dataset.id;
+      const numeric = Number.parseInt(id, 10);
+      if (Number.isFinite(numeric)) {
+        await apiDelete(`/api/resources/${id}`);
+      } else {
+        // remove from local pending queue
+        const idx = pendingResources.findIndex((r) => r._tempId === id);
+        if (idx !== -1) pendingResources.splice(idx, 1);
+      }
+      // remove row from DOM
+      const row = checkbox.closest('.resource-row');
+      if (row) row.remove();
     }
-    if (!confirm("Delete selected resources?")) return;
-    try {
-        console.log(`[Policy.delete_resource] Executed: delete_resource (${selected.length} resource(s))`);
-        for (const checkbox of selected) {
-            const id = checkbox.dataset.id;
-            const numeric = Number.parseInt(id, 10);
-            if (Number.isFinite(numeric)) {
-                await fetch(`/api/resources/${id}`, { method: "DELETE" });
-            } else {
-                // remove from local pending queue
-                const idx = pendingResources.findIndex(r => r._tempId === id);
-                if (idx !== -1) pendingResources.splice(idx, 1);
-            }
-            // remove row from DOM
-            const row = checkbox.closest('.resource-row');
-            if (row) row.remove();
-        }
-        console.log(`[Policy.delete_resource] Completed: delete_resource (${selected.length} resource(s) deleted)`);
-        await loadResources();
-        updateResourceContextToolbar();
-    } catch (err) {
-        console.error("[UI] Failed to delete resources", err);
-        alert("Delete failed");
-    }
+    console.log(
+      `[Policy.delete_resource] Completed: delete_resource (${selected.length} resource(s) deleted)`
+    );
+    await loadResources();
+    updateResourceContextToolbar();
+  } catch (err) {
+    console.error('[UI] Failed to delete resources', err);
+    alert('Delete failed');
+  }
 }
 
 // ===========================
@@ -892,37 +897,39 @@ async function deleteSelectedResources() {
 
 // responsibility: edit selected task from contextual toolbar
 function handleEditContextTask() {
-    const selectedIds = getSelectedTaskIds();
-    if (selectedIds.length !== 1) {
-        alert("Please select exactly one task to edit.");
-        return;
-    }
-    const task = currentTasks.find(t => t.id == selectedIds[0]);
-    if (!task) return;
-    console.log(`[Policy.edit_task] Executed: edit_task (id: ${task.id})`);
-    openTaskModal(task);
+  const selectedIds = getSelectedTaskIds();
+  if (selectedIds.length !== 1) {
+    alert('Please select exactly one task to edit.');
+    return;
+  }
+  const task = currentTasks.find((t) => t.id == selectedIds[0]);
+  if (!task) return;
+  console.log(`[Policy.edit_task] Executed: edit_task (id: ${task.id})`);
+  openTaskModal(task);
 }
 
 // responsibility: delete selected tasks from contextual toolbar
 function handleDeleteContextTask() {
-    console.log("[Policy.delete_task] Executed: delete_task");
-    handleRemoveTasks();
+  console.log('[Policy.delete_task] Executed: delete_task');
+  handleRemoveTasks();
 }
 
 // responsibility: edit selected resource from contextual toolbar
 function handleEditContextResource() {
-    const resource = getSelectedResource();
-    if (!resource) return;
-    console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${resource.id ?? resource._tempId})`);
-    editingResourceId = resource.id ?? resource._tempId;
-    openResourceModal();
-    resourceDescriptionInput.value = resource.description || "";
+  const resource = getSelectedResource();
+  if (!resource) return;
+  console.log(
+    `[Policy.edit_resource] Executed: edit_resource (id: ${resource.id ?? resource._tempId})`
+  );
+  editingResourceId = resource.id ?? resource._tempId;
+  openResourceModal();
+  resourceDescriptionInput.value = resource.description || '';
 }
 
 // responsibility: delete selected resources from contextual toolbar
 function handleDeleteContextResource() {
-    console.log("[Policy.delete_resource] Executed: delete_resource");
-    deleteSelectedResources();
+  console.log('[Policy.delete_resource] Executed: delete_resource');
+  deleteSelectedResources();
 }
 
 // ===========================\n// END CONTEXTUAL EDIT/DELETE HANDLERS (LLM-assisted)
@@ -930,150 +937,154 @@ function handleDeleteContextResource() {
 
 // responsibility: format resource paths for display
 function formatResourcePath(path) {
-    if (!path) return "";
-    const normalized = path.replaceAll("\\", "/");
-    const resourcesIndex = normalized.indexOf("resources/");
-    if (resourcesIndex !== -1) {
-        return normalized.slice(resourcesIndex);
-    }
-    return normalized;
+  if (!path) return '';
+  const normalized = path.replaceAll('\\', '/');
+  const resourcesIndex = normalized.indexOf('resources/');
+  if (resourcesIndex !== -1) {
+    return normalized.slice(resourcesIndex);
+  }
+  return normalized;
 }
 
 // responsibility: initialize task-ender resize drag handler
 function initializeTaskEnderResize() {
-    const taskEnder = document.querySelector(".task-ender");
-    const taskList = document.querySelector("#task-list");
-    
-    if (!taskEnder || !taskList) return;
-    
-    let isDragging = false;
-    let startY = 0;
-    let startMaxHeight = 0;
-    
-    taskEnder.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        startY = e.clientY;
-        startMaxHeight = taskList.offsetHeight;
-        taskEnder.classList.add("dragging");
-        document.body.style.userSelect = "none";
-        document.body.style.cursor = "row-resize";
-    });
-    
-    document.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
-        
-        const deltaY = e.clientY - startY;
-        const newMaxHeight = Math.max(100, startMaxHeight + deltaY);
-        taskList.style.maxHeight = `${newMaxHeight}px`;
-        taskList.style.overflowY = "auto";
-    });
-    
-    document.addEventListener("mouseup", () => {
-        if (!isDragging) return;
-        isDragging = false;
-        taskEnder.classList.remove("dragging");
-        document.body.style.userSelect = "";
-        document.body.style.cursor = "";
-    });
+  const taskEnder = document.querySelector('.task-ender');
+  const taskList = document.querySelector('#task-list');
+
+  if (!taskEnder || !taskList) return;
+
+  let isDragging = false;
+  let startY = 0;
+  let startMaxHeight = 0;
+
+  taskEnder.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startY = e.clientY;
+    startMaxHeight = taskList.offsetHeight;
+    taskEnder.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'row-resize';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const deltaY = e.clientY - startY;
+    const newMaxHeight = Math.max(100, startMaxHeight + deltaY);
+    taskList.style.maxHeight = `${newMaxHeight}px`;
+    taskList.style.overflowY = 'auto';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    taskEnder.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  });
 }
 
 // responsibility: init page wiring
 async function init() {
-    initializeTaskEnderResize();
-    
-    configurePageMode();
+  initializeTaskEnderResize();
 
-    populateStateSelect(stateEl);
-    populateStateSelect(document.getElementById("task-state"));
-    if (isCreateMode && !stateEl.value) stateEl.value = "1";
+  configurePageMode();
 
-    attachHelpPopover(document.getElementById("help-policy-name"), {
-        title: "Policy name",
-        body: "Use a short, descriptive title. Example: “Initial Policy” or “Follow-up Policy”."
-    });
+  populateStateSelect(stateEl);
+  populateStateSelect(document.getElementById('task-state'));
+  if (isCreateMode && !stateEl.value) stateEl.value = '1';
 
-    attachHelpPopover(document.getElementById("help-task-name"), {
-        title: "Task name",
-        body: "Use an action-oriented title. Example: “Draft announcement copy” or “Review resources”."
-    });
+  attachHelpPopover(document.getElementById('help-policy-name'), {
+    title: 'Policy name',
+    body: 'Use a short, descriptive title. Example: “Initial Policy” or “Follow-up Policy”.',
+  });
 
-    bind(document.getElementById("policy-start-now"), "click", () => setDatetimeLocalNow(startEl));
-    bind(document.getElementById("policy-end-now"), "click", () => setDatetimeLocalNow(endEl));
-    bind(document.getElementById("policy-end-clear"), "click", () => setInputBlank(endEl));
+  attachHelpPopover(document.getElementById('help-task-name'), {
+    title: 'Task name',
+    body: 'Use an action-oriented title. Example: “Draft announcement copy” or “Review resources”.',
+  });
 
-    bind(document.getElementById("task-start-now"), "click", () => setDatetimeLocalNow(document.getElementById("task-start")));
-    bind(document.getElementById("task-end-now"), "click", () => setDatetimeLocalNow(document.getElementById("task-end")));
-    bind(document.getElementById("task-end-clear"), "click", () => setInputBlank(document.getElementById("task-end")));
+  bind(document.getElementById('policy-start-now'), 'click', () => setDatetimeLocalNow(startEl));
+  bind(document.getElementById('policy-end-now'), 'click', () => setDatetimeLocalNow(endEl));
+  bind(document.getElementById('policy-end-clear'), 'click', () => setInputBlank(endEl));
 
-    bind(saveBtn, "click", handleSave);
-    bind(deleteBtn, "click", handleDelete);
-    bind(editBtn, "click", togglePolicyEditor);
+  bind(document.getElementById('task-start-now'), 'click', () =>
+    setDatetimeLocalNow(document.getElementById('task-start'))
+  );
+  bind(document.getElementById('task-end-now'), 'click', () =>
+    setDatetimeLocalNow(document.getElementById('task-end'))
+  );
+  bind(document.getElementById('task-end-clear'), 'click', () =>
+    setInputBlank(document.getElementById('task-end'))
+  );
 
-    bind(cancelTaskBtn, "click", closeTaskModal);
-    bind(createTaskBtn, "click", handleCreateTask);
-    bind(addTaskBtn, "click", openTaskModal);
+  bind(saveBtn, 'click', handleSave);
+  bind(deleteBtn, 'click', handleDelete);
+  bind(editBtn, 'click', togglePolicyEditor);
 
-    // LLM-assisted: New contextual toolbar bindings for tasks
-    bind(document.getElementById("edit-task"), "click", handleEditContextTask);
-    bind(document.getElementById("delete-task"), "click", handleDeleteContextTask);
+  bind(cancelTaskBtn, 'click', closeTaskModal);
+  bind(createTaskBtn, 'click', handleCreateTask);
+  bind(addTaskBtn, 'click', openTaskModal);
 
-    bind(addResourceBtn, "click", openResourceModal);
-    bind(cancelResourceBtn, "click", closeResourceModal);
-    bind(saveResourceBtn, "click", saveResource);
+  // LLM-assisted: New contextual toolbar bindings for tasks
+  bind(document.getElementById('edit-task'), 'click', handleEditContextTask);
+  bind(document.getElementById('delete-task'), 'click', handleDeleteContextTask);
 
-    // LLM-assisted: New contextual toolbar bindings for resources
-    bind(document.getElementById("edit-resource"), "click", handleEditContextResource);
-    bind(document.getElementById("delete-resource"), "click", handleDeleteContextResource);
+  bind(addResourceBtn, 'click', openResourceModal);
+  bind(cancelResourceBtn, 'click', closeResourceModal);
+  bind(saveResourceBtn, 'click', saveResource);
 
-    if (isCreateMode) {
-        // Creating: show editor by default.
-        setPolicyFormVisible(true);
-        setFieldsEditable(true);
-        renderPolicyRows(null);
-        console.log("[Policy] Create mode: True");
-        return;
-    }
+  // LLM-assisted: New contextual toolbar bindings for resources
+  bind(document.getElementById('edit-resource'), 'click', handleEditContextResource);
+  bind(document.getElementById('delete-resource'), 'click', handleDeleteContextResource);
 
-    // Viewing: load data and hide editor by default
-    console.log("[Policy] View mode", policyId);
-    await loadPolicy();
-    await loadTasks();
-    await loadResources();
-    // Enable via Edit Policy button
-    setPolicyFormVisible(false);
-    setFieldsEditable(false);
+  if (isCreateMode) {
+    // Creating: show editor by default.
+    setPolicyFormVisible(true);
+    setFieldsEditable(true);
+    renderPolicyRows(null);
+    console.log('[Policy] Create mode: True');
+    return;
+  }
 
+  // Viewing: load data and hide editor by default
+  console.log('[Policy] View mode', policyId);
+  await loadPolicy();
+  await loadTasks();
+  await loadResources();
+  // Enable via Edit Policy button
+  setPolicyFormVisible(false);
+  setFieldsEditable(false);
 }
 
 function renderPolicyRows(policy) {
-    if (!policyListEl) return;
+  if (!policyListEl) return;
 
-    policyListEl.innerHTML = "";
+  policyListEl.innerHTML = '';
 
-    if (!policy) {
-        const empty = document.createElement("div");
-        empty.className = "policy-row";
-        empty.textContent = isCreateMode
-            ? "Policy summary will appear after save."
-            : "No policy selected.";
-        policyListEl.appendChild(empty);
-        return;
-    }
+  if (!policy) {
+    const empty = document.createElement('div');
+    empty.className = 'policy-row';
+    empty.textContent = isCreateMode
+      ? 'Policy summary will appear after save.'
+      : 'No policy selected.';
+    policyListEl.appendChild(empty);
+    return;
+  }
 
-    const row = document.createElement("div");
-    row.className = "policy-row";
-    row.innerHTML = `
+  const row = document.createElement('div');
+  row.className = 'policy-row';
+  row.innerHTML = `
         <span>${formatDate(policy.plannedStart)}</span>
         <span>${formatDate(policy.plannedEnd)}</span>
         <span>${policy.taskCount ?? 0} / ${policy.resourceCount ?? 0}</span>
-        <span>${policy.active ? "Yes" : "No"}</span>
-        <span>${policy.priority ?? "-"}</span>
+        <span>${policy.active ? 'Yes' : 'No'}</span>
+        <span>${policy.priority ?? '-'}</span>
         <span>${formatState(policy.state)}</span>
-        <span class="policy-info">${policy.info || "No description available."}</span>
+        <span class="policy-info">${policy.info || 'No description available.'}</span>
     `;
 
-    policyListEl.appendChild(row);
+  policyListEl.appendChild(row);
 }
-
 
 init();

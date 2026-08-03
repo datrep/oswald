@@ -1,17 +1,22 @@
 {
-  "name": "books-api-mvc-db",
+  "name": "oswald",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "test": "node scripts/smoke-test.js",
+    "format": "prettier --write .",
+    "lint": "eslint .",
     "cleanup-resources": "node scripts/cleanup-resources.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@modelcontextprotocol/server-filesystem": "^2026.1.14",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
@@ -22,5 +27,11 @@
     "multer": "^2.1.1",
     "ping": "^0.4.0"
   },
-  "description": ""
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.3.0"
+  },
+  "description": "Policy & task management API with a static frontend (SQL Server)."
 }

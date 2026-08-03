@@ -5,6 +5,10 @@ public/resources
 temp
 /config/ips.txt
 
+# Environment files (secrets)
+.env
+app.env
+
 # Logs
 logs
 *.log

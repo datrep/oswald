@@ -1,40 +1,30 @@
+# Oswald — Policy & Task Management
 
-# BED-2025-EOT-Project-Back_end
+A Node.js + Express API (backed by Microsoft SQL Server) for managing policies ("edicts"), tasks, file resources, users, services, and audit logs — with a static frontend in `public/`.
 
-Back_end deveplopment end-of-term Project
+> 📖 Full architecture and conventions: [NEWCOMER_GUIDE.md](NEWCOMER_GUIDE.md)
 
+## Setup (first time)
 
+From the project root:
 
-## Setup
-
-go to the terminal inside the root folder and run setup.ps1
-
-```cmd
+```powershell
 .\setup.ps1
 ```
-installs all dependencies inside the project
-npm install express mssql joi dotenv bcryptjs jsonwebtoken multer
 
+This installs npm dependencies and (re)initializes the SQL database from `sql\schema\DB_init_table.sql`.
 
-## 
+> ⚠️ The DB init **drops and recreates** the database, destroying all data.
+> `setup.ps1` will always ask for explicit confirmation (`yes`) before doing this.
 
-alternatively, 
+## Run
 
-```cmd
-Write-Host " Moving to project directory..."
-Set-Location -Path "$PSScriptRoot"
-
-Write-Host " Initializing the SQL database..."
-sqlcmd -S localhost -E -i "sql\BEDinittable.sql"
-
-npm install express dotenv mssql multer joi bcryptjs jsonwebtoken
-
+```powershell
+.\start.ps1            # interactive launcher (local / remote)
+# or directly:
+node .\server.js       # http://localhost:3000
 ```
-
-
-
-and run node .\app.js
 
 ## Maintenance
 
-Run `npm run cleanup-resources` after deleting database entries or on a schedule to remove orphaned files under `public/resources/` that no longer appear in `EdictResources`.
+- `npm run cleanup-resources` — remove orphaned files under `public/resources/` that are no longer referenced by the `EdictResources` table.

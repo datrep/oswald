@@ -1,262 +1,232 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
-<link rel="icon" type="image/x-icon" sizes="32x32" href="favicon/favicon-32x32.png">
-<link rel="icon" type="image/x-icon" sizes="16x16" href="favicon/favicon-16x16.png">
-<title>Policy Dashboard</title>
-<link rel="stylesheet" href="/css/main.css">
-</head>
-<body>
-
-<!-- Semantic structure -->
-<header>
-    <div class="layout">
+  <head>
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="favicon/android-chrome-192x192.png" />
+    <link rel="manifest" href="favicon/site.webmanifest" />
+    <title>Policy Dashboard</title>
+    <link rel="stylesheet" href="/css/main.css" />
+  </head>
+  <body>
+    <!-- Semantic structure -->
+    <header>
+      <div class="layout">
         <aside class="sidebar">
-            <div id="myClock" class="clock"> </div>
+          <div id="myClock" class="clock"></div>
 
-            
-            <!-- to refresh, just /index.html instead of history.back() -->
-                
-            <div class="add-policy-panel">  <!-- add policy panel should be moved to content div TODO:// -->
-                <button id="add-policy">Add Policy</button>
-                            <form id="add-policy-form" class="add-policy-form hidden">
-                    <h2>Add Policy</h2>
-                    <p class="muted">Fill in the basic fields for now; more data will be collected soon.</p>
-                    <div class="form-group">
-                        <div class="label-with-help">
-                            <label for="policy-name">Name</label>
-                            <button type="button" class="help-btn" id="help-add-policy-name" aria-label="More info about policy name">?</button>
-                        </div>
-                        <input id="policy-name" name="policyName" type="text" placeholder="Policy name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="policy-start">Start</label>
-                        <input id="policy-start" name="policyStart" type="date" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="policy-end">End</label>
-                        <input id="policy-end" name="policyEnd" type="date">
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" id="cancel-add-policy">Cancel</button>
-                        <button type="submit">Save</button>
-                    </div>
-                    <p class="form-feedback hidden" id="add-policy-feedback"></p>
-                </form>
+          <!-- to refresh, just /index.html instead of history.back() -->
+
+          <div class="add-policy-panel">
+            <!-- add policy panel should be moved to content div TODO:// -->
+            <button id="add-policy">Add Policy</button>
+            <form id="add-policy-form" class="add-policy-form hidden">
+              <h2>Add Policy</h2>
+              <p class="muted">
+                Fill in the basic fields for now; more data will be collected soon.
+              </p>
+              <div class="form-group">
+                <div class="label-with-help">
+                  <label for="policy-name">Name</label>
+                  <button
+                    type="button"
+                    class="help-btn"
+                    id="help-add-policy-name"
+                    aria-label="More info about policy name"
+                  >
+                    ?
+                  </button>
+                </div>
+                <input
+                  id="policy-name"
+                  name="policyName"
+                  type="text"
+                  placeholder="Policy name"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="policy-start">Start</label>
+                <input id="policy-start" name="policyStart" type="date" required />
+              </div>
+              <div class="form-group">
+                <label for="policy-end">End</label>
+                <input id="policy-end" name="policyEnd" type="date" />
+              </div>
+              <div class="form-actions">
+                <button type="button" id="cancel-add-policy">Cancel</button>
+                <button type="submit">Save</button>
+              </div>
+              <p class="form-feedback hidden" id="add-policy-feedback"></p>
+            </form>
+          </div>
+
+          <!-- Notification Badge and List in Sidebar -->
+          <div class="sidebar-notifications">
+            <div class="sidebar-notifications-title">
+              <span>Unfinished</span>
+              <span class="notification-badge" id="notification-badge">0</span>
             </div>
-
-            <!-- Notification Badge and List in Sidebar -->
-            <div class="sidebar-notifications">
-                <div class="sidebar-notifications-title">
-                    <span>Unfinished</span>
-                    <span class="notification-badge" id="notification-badge">0</span>
-                </div>
-                <div class="sidebar-notifications-list" id="sidebar-notifications-list">
-                    <!-- Notification items will be populated here -->
-                </div>
+            <div class="sidebar-notifications-list" id="sidebar-notifications-list">
+              <!-- Notification items will be populated here -->
             </div>
+          </div>
 
-            <div class="bar"></div>
+          <div class="bar"></div>
 
-        <nav class="services-tray">
+          <nav class="services-tray">
+            <button id="services-toggle" class="services-toggle">Services ▼</button>
 
-            <button id="services-toggle" class="services-toggle">
-                Services ▼
-            </button>
+            <div id="services-menu" class="services-menu hidden">
+              <!-- dynamically generated -->
+              <div id="services-list">
+                <a class="service-item" href="https://wikipedia.org" target="_blank">
+                  <img class="service-icon" src="/assets/icons/wikipedia.png" alt="Wikipedia" />
 
-                <div id="services-menu" class="services-menu hidden">
-                    <!-- dynamically generated -->
-                    <div id="services-list">
-                        <a class="service-item" href="https://wikipedia.org" target="_blank">
+                  <span>Wikipedia</span>
+                </a>
+                <a class="service-item" href="https://danbooru.donmai.us" target="_blank">
+                  <img class="service-icon" src="/assets/icons/danbooru.png" alt="Danbooru" />
 
-                            <img
-                                class="service-icon"
-                                src="/assets/icons/wikipedia.png"
-                                alt="Wikipedia"
-                            >
+                  <span>Danbooru</span>
+                </a>
+              </div>
+              <div id="service-control">
+                <button id="service-add-button" class="service-add-button">+ Add More</button>
 
-                            <span>Wikipedia</span>
+                <div id="service-add-form" class="service-add-form hidden">
+                  <input type="text" id="service-name" placeholder="Service Name" />
 
-                        </a>
-                        <a class="service-item" href="https://danbooru.donmai.us" target="_blank">
+                  <select id="service-type">
+                    <option value="url">Website</option>
 
-                            <img
-                                class="service-icon"
-                                src="/assets/icons/danbooru.png"
-                                alt="Danbooru"
-                            >
+                    <option value="local_app">Local Application</option>
+                  </select>
 
-                            <span>Danbooru</span>
+                  <input type="text" id="service-target" placeholder="URL or executable path" />
 
-                        </a>
-                    </div>
-                        <div id="service-control">
-                            <button id="service-add-button" class="service-add-button">
-                            + Add More
-                            </button>
-                        
-                        <div id="service-add-form" class="service-add-form hidden">
+                  <input type="text" id="service-icon" placeholder="Icon path (optional)" />
 
-                                <input
-                                    type="text"
-                                    id="service-name"
-                                    placeholder="Service Name"
-                                >
-
-                                <select id="service-type">
-
-                                    <option value="url">
-                                        Website
-                                    </option>
-
-                                    <option value="local_app">
-                                        Local Application
-                                    </option>
-
-                                </select>
-
-                                <input
-                                    type="text"
-                                    id="service-target"
-                                    placeholder="URL or executable path"
-                                >
-
-                                <input
-                                    type="text"
-                                    id="service-icon"
-                                    placeholder="Icon path (optional)"
-                                >
-
-                                <button id="save-service-button">
-                                    Save
-                                </button>
-
-                        </div>
-                    </div>
-                
+                  <button id="save-service-button">Save</button>
                 </div>
+              </div>
+            </div>
+          </nav>
 
-        </nav>
+          <div id="mcp-control"></div>
 
-        <!--hard coded div's, just patchwork.-->
-        <div class="html">
-            <button id="button"><a href="seter.html" target="_blank">Seter</a></button>
-        </div>
-        <div class="html" href="mirrored fileserver.html">
-            <button id="button"><a href="mirrored fileserver.html" target="_blank">mirrored fileserver</a></button>
-        </div>
-        <div class="html" href= sleep-cycle.html">
-            <button id="button"><a href="sleep-cycle.html" target="_blank">sleep cycle</a></button>
-
-
+          <!--hard coded div's, just patchwork.-->
+          <div class="html">
+            <a href="experiments/seter.html" target="_blank" rel="noopener">Seter</a>
+          </div>
+          <div class="html">
+            <a href="experiments/mirrored fileserver.html" target="_blank" rel="noopener">
+              mirrored fileserver
+            </a>
+          </div>
+          <div class="html">
+            <a href="experiments/sleep-cycle.html" target="_blank" rel="noopener">sleep cycle</a>
+          </div>
         </aside>
 
         <main class="main">
-        <div class="topbar">
-            <div style="color: #7279db;"> Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.</div>
-             
-            <div class="topbar-icons">
-                <div class="notification-icon-wrapper" id="topbar-notification-icon">
-                    <div class="notification-circle">
-                        <span id="topbar-notification-count">0</span>
-                    </div>
-                </div>
+          <div class="topbar">
+            <div style="color: #7279db">
+              Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.
             </div>
-        </div>
 
-        <div class="content">
-        <h1>Policies</h1>
+            <div class="topbar-icons">
+              <div class="notification-icon-wrapper" id="topbar-notification-icon">
+                <div class="notification-circle">
+                  <span id="topbar-notification-count">0</span>
+                </div>
+              </div>
+            </div>
+            <div id="auth-control"></div>
+          </div>
 
-        <div class="policy-count"> 
-             <div id="policy-count">
-                    <!-- Count will be populated here -->
-             </div>
-        </div>
+          <div class="content">
+            <h1>Policies</h1>
 
-        <div class="policy-header">
-            <span data-sort="name">Name</span>
-            <span data-sort="plannedStart">Start</span>
-            <span data-sort="plannedEnd">End</span>
-            <span data-sort="taskCount">Tasks</span>
-            <span data-sort="active">Active</span>
-            <span data-sort="priority">Priority</span>
-            <span data-sort="state">State</span>
-            <span data-sort="info">Description</span>
-        </div>
+            <div class="policy-count">
+              <div id="policy-count">
+                <!-- Count will be populated here -->
+              </div>
+            </div>
 
+            <div class="policy-header">
+              <span data-sort="name">Name</span>
+              <span data-sort="plannedStart">Start</span>
+              <span data-sort="plannedEnd">End</span>
+              <span data-sort="taskCount">Tasks</span>
+              <span data-sort="active">Active</span>
+              <span data-sort="priority">Priority</span>
+              <span data-sort="state">State</span>
+              <span data-sort="info">Description</span>
+            </div>
 
-        <div id="policy-list"></div>
-        </div>
+            <div id="policy-list"></div>
+          </div>
 
-        <div class="bottombar">
-            <div style="color: #7279db;"> Audendo magnus tegitur, timor vincit qui patitur.</div>
-        </div>
-        
-      <footer class="status-strip">
+          <div class="bottombar">
+            <div style="color: #7279db">Audendo magnus tegitur, timor vincit qui patitur.</div>
+          </div>
+
+          <footer class="status-strip">
             <div class="status-item" title="10.244.10.15">
-                <span class="status-dot online"></span>
-                <span>Database</span>
+              <span class="status-dot online"></span>
+              <span>Database</span>
             </div>
 
             <div class="status-item" title="10.244.10.125">
-                <span class="status-dot offline"></span>
-                <span>NAS</span>
+              <span class="status-dot offline"></span>
+              <span>NAS</span>
             </div>
 
             <div class="status-item" title="10.244.10.124">
-                <span class="status-dot warning"></span>
-                <span>VPN Relay</span>
+              <span class="status-dot warning"></span>
+              <span>VPN Relay</span>
             </div>
-            
-
-        </footer>
-
-        
+          </footer>
         </main>
-  
-  
+      </div>
 
-    </div>
-
-
-
-<!-- Notification Modal Popup -->
-<aside id="notification-modal" class="notification-modal">
-    <div class="notification-modal-content">
-        <div class="notification-modal-header">
+      <!-- Notification Modal Popup -->
+      <aside id="notification-modal" class="notification-modal">
+        <div class="notification-modal-content">
+          <div class="notification-modal-header">
             <h2>⚠️ Unfinished Policies</h2>
             <button class="notification-modal-close" id="notification-modal-close">&times;</button>
-        </div>
-        <p style="color: #aaa; font-size: 0.9rem; margin: 0 0 15px 0;">
+          </div>
+          <p style="color: #aaa; font-size: 0.9rem; margin: 0 0 15px 0">
             The following policies have passed their end date and are not yet archived:
-        </p>
-        <table class="notification-table">
-            <caption>Unfinished Policies</caption>
+          </p>
+          <table class="notification-table">
+            <caption>
+              Unfinished Policies
+            </caption>
             <thead>
-                <tr>
-                    <th>Policy Name</th>
-                    <th>Planned End</th>
-                    <th>Days Overdue</th>
-                    <th>Priority</th>
-                </tr>
+              <tr>
+                <th>Policy Name</th>
+                <th>Planned End</th>
+                <th>Days Overdue</th>
+                <th>Priority</th>
+              </tr>
             </thead>
             <tbody id="notification-table-body">
-                <!-- Table rows will be populated here -->
+              <!-- Table rows will be populated here -->
             </tbody>
-        </table>
-        <div id="notification-empty-message" class="notification-empty" style="display: none;">
+          </table>
+          <div id="notification-empty-message" class="notification-empty" style="display: none">
             No unfinished policies to show.
+          </div>
         </div>
-    </div>
-</aside>
+      </aside>
+    </header>
 
-</header>
-
-
-<script src="/js/utils/helpers.js"></script>
-<script type="module" src="/js/pages/index.js"></script>
-<script type="module" src="/js/main.js"></script>
-</body>
+    <script src="/js/utils/helpers.js"></script>
+    <script type="module" src="/js/pages/index.js"></script>
+    <script type="module" src="/js/components/auth.js"></script>
+    <script type="module" src="/js/components/mcpControl.js"></script>
+    <script type="module" src="/js/main.js"></script>
+  </body>
 </html>
-

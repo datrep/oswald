@@ -60,7 +60,7 @@ Important behavior:
 
 ### Audit logs
 
-- Route: `routes/audit.js`
+- Route: `routes/auditRoutes.js`
 - Controller: `controllers/auditController.js`
 - Model: `models/auditModel.js`
 - Table: `AuditLogs`
@@ -77,8 +77,8 @@ Useful for debugging table contents (`/api/db/tables`, `/api/db/:tableName`).
 
 ## Database and schema
 
-- SQL bootstrap/reset script: `sql/DB_init_table.sql`
-- Connection config from env vars: `utils/db.js`
+- SQL bootstrap/reset script: `sql/schema/DB_init_table.sql`
+- Connection config + shared connection pool: `config/db.js`
 - Shared connection pool logic: `config/db.js`
 
 Schema includes `Edicts`, `Tasks`, `Users`, `EdictResources`, `AuditLogs` with FK relationships.
@@ -114,7 +114,7 @@ This script scans `public/resources/` and removes files not referenced by `Edict
 2. **Trace one feature end-to-end**
    - Example: list policies (`GET /api/edicts`) from frontend (`index.js`) to route/controller/model and SQL query.
 3. **Understand DB schema and FKs**
-   - Read `sql/DB_init_table.sql` to map entities and relationships.
+   - Read `sql/schema/DB_init_table.sql` to map entities and relationships.
 4. **Inspect file upload lifecycle**
    - `resourceRoutes` -> `resourceController` -> `resourceModel` plus `cleanup-resources` script.
 5. **Stabilize rough edges** (good first issues)
