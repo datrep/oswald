@@ -11,5 +11,4 @@ router.post('/', validateCreateEdict, edictController.createEdict);
 router.put('/:id', edictController.updateEdict);
 router.delete('/:id', edictController.deleteEdict);
 
-
 module.exports = router;

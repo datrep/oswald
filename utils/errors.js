@@ -1,25 +1,43 @@
-class NotFoundError extends Error {
-    constructor(message = 'Resource not found') {
-        super(message);
-        this.name = 'NotFoundError';
-        this.statusCode = 404;
-    }
+// utils/errors.js
+// Custom error classes shared across controllers, models, and middleware.
+
+class AppError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.name = this.constructor.name;
+    this.statusCode = statusCode;
+    Error.captureStackTrace(this, this.constructor);
+  }
 }
 
-class ValidationError extends Error {
-    constructor(message = 'Validation failed') {
-        super(message);
-        this.name = 'ValidationError';
-        this.statusCode = 400;
-    }
+class NotFoundError extends AppError {
+  constructor(message = 'Resource not found') {
+    super(message, 404);
+  }
 }
 
-class UnauthorizedError extends Error {
-    constructor(message = 'Unauthorized') {
-        super(message);
-        this.name = 'UnauthorizedError';
-        this.statusCode = 401;
-    }
+class ValidationError extends AppError {
+  constructor(message = 'Validation failed') {
+    super(message, 400);
+  }
 }
 
-module.exports = { NotFoundError, ValidationError, UnauthorizedError };
+class UnauthorizedError extends AppError {
+  constructor(message = 'Unauthorized') {
+    super(message, 401);
+  }
+}
+
+class ForbiddenError extends AppError {
+  constructor(message = 'Forbidden') {
+    super(message, 403);
+  }
+}
+
+module.exports = {
+  AppError,
+  NotFoundError,
+  ValidationError,
+  UnauthorizedError,
+  ForbiddenError,
+};

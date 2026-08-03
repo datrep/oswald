@@ -1,9 +1,8 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const sql = require('mssql');
-const { getPool } = require('../config/db');
+const User = require('../models/userModel');
 
-async function registerUser(req, res) {
+async function registerUser(req, res, next) {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -12,36 +11,16 @@ async function registerUser(req, res) {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const pool = await getPool();
-
-    // Filter to only valid U-prefixed IDs with numeric suffixes
-    const result = await pool.request().query(`
-      SELECT MAX(CAST(SUBSTRING(userID, 2, LEN(userID) - 1) AS INT)) AS maxId 
-      FROM Users 
-      WHERE userID LIKE 'U%' 
-        AND ISNUMERIC(SUBSTRING(userID, 2, LEN(userID) - 1)) = 1
-    `);
-
-    const nextId = (result.recordset[0].maxId || 0) + 1;
-    const userID = `U${nextId}`;
-
-    await pool.request()
-      .input('userID', sql.VarChar(20), userID)
-      .input('username', sql.VarChar(50), username)
-      .input('passwordHash', sql.VarChar(255), hashedPassword)
-      .query(`
-        INSERT INTO Users (userID, username, passwordHash)
-        VALUES (@userID, @username, @passwordHash)
-      `);
+    const userID = await User.getNextUserID();
+    await User.createUser(userID, username, hashedPassword);
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
-};
+}
 
-async function loginUser(req, res) {
+async function loginUser(req, res, next) {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -49,12 +28,7 @@ async function loginUser(req, res) {
   }
 
   try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('username', sql.VarChar(50), username)
-      .query('SELECT * FROM Users WHERE username = @username');
-
-    const user = result.recordset[0];
+    const user = await User.findUserByUsername(username);
     if (!user) return res.status(401).json({ error: 'Invalid username or password' });
 
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
@@ -64,76 +38,59 @@ async function loginUser(req, res) {
 
     res.status(200).json({ message: 'Login successful', token });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
-};
+}
 
-async function updateUser(req, res) {
+async function updateUser(req, res, next) {
   const { username, password } = req.body;
   const userID = req.user.userID;
 
-  try {
-    const pool = await getPool();
-    const hashedPassword = await bcrypt.hash(password, 10);
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
 
-    await pool.request()
-      .input('userID', sql.VarChar(20), userID)
-      .input('username', sql.VarChar(50), username)
-      .input('passwordHash', sql.VarChar(255), hashedPassword)
-      .query(`
-        UPDATE Users SET username = @username, passwordHash = @passwordHash, updatedAt = GETDATE()
-        WHERE userID = @userID
-      `);
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await User.updateUser(userID, username, hashedPassword);
 
     res.json({ message: 'User updated successfully' });
   } catch (err) {
-    console.error('Update error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
-};
+}
 
-async function deleteUser(req, res) {
+async function deleteUser(req, res, next) {
   const userID = req.user.userID;
 
   try {
-    const pool = await getPool();
-    await pool.request()
-      .input('userID', sql.VarChar(20), userID)
-      .query(`DELETE FROM Users WHERE userID = @userID`);
-
+    await User.deleteUser(userID);
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
-    console.error('Delete error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
-};
+}
 
-async function getUserInfo(req, res) {
+async function getUserInfo(req, res, next) {
   const { userID } = req.user;
 
   try {
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input('userID', sql.VarChar(20), userID)
-      .query('SELECT userID, username, createdAt, updatedAt FROM Users WHERE userID = @userID');
+    const user = await User.getUserInfo(userID);
 
-    if (result.recordset.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.status(200).json(result.recordset[0]);
+    res.status(200).json(user);
   } catch (err) {
-    console.error('Error fetching user info:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
-};
+}
 
 module.exports = {
   registerUser,
   loginUser,
   updateUser,
   deleteUser,
-  getUserInfo
+  getUserInfo,
 };

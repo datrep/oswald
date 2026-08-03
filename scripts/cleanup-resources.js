@@ -1,5 +1,4 @@
-﻿
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { getPool } = require('../config/db');
 
@@ -21,9 +20,7 @@ async function cleanupOrphans() {
   const pool = await getPool();
   const result = await pool.request().query('SELECT resourcePath FROM EdictResources');
   const referenced = new Set(
-    result.recordset
-      .map(r => normalizeResourcePath(r.resourcePath))
-      .filter(Boolean)
+    result.recordset.map((r) => normalizeResourcePath(r.resourcePath)).filter(Boolean)
   );
 
   const resourcesDir = path.join(__dirname, '..', 'public', 'resources');
@@ -52,7 +49,7 @@ async function cleanupOrphans() {
 
 cleanupOrphans()
   .then(() => process.exit(0))
-  .catch(err => {
+  .catch((err) => {
     console.error('cleanup failed', err);
     process.exit(1);
   });

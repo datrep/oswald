@@ -1,4 +1,4 @@
-// models/User.js
+// models/userModel.js
 const { getPool } = require('../config/db');
 const sql = require('mssql');
 
@@ -16,11 +16,11 @@ exports.getNextUserID = async () => {
 
 exports.createUser = async (userID, username, passwordHash) => {
   const pool = await getPool();
-  await pool.request()
+  await pool
+    .request()
     .input('userID', sql.VarChar(20), userID)
     .input('username', sql.VarChar(50), username)
-    .input('passwordHash', sql.VarChar(255), passwordHash)
-    .query(`
+    .input('passwordHash', sql.VarChar(255), passwordHash).query(`
       INSERT INTO Users (userID, username, passwordHash)
       VALUES (@userID, @username, @passwordHash)
     `);
@@ -28,7 +28,8 @@ exports.createUser = async (userID, username, passwordHash) => {
 
 exports.findUserByUsername = async (username) => {
   const pool = await getPool();
-  const result = await pool.request()
+  const result = await pool
+    .request()
     .input('username', sql.VarChar(50), username)
     .query('SELECT * FROM Users WHERE username = @username');
   return result.recordset[0];
@@ -36,11 +37,11 @@ exports.findUserByUsername = async (username) => {
 
 exports.updateUser = async (userID, username, passwordHash) => {
   const pool = await getPool();
-  await pool.request()
+  await pool
+    .request()
     .input('userID', sql.VarChar(20), userID)
     .input('username', sql.VarChar(50), username)
-    .input('passwordHash', sql.VarChar(255), passwordHash)
-    .query(`
+    .input('passwordHash', sql.VarChar(255), passwordHash).query(`
       UPDATE Users SET username = @username, passwordHash = @passwordHash, updatedAt = GETDATE()
       WHERE userID = @userID
     `);
@@ -48,14 +49,16 @@ exports.updateUser = async (userID, username, passwordHash) => {
 
 exports.deleteUser = async (userID) => {
   const pool = await getPool();
-  await pool.request()
+  await pool
+    .request()
     .input('userID', sql.VarChar(20), userID)
     .query('DELETE FROM Users WHERE userID = @userID');
 };
 
 exports.getUserInfo = async (userID) => {
   const pool = await getPool();
-  const result = await pool.request()
+  const result = await pool
+    .request()
     .input('userID', sql.VarChar(20), userID)
     .query('SELECT userID, username, createdAt, updatedAt FROM Users WHERE userID = @userID');
   return result.recordset[0];

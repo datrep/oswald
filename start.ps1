@@ -15,9 +15,8 @@ if (Test-Path $envFile) {
 }
 # broken for some reason
 
-Write-Host "Starting MCP Filesystem Server..."
-Start-Process -NoNewWindow -FilePath "node" -ArgumentList "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "C:\Users\datrep\Desktop\oswald"
-Start-Sleep -Seconds 2
+# NOTE: the MCP filesystem server is no longer auto-started here.
+# It is now controlled from the dashboard (auth-gated) instead.
 
 # Interactive menu with input validation
 do {

@@ -51,6 +51,7 @@ CREATE TABLE Edicts (
 PRINT 'Creating Users table...';
 CREATE TABLE Users (
     id INT PRIMARY KEY IDENTITY(1,1),
+    userID NVARCHAR(20) NULL UNIQUE,
     username NVARCHAR(50) NOT NULL UNIQUE,
     passwordHash NVARCHAR(255) NOT NULL,
     createdAt DATETIME DEFAULT GETDATE(),
