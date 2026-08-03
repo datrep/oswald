@@ -59,96 +59,6 @@ function applySettingsChanges() {
 let sortKey = 'createdAt';
 let sortDir = 'desc'; // "asc" | "desc"
 
-// ===========================
-// HELP POPOVERS (LLM-assisted)
-// Purpose: add a reusable "?" button popover pattern for inline field help (no hover required).
-// Notes: this block was implemented with LLM assistance and then adapted to the existing codebase.
-//
-// How to reuse:
-// - Add a button element with class `help-btn` and a stable id (e.g. `help-foo`).
-// - Call `attachHelpPopover(document.getElementById("help-foo"), { title, body })`.
-// ===========================
-function attachHelpPopover(buttonEl, { title, body }) {
-  if (!buttonEl) return;
-
-  let popoverEl = null;
-  let isOpen = false;
-
-  const close = () => {
-    if (!popoverEl) return;
-    popoverEl.remove();
-    popoverEl = null;
-    isOpen = false;
-    buttonEl.setAttribute('aria-expanded', 'false');
-  };
-
-  const open = () => {
-    close();
-
-    popoverEl = document.createElement('div');
-    popoverEl.className = 'help-popover';
-    popoverEl.setAttribute('role', 'tooltip');
-    popoverEl.innerHTML = `
-            <div class="help-popover-title"></div>
-            <div class="help-popover-body"></div>
-        `;
-    popoverEl.querySelector('.help-popover-title').textContent = title || 'More info';
-    popoverEl.querySelector('.help-popover-body').textContent = body || '';
-
-    document.body.appendChild(popoverEl);
-
-    const rect = buttonEl.getBoundingClientRect();
-    const gap = 8;
-    const maxRight = window.innerWidth - 12;
-
-    let left = rect.left;
-    let top = rect.bottom + gap;
-
-    const popRect = popoverEl.getBoundingClientRect();
-    if (left + popRect.width > maxRight) {
-      left = Math.max(12, maxRight - popRect.width);
-    }
-    if (top + popRect.height > window.innerHeight - 12) {
-      top = Math.max(12, rect.top - gap - popRect.height);
-    }
-
-    popoverEl.style.left = `${left}px`;
-    popoverEl.style.top = `${top}px`;
-
-    isOpen = true;
-    buttonEl.setAttribute('aria-expanded', 'true');
-  };
-
-  const toggle = () => {
-    if (isOpen) close();
-    else open();
-  };
-
-  buttonEl.setAttribute('aria-haspopup', 'true');
-  buttonEl.setAttribute('aria-expanded', 'false');
-
-  buttonEl.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggle();
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!isOpen) return;
-    if (e.target === buttonEl) return;
-    if (popoverEl && popoverEl.contains(e.target)) return;
-    close();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (!isOpen) return;
-    if (e.key === 'Escape') close();
-  });
-}
-// ===========================
-// END HELP POPOVERS (LLM-assisted)
-// ===========================
-
 function formatDate(value) {
   if (!value) return '-';
   try {
@@ -275,22 +185,6 @@ function updateSortIndicatorsSafe() {
   });
 }
 
-function updateSortIndicators() {
-  const header = document.querySelector('.policy-header');
-  if (!header) return;
-  const spans = [...header.querySelectorAll('span[data-sort]')];
-
-  spans.forEach((span) => {
-    const key = span.dataset.sort;
-    const baseLabel = span.dataset.baseLabel || span.textContent.replace(/[↑↓]\s*$/, '').trim();
-    span.dataset.baseLabel = baseLabel;
-
-    const isSorted = key === sortKey;
-    span.classList.toggle('sorted', isSorted);
-    span.textContent = isSorted ? `${baseLabel} ${sortDir === 'asc' ? '↑' : '↓'}` : baseLabel;
-  });
-}
-
 function setupSortHeader() {
   const header = document.querySelector('.policy-header');
   if (!header) return;
@@ -316,12 +210,6 @@ function setupSortHeader() {
       span.click();
     });
   });
-}
-
-function formatipstatus(status) {
-  if (status === null || status === undefined) return '-';
-  const statusLabels = { active: 'Active', slow: 'Slow', inactive: 'Inactive' };
-  return statusLabels[status] || status;
 }
 
 // Render all policies (already enriched with counts)
@@ -442,10 +330,6 @@ async function initPolicies() {
     console.error('[UI] Failed to load policies', err);
     policyCountEl.textContent = 'Unable to load policies.';
   }
-}
-
-function renderipstatus() {
-  // Deprecated placeholder; real rendering done by `renderIPResults(results)`.
 }
 
 async function fetchIPStatuses() {

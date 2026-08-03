@@ -27,25 +27,6 @@ function showTime() {
   setTimeout(showTime, 1000);
 }
 
-async function pingIP(ip) {
-  console.log(`Pinging ${ip}...`);
-  const start = performance.now();
-  try {
-    // Try connecting to the IP (note: needs CORS support on server)
-    await fetch(`http://${ip}`, { mode: 'no-cors', cache: 'no-cache' });
-    const end = performance.now();
-    return { ip, status: 'active', time: Math.round(end - start) + 'ms' };
-    if (response.ok) {
-      // unreachable due to CORS, so we check status code instead
-      if (response.status === 200 || response.status === 304 + (end - start) < 300)
-        return { ip, status: 'active', time: Math.round(end - start) + 'ms' };
-      else return { ip, status: 'slow', time: Math.round(end - start) + 'ms' };
-    }
-  } catch (error) {
-    return { ip, status: 'inactive', time: null, error: error.message };
-  }
-}
-
 const modalStack = [];
 
 function registerModal(modalElement, hideMethod = 'style') {
@@ -103,3 +84,82 @@ document.addEventListener('keydown', function (event) {
 
 // Usage
 showTime();
+
+// Shared "?" help popover (used by the dashboard and policy pages).
+function attachHelpPopover(buttonEl, { title, body }) {
+  if (!buttonEl) return;
+
+  let popoverEl = null;
+  let isOpen = false;
+
+  const close = () => {
+    if (!popoverEl) return;
+    popoverEl.remove();
+    popoverEl = null;
+    isOpen = false;
+    buttonEl.setAttribute('aria-expanded', 'false');
+  };
+
+  const open = () => {
+    close();
+
+    popoverEl = document.createElement('div');
+    popoverEl.className = 'help-popover';
+    popoverEl.setAttribute('role', 'tooltip');
+    popoverEl.innerHTML = `
+      <div class="help-popover-title"></div>
+      <div class="help-popover-body"></div>
+    `;
+    popoverEl.querySelector('.help-popover-title').textContent = title || 'More info';
+    popoverEl.querySelector('.help-popover-body').textContent = body || '';
+
+    document.body.appendChild(popoverEl);
+
+    const rect = buttonEl.getBoundingClientRect();
+    const gap = 8;
+    const maxRight = window.innerWidth - 12;
+
+    let left = rect.left;
+    let top = rect.bottom + gap;
+
+    const popRect = popoverEl.getBoundingClientRect();
+    if (left + popRect.width > maxRight) {
+      left = Math.max(12, maxRight - popRect.width);
+    }
+    if (top + popRect.height > window.innerHeight - 12) {
+      top = Math.max(12, rect.top - gap - popRect.height);
+    }
+
+    popoverEl.style.left = `${left}px`;
+    popoverEl.style.top = `${top}px`;
+
+    isOpen = true;
+    buttonEl.setAttribute('aria-expanded', 'true');
+  };
+
+  const toggle = () => {
+    if (isOpen) close();
+    else open();
+  };
+
+  buttonEl.setAttribute('aria-haspopup', 'true');
+  buttonEl.setAttribute('aria-expanded', 'false');
+
+  buttonEl.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggle();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!isOpen) return;
+    if (e.target === buttonEl) return;
+    if (popoverEl && popoverEl.contains(e.target)) return;
+    close();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen) return;
+    if (e.key === 'Escape') close();
+  });
+}
