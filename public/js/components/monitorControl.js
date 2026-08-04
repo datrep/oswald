@@ -1,6 +1,7 @@
 // components/monitorControl.js
 // Renders a small host-management panel for the IP monitoring strip into #monitor-control.
 import { apiGet, apiPost, apiPut, apiDelete, isLoggedIn } from '../api/api.js';
+import { getSetting } from '../utils/settingsStore.js';
 
 let editingHostId = null;
 let hosts = [];
@@ -39,9 +40,10 @@ function render() {
     listEl.innerHTML = '<div class="monitor-empty">No hosts configured</div>';
     return;
   }
-  hosts.forEach((h) => {
+  hosts.forEach((h, i) => {
     const row = document.createElement('div');
-    row.className = 'monitor-row';
+    row.className = 'monitor-row anim-enter';
+    row.style.animationDelay = `${i * 0.05}s`;
     row.dataset.ip = h.ip;
     const s = statusMap[h.ip];
     const dotClass = dotClassFor(h, s);
@@ -102,18 +104,39 @@ function applyStatus() {
     const dot = row.querySelector('.monitor-dot');
     const lat = row.querySelector('.monitor-latency');
     if (dot) {
-      dot.className =
+      const oldClass = dot.className;
+      const newClass =
         'monitor-dot ' +
         (s.alive ? 'online' : parseFloat(s.time) >= 200 ? 'warning' : 'offline');
+      if (oldClass !== newClass) {
+        dot.className = newClass;
+        // Brief scale pulse on status change
+        dot.style.transform = 'scale(1.6)';
+        requestAnimationFrame(() => {
+          dot.style.transition = 'transform 0.25s ease';
+          dot.style.transform = 'scale(1)';
+        });
+      }
     }
-    if (lat) lat.textContent = s.alive ? `${s.time}ms` : 'down';
+    if (lat) {
+      const newText = s.alive ? `${s.time}ms` : 'down';
+      if (lat.textContent !== newText) {
+        lat.textContent = newText;
+        lat.style.transition = 'opacity 0.2s ease';
+        lat.style.opacity = '0';
+        requestAnimationFrame(() => {
+          lat.style.opacity = '1';
+        });
+      }
+    }
   });
 }
 
 function startStatusPolling() {
   stopStatusPolling();
   refreshStatus();
-  statusTimer = setInterval(refreshStatus, 5000);
+  const seconds = Number(getSetting('monitorPollInterval')) || 5;
+  statusTimer = setInterval(refreshStatus, Math.max(2, seconds) * 1000);
 }
 
 function stopStatusPolling() {
@@ -224,6 +247,10 @@ function init() {
     stopStatusPolling();
     statusMap = {};
     refresh();
+  });
+  // Re-apply the polling interval when the setting changes.
+  window.addEventListener('settings:changed', (e) => {
+    if (e.detail && e.detail.key === 'monitorPollInterval') startStatusPolling();
   });
 
   if (isLoggedIn()) startStatusPolling();

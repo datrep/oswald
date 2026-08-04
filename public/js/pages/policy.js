@@ -308,25 +308,63 @@ function renderTaskRow(task, index) {
   return row;
 }
 
-function renderResourcePreview(resource) {
-  const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
+function renderResourcePreview(resource, index) {
+  const isPending = !!resource._tempId && !resource.resourcePath;
   const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
+  const webPath = isPending
+    ? ''
+    : formatResourcePath(resource.resourcePath || resource.file?.name || '');
+  const kind = getFileKind(fileName);
   const id = resource.id ?? resource._tempId ?? '';
   const row = document.createElement('div');
-  row.className = 'resource-preview-row';
+  row.className = 'resource-preview-row anim-enter';
+  if (index !== undefined && index !== null) {
+    row.style.animationDelay = `${index * 0.06}s`;
+  }
+
+  let thumb;
+  if (!webPath) {
+    thumb = '<div class="thumbnail-placeholder">Pending</div>';
+  } else if (kind === 'image') {
+    thumb = `<img src="/${webPath}" alt="${fileName}" class="resource-thumb">`;
+  } else {
+    thumb = `<div class="resource-type-badge" data-kind="${kind}">${getFileLabel(kind)}</div>`;
+  }
+
+  const actions = webPath
+    ? `<button type="button" class="resource-view-btn" title="View ${fileName}">View</button>`
+    : '<span class="resource-missing">Pending</span>';
+
   row.innerHTML = `
         <div class="thumbnail-preview">
-            ${webPath ? `<img src="/${webPath}" alt="${fileName}">` : `<div class="thumbnail-placeholder">No preview available</div>`}
+            ${thumb}
         </div>
         <div class="resource-preview-text">
             <div class="resource-preview-path" title="${fileName}">${fileName}</div>
             <div class="resource-preview-description">${resource.description || 'No description'}</div>
         </div>
         <div class="resource-actions">
-            ${webPath ? `<a href="/${webPath}" target="_blank" rel="noopener noreferrer" title="View ${fileName}">View</a>` : `<span class="resource-missing">No preview</span>`}
+            ${actions}
             <input type="checkbox" class="resource-select" data-id="${id}" title="Select for edit/delete">
         </div>
     `;
+
+  const img = row.querySelector('img.resource-thumb');
+  if (img) {
+    img.addEventListener('error', () => {
+      img.replaceWith(
+        Object.assign(document.createElement('div'), {
+          className: 'resource-type-badge',
+          dataset: { kind },
+          textContent: getFileLabel(kind),
+        })
+      );
+    });
+  }
+  const viewBtn = row.querySelector('.resource-view-btn');
+  if (viewBtn) {
+    viewBtn.addEventListener('click', () => openResourceViewer(resource));
+  }
   const checkbox = row.querySelector('.resource-select');
   if (checkbox) {
     checkbox.addEventListener('change', updateResourceContextToolbar);
@@ -364,6 +402,7 @@ function getSelectedResource() {
 async function loadPolicy() {
   if (!policyId) {
     titleEl.textContent = 'Policy';
+    titleEl.title = '';
     currentPolicy = null;
     renderPolicyRows(null);
     return;
@@ -372,6 +411,7 @@ async function loadPolicy() {
     const policy = await apiGet(`/api/edicts/${policyId}`);
     currentPolicy = policy;
     titleEl.textContent = policy.name;
+    titleEl.title = policy.name;
     renderPolicyRows(currentPolicy);
   } catch (err) {
     console.error('[UI] Failed to load policy', err);
@@ -403,8 +443,8 @@ async function loadResources() {
     const resources = await apiGet(`/api/resources/edict/${policyId}`);
     resourcesCache = resources;
     resourcePreviewListEl.innerHTML = '';
-    resources.forEach((resource) => {
-      resourcePreviewListEl.appendChild(renderResourcePreview(resource));
+    resources.forEach((resource, i) => {
+      resourcePreviewListEl.appendChild(renderResourcePreview(resource, i));
     });
     renderPolicyRows(currentPolicy);
   } catch (err) {
@@ -673,7 +713,7 @@ async function handleCreateTask() {
       const queued = Object.assign({}, payload, { _tempId: tempId });
       pendingTasks.push(queued);
       // Render immediately so user sees the queued task
-      taskListEl.appendChild(renderTaskRow(queued));
+      taskListEl.appendChild(renderTaskRow(queued, pendingTasks.length - 1));
       console.log('[Policy] Queued task until policy is created', queued);
     } else {
       if (currentTaskId) {
@@ -837,7 +877,10 @@ async function saveResource() {
     await loadResources();
   } catch (err) {
     console.error('[UI] Failed to save resource', err);
-    alert('Resource save failed');
+    const message = /401|Unauthorized/i.test(String(err))
+      ? 'You must be logged in to add resources.'
+      : 'Resource save failed. Please try again.';
+    alert(message);
   } finally {
     setSaveState(saveResourceBtn, false);
   }
@@ -934,6 +977,127 @@ function formatResourcePath(path) {
     return normalized.slice(resourcesIndex);
   }
   return normalized;
+}
+
+// ===========================
+// RESOURCE VIEWER (type-aware)
+// ===========================
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']);
+const TEXT_EXTS = new Set([
+  'txt', 'md', 'json', 'log', 'csv', 'ini', 'yaml', 'yml', 'xml',
+  'js', 'ts', 'html', 'css', 'py', 'sh', 'sql', 'cfg', 'env',
+]);
+const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus']);
+const VIDEO_EXTS = new Set(['mp4', 'webm', 'ogv', 'mov', 'm4v', 'avi', 'mkv']);
+const ARCHIVE_EXTS = new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz']);
+const KIND_LABELS = {
+  image: 'IMAGE', pdf: 'PDF', text: 'TEXT', audio: 'AUDIO', video: 'VIDEO',
+  docx: 'DOCX', xlsx: 'XLSX', archive: 'ARCHIVE', other: 'FILE',
+};
+
+function getFileKind(name) {
+  const ext = (String(name).split('.').pop() || '').toLowerCase();
+  if (IMAGE_EXTS.has(ext)) return 'image';
+  if (ext === 'pdf') return 'pdf';
+  if (TEXT_EXTS.has(ext)) return 'text';
+  if (AUDIO_EXTS.has(ext)) return 'audio';
+  if (VIDEO_EXTS.has(ext)) return 'video';
+  if (ext === 'docx') return 'docx';
+  if (ext === 'xlsx') return 'xlsx';
+  if (ARCHIVE_EXTS.has(ext)) return 'archive';
+  return 'other';
+}
+
+function getFileLabel(kind) {
+  return KIND_LABELS[kind] || 'FILE';
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const DOCX_URL = 'https://unpkg.com/docx-preview@0.3.2/dist/docx-preview.min.js';
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[data-src="${src}"]`)) return resolve();
+    const s = document.createElement('script');
+    s.src = src;
+    s.dataset.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function openResourceViewer(resource) {
+  const viewer = document.getElementById('resource-viewer');
+  if (!viewer) return;
+  const webPath = formatResourcePath(resource.resourcePath || '');
+  if (!webPath) return;
+  const fileName = extractFilename(resource.resourcePath || '');
+  const kind = getFileKind(fileName);
+  const src = '/' + webPath;
+  const titleEl = document.getElementById('resource-viewer-title');
+  const body = document.getElementById('resource-viewer-body');
+  const download = document.getElementById('resource-viewer-download');
+  if (titleEl) titleEl.textContent = fileName;
+  if (download) {
+    download.href = src;
+    download.setAttribute('download', fileName);
+  }
+  body.innerHTML = '';
+  viewer.style.display = 'flex';
+
+  try {
+    if (kind === 'image') {
+      body.innerHTML = `<div class="rv-center"><img class="rv-image" src="${src}" alt="${escapeHtml(fileName)}"></div>`;
+    } else if (kind === 'pdf') {
+      body.innerHTML = `<iframe class="rv-pdf" src="${src}" title="${escapeHtml(fileName)}"></iframe>`;
+    } else if (kind === 'text') {
+      const text = await (await fetch(src)).text();
+      let out = text;
+      if (fileName.toLowerCase().endsWith('.json')) {
+        try { out = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw */ }
+      }
+      body.innerHTML = `<pre class="rv-text">${escapeHtml(out)}</pre>`;
+    } else if (kind === 'audio') {
+      body.innerHTML = `<div class="rv-center"><audio controls src="${src}" class="rv-media"></audio></div>`;
+    } else if (kind === 'video') {
+      body.innerHTML = `<div class="rv-center"><video controls src="${src}" class="rv-media"></video></div>`;
+    } else if (kind === 'docx') {
+      await loadScript(DOCX_URL);
+      const container = document.createElement('div');
+      container.className = 'rv-docx';
+      body.appendChild(container);
+      const buf = await (await fetch(src)).arrayBuffer();
+      await window.docx.renderAsync(buf, container);
+    } else if (kind === 'xlsx') {
+      await loadScript(SHEETJS_URL);
+      const buf = await (await fetch(src)).arrayBuffer();
+      const wb = window.XLSX.read(buf);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const html = window.XLSX.utils.sheet_to_html(sheet, { editable: false });
+      body.innerHTML = `<div class="rv-xlsx">${html}</div>`;
+    } else {
+      body.innerHTML = `<div class="rv-download-card">
+        <div class="resource-type-badge" data-kind="${kind}">${getFileLabel(kind)}</div>
+        <p class="rv-note">No inline preview for this file type — use Download to open it.</p>
+      </div>`;
+    }
+  } catch (err) {
+    console.error('[Viewer] Failed to render resource', err);
+    body.innerHTML = '<div class="rv-error">Could not render this file inline — use Download to open it.</div>';
+  }
+}
+
+function closeResourceViewer() {
+  const viewer = document.getElementById('resource-viewer');
+  if (!viewer) return;
+  viewer.style.display = 'none';
+  const body = document.getElementById('resource-viewer-body');
+  if (body) body.innerHTML = '';
 }
 
 // responsibility: initialize task-ender resize drag handler
@@ -1063,6 +1227,16 @@ async function init() {
   bind(document.getElementById('edit-resource'), 'click', handleEditContextResource);
   bind(document.getElementById('delete-resource'), 'click', handleDeleteContextResource);
 
+  // Type-aware resource viewer modal
+  bind(document.getElementById('resource-viewer-close'), 'click', closeResourceViewer);
+  const viewerEl = document.getElementById('resource-viewer');
+  bind(viewerEl, 'click', (e) => {
+    if (e.target === viewerEl) closeResourceViewer();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && viewerEl && viewerEl.style.display === 'flex') closeResourceViewer();
+  });
+
   if (isCreateMode) {
     // Creating: open the edit modal, auto-fill start date
     openPolicyModal();
@@ -1085,7 +1259,7 @@ function renderPolicyRows(policy) {
 
   if (!policy) {
     const empty = document.createElement('div');
-    empty.className = 'policy-row';
+    empty.className = 'policy-row anim-fade-in';
     empty.textContent = isCreateMode
       ? 'Policy summary will appear after save.'
       : 'No policy selected.';
@@ -1094,7 +1268,7 @@ function renderPolicyRows(policy) {
   }
 
   const row = document.createElement('div');
-  row.className = 'policy-row';
+  row.className = 'policy-row anim-fade-in-up';
   row.innerHTML = `
         <span>${formatDate(policy.plannedStart)}</span>
         <span>${formatDate(policy.plannedEnd)}</span>

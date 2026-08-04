@@ -289,6 +289,29 @@
       </div>
     </div>
 
+    <!-- Resource Viewer Modal (type-aware: image/pdf/text/audio/video/office) -->
+    <div
+      id="resource-viewer"
+      class="resource-viewer"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="resource-viewer-title"
+    >
+      <div class="resource-viewer-content">
+        <div class="resource-viewer-header">
+          <h3 id="resource-viewer-title">View</h3>
+          <button type="button" id="resource-viewer-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="resource-viewer-body" id="resource-viewer-body"></div>
+        <div class="resource-viewer-footer">
+          <a id="resource-viewer-download" href="#" target="_blank" rel="noopener noreferrer">
+            Download
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- TODO:// client specific flags -->
   </body>
 

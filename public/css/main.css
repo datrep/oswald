@@ -139,6 +139,8 @@ body > .content {
   min-height: 0;
   overflow-y: auto;
   padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---------- Top bar / bottom bar / status strip ---------- */
@@ -279,8 +281,17 @@ main .status-strip {
 }
 
 /* ---------- Sidebar sections ---------- */
+.sidebar-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .sidebar-section {
-  margin: 8px 2px 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -293,26 +304,84 @@ main .status-strip {
   font-size: 0.95rem;
   color: var(--success);
   text-align: center;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
 }
 
 /* ---------- Sidebar panels ---------- */
-.add-policy-panel,
-.sidebar-notifications,
-.mcp-control,
-.services-tray {
+.sidebar-panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px;
 }
+.mcp-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Collapsible sidebar section (services) */
+.sidebar-collapsible {
+  cursor: pointer;
+}
+.sidebar-collapsible:hover {
+  color: var(--muted);
+}
+.sidebar-chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+.sidebar-collapse-body {
+  overflow-y: auto;
+  max-height: 480px;
+  opacity: 1;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+}
+.sidebar-collapse-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+  border-width: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow-y: hidden;
+}
+
+/* Sidebar links */
+.sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sidebar-links a {
+  display: block;
+  padding: 6px 9px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.sidebar-links a:hover {
+  background: var(--panel-3);
+  border-color: var(--accent);
+}
 
 /* ---------- Add policy form ---------- */
 #add-policy {
   width: 100%;
+  background: var(--accent);
+  color: #0a0e14;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+#add-policy:hover {
+  filter: brightness(1.08);
 }
 .add-policy-form:not(.hidden) {
   display: flex;
@@ -353,16 +422,6 @@ main .status-strip {
 }
 
 /* ---------- Notifications ---------- */
-.sidebar-notifications-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
 .notification-badge {
   background: var(--danger);
   color: #fff;
@@ -379,7 +438,7 @@ main .status-strip {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 300px;
+  max-height: 155px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -436,19 +495,6 @@ main .status-strip {
 }
 
 /* ---------- Services tray ---------- */
-.services-toggle {
-  width: 100%;
-}
-.services-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px;
-  margin-top: 4px;
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-}
 .service-item {
   display: flex;
   align-items: center;
@@ -900,6 +946,14 @@ main .status-strip {
 .col-name {
   font-weight: 600;
   color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Long policy titles wrap instead of clipping */
+#policy-title {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .col-date {
   font-family: var(--mono);
@@ -1023,6 +1077,23 @@ main .status-strip {
   padding: 18px 20px;
   margin-bottom: 16px;
 }
+
+/* The Resources section (direct child of .policy-scroll) stretches to fill
+   whatever vertical space the policy details + tasks columns leave behind.
+   min-height:0 lets it shrink when content is tall; the preview list then
+   scrolls internally instead of pushing the whole frame. */
+.policy-scroll > .policy-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+.policy-scroll > .policy-section #resource-preview-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 .layout--policy > h2,
 .policy-section h2,
 #policy-title {
@@ -1049,10 +1120,12 @@ main .status-strip {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 .policy-columns > .policy-section {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 @media (max-width: 900px) {
   .policy-columns {
@@ -1141,14 +1214,16 @@ main .status-strip {
   border-color: var(--accent);
   background: var(--panel-2);
 }
-.task-name {
+#task-list .task-name {
   font-weight: 600;
   font-size: 0.95rem;
   color: var(--text);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .task-date {
   font-family: var(--mono);
@@ -1327,6 +1402,221 @@ main .status-strip {
   accent-color: var(--accent);
   flex-shrink: 0;
   cursor: pointer;
+}
+
+/* File-type badge shown for non-image resources (instead of a broken <img>) */
+.resource-type-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: var(--radius-sm);
+  background: var(--panel-3);
+  color: var(--muted);
+}
+.resource-type-badge[data-kind='image'] {
+  background: rgba(168, 85, 247, 0.16);
+  color: #d8b4fe;
+}
+.resource-type-badge[data-kind='pdf'] {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+.resource-type-badge[data-kind='text'] {
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+}
+.resource-type-badge[data-kind='audio'] {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+.resource-type-badge[data-kind='video'] {
+  background: rgba(124, 140, 248, 0.16);
+  color: #a5b4fc;
+}
+.resource-type-badge[data-kind='docx'] {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+.resource-type-badge[data-kind='xlsx'] {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+.resource-type-badge[data-kind='archive'] {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+}
+.resource-type-badge[data-kind='other'] {
+  background: var(--panel-3);
+  color: var(--muted);
+}
+
+/* ---------- Resource viewer modal ---------- */
+.resource-viewer {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: rgba(6, 9, 14, 0.75);
+  backdrop-filter: blur(4px);
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.resource-viewer-content {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 980px;
+  height: 88vh;
+  max-height: 88vh;
+  overflow: hidden;
+}
+.resource-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.resource-viewer-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#resource-viewer-close {
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+#resource-viewer-close:hover {
+  background: var(--panel-3);
+}
+.resource-viewer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg);
+}
+.resource-viewer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+#resource-viewer-download {
+  background: var(--accent);
+  color: #0a0e14;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-weight: 600;
+  text-decoration: none;
+}
+#resource-viewer-download:hover {
+  filter: brightness(1.08);
+}
+.rv-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 20px;
+}
+.rv-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.rv-pdf {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+.rv-media {
+  max-width: 100%;
+}
+.rv-text {
+  margin: 0;
+  padding: 18px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rv-docx {
+  padding: 20px;
+  background: #fff;
+  color: #111;
+  min-height: 100%;
+}
+.rv-xlsx {
+  padding: 16px;
+  overflow: auto;
+}
+.rv-xlsx table {
+  border-collapse: collapse;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.rv-xlsx td,
+.rv-xlsx th {
+  border: 1px solid var(--border-strong);
+  padding: 6px 10px;
+}
+.rv-xlsx th {
+  background: var(--panel-2);
+  font-weight: 700;
+}
+.rv-download-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  min-height: 260px;
+  padding: 24px;
+}
+.rv-download-card .resource-type-badge {
+  width: 96px;
+  height: 96px;
+  font-size: 1.1rem;
+}
+.rv-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+  text-align: center;
+}
+.rv-error {
+  color: var(--danger);
+  padding: 24px;
+  text-align: center;
 }
 
 /* ---------- Edit policy form ---------- */
@@ -1783,6 +2073,205 @@ select {
 }
 .notification-modal-close:hover {
   background: var(--panel-3);
+}
+
+/* ---------- Settings modal ---------- */
+.settings-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(6, 9, 14, 0.7);
+  animation: fadeIn 0.3s ease;
+}
+.settings-modal.show {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.settings-modal-content {
+  background: var(--panel);
+  padding: 24px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 92%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease;
+}
+.settings-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.settings-modal-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+.settings-modal-close {
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 1.5rem;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.settings-modal-close:hover {
+  background: var(--panel-3);
+}
+.settings-section {
+  margin: 0 0 20px;
+}
+.settings-section-title {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.settings-section-desc {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child {
+  border-bottom: none;
+}
+.settings-row-label {
+  flex: 1;
+  min-width: 0;
+}
+.settings-row-label strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.settings-row-label span {
+  display: block;
+  color: var(--faint);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+.settings-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.settings-control select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+.settings-readonly {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: var(--mono);
+}
+/* Toggle switch */
+.settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.settings-switch .slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.settings-switch .slider::before {
+  content: '';
+  position: absolute;
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  top: 3px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.settings-switch input:checked + .slider {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.settings-switch input:checked + .slider::before {
+  transform: translateX(18px);
+  background: #0a0e14;
+}
+.settings-modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.settings-modal-footer .settings-feedback {
+  flex: 1;
+  margin: 0;
+}
+.settings-modal-footer .settings-done {
+  background: var(--accent);
+  color: #0a0e14;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.settings-gear {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.settings-gear:hover {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .notification-table {
   width: 100%;

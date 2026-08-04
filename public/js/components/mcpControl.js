@@ -13,7 +13,7 @@ async function refresh() {
   if (errorEl) errorEl.textContent = '';
 
   if (!isLoggedIn()) {
-    if (statusEl) statusEl.textContent = 'login required';
+    if (statusEl) { statusEl.textContent = 'login required'; statusEl.style.transition = 'color 0.3s ease'; }
     if (rootEl) rootEl.textContent = '—';
     if (pidEl) pidEl.textContent = '';
     if (startBtn) startBtn.disabled = true;
@@ -23,13 +23,24 @@ async function refresh() {
 
   try {
     const status = await apiGet('/api/mcp/status');
-    if (statusEl) statusEl.textContent = status.running ? 'running' : 'stopped';
+    if (statusEl) {
+      const newStatus = status.running ? 'running' : 'stopped';
+      if (statusEl.textContent !== newStatus) {
+        statusEl.style.transition = 'color 0.3s ease, opacity 0.25s ease';
+        statusEl.style.opacity = '0';
+        requestAnimationFrame(() => {
+          statusEl.textContent = newStatus;
+          statusEl.style.color = status.running ? 'var(--success)' : 'var(--muted)';
+          statusEl.style.opacity = '1';
+        });
+      }
+    }
     if (rootEl) rootEl.textContent = status.allowedDir || '—';
     if (pidEl) pidEl.textContent = status.pid ? `pid ${status.pid}` : '';
     if (startBtn) startBtn.disabled = status.running;
     if (stopBtn) stopBtn.disabled = !status.running;
   } catch (err) {
-    if (statusEl) statusEl.textContent = 'error';
+    if (statusEl) { statusEl.textContent = 'error'; statusEl.style.color = 'var(--danger)'; }
     if (errorEl) errorEl.textContent = 'Could not reach server';
     console.error('[MCP] status check failed', err);
   }

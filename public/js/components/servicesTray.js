@@ -6,7 +6,6 @@ const FALLBACK_ICON =
 
 // Services Tray Component
 const servicesList = document.getElementById('services-list');
-const servicesToggle = document.getElementById('services-toggle');
 const addButton = document.getElementById('service-add-button');
 const addForm = document.getElementById('service-add-form');
 
@@ -21,9 +20,6 @@ const serviceTargetInput = document.getElementById('service-target');
 
 const serviceIconInput = document.getElementById('service-icon');
 
-servicesToggle.addEventListener('click', () => {
-  servicesList.classList.toggle('services-menu');
-});
 let editingServiceId = null;
 
 addButton.addEventListener('click', () => {
@@ -133,13 +129,17 @@ function renderServices(services) {
     heading.className = 'service-group-heading';
     heading.textContent = GROUP_LABELS[key] || key;
     servicesList.appendChild(heading);
-    items.forEach((service) => servicesList.appendChild(renderServiceItem(service)));
+    let itemIndex = 0;
+    items.forEach((service) => servicesList.appendChild(renderServiceItem(service, itemIndex++)));
   }
 }
 
-function renderServiceItem(service) {
+function renderServiceItem(service, index) {
   const item = document.createElement('div');
-  item.className = 'service-item';
+  item.className = 'service-item anim-enter';
+  if (index !== undefined && index !== null) {
+    item.style.animationDelay = `${index * 0.04}s`;
+  }
   const iconSrc = getServiceIcon(service);
   const actions = isLoggedIn()
     ? `<div class="service-actions">

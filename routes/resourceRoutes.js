@@ -51,7 +51,7 @@ function uploadSingle(req, res, next) {
 }
 
 router.post('/', authenticateToken, uploadSingle, resourceController.createResource);
-router.delete('/:resourceid', authenticateToken, resourceController.deleteResourceById);
+router.delete('/:id', authenticateToken, resourceController.deleteResourceById);
 router.get('/edict/:edictId', resourceController.getResourcesByEdict);
 
 module.exports = router;

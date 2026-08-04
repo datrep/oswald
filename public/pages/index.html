@@ -18,71 +18,85 @@
     <header>
       <div class="layout">
         <aside class="sidebar">
-          <div id="myClock" class="clock"></div>
+          <!-- Clock -->
+          <section class="sidebar-block" id="clock-section">
+            <h3 class="sidebar-section">Clock</h3>
+            <div class="sidebar-panel"><div id="myClock" class="clock"></div></div>
+          </section>
 
-          <!-- to refresh, just /index.html instead of history.back() -->
-
-          <div class="add-policy-panel">
-            <!-- add policy panel should be moved to content div TODO:// -->
-            <button id="add-policy">Add Policy</button>
-            <form id="add-policy-form" class="add-policy-form hidden">
-              <h2>Add Policy</h2>
-              <p class="muted">
-                Fill in the basic fields for now; more data will be collected soon.
-              </p>
-              <div class="form-group">
-                <div class="label-with-help">
-                  <label for="policy-name">Name</label>
-                  <button
-                    type="button"
-                    class="help-btn"
-                    id="help-add-policy-name"
-                    aria-label="More info about policy name"
-                  >
-                    ?
-                  </button>
+          <!-- New Policy -->
+          <section class="sidebar-block" id="add-policy-section">
+            <h3 class="sidebar-section">New Policy</h3>
+            <div class="sidebar-panel">
+              <button id="add-policy">Add Policy</button>
+              <form id="add-policy-form" class="add-policy-form hidden">
+                <h2>Add Policy</h2>
+                <p class="muted">
+                  Fill in the basic fields for now; more data will be collected soon.
+                </p>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="policy-name">Name</label>
+                    <button
+                      type="button"
+                      class="help-btn"
+                      id="help-add-policy-name"
+                      aria-label="More info about policy name"
+                    >
+                      ?
+                    </button>
+                  </div>
+                  <input
+                    id="policy-name"
+                    name="policyName"
+                    type="text"
+                    placeholder="Policy name"
+                    required
+                  />
                 </div>
-                <input
-                  id="policy-name"
-                  name="policyName"
-                  type="text"
-                  placeholder="Policy name"
-                  required
-                />
-              </div>
-              <div class="form-group">
-                <label for="policy-start">Start</label>
-                <input id="policy-start" name="policyStart" type="date" required />
-              </div>
-              <div class="form-group">
-                <label for="policy-end">End</label>
-                <input id="policy-end" name="policyEnd" type="date" />
-              </div>
-              <div class="form-actions">
-                <button type="button" id="cancel-add-policy">Cancel</button>
-                <button type="submit">Save</button>
-              </div>
-              <p class="form-feedback hidden" id="add-policy-feedback"></p>
-            </form>
-          </div>
+                <div class="form-group">
+                  <label for="policy-start">Start</label>
+                  <input id="policy-start" name="policyStart" type="date" required />
+                </div>
+                <div class="form-group">
+                  <label for="policy-end">End</label>
+                  <input id="policy-end" name="policyEnd" type="date" />
+                </div>
+                <div class="form-actions">
+                  <button type="button" id="cancel-add-policy">Cancel</button>
+                  <button type="submit">Save</button>
+                </div>
+                <p class="form-feedback hidden" id="add-policy-feedback"></p>
+              </form>
+            </div>
+          </section>
 
-          <!-- Notification Badge and List in Sidebar -->
-          <div class="sidebar-notifications">
-            <div class="sidebar-notifications-title">
+          <!-- Unfinished -->
+          <section class="sidebar-block" id="unfinished-section">
+            <h3 class="sidebar-section">
               <span>Unfinished</span>
               <span class="notification-badge" id="notification-badge">0</span>
+            </h3>
+            <div class="sidebar-panel">
+              <div class="sidebar-notifications-list" id="sidebar-notifications-list">
+                <!-- Notification items will be populated here -->
+              </div>
             </div>
-            <div class="sidebar-notifications-list" id="sidebar-notifications-list">
-              <!-- Notification items will be populated here -->
-            </div>
-          </div>
+          </section>
 
-          <div class="bar"></div>
-
-          <nav class="services-tray">
-            <button id="services-toggle" class="services-toggle">Services ▼</button>
-
-            <div id="services-menu" class="services-menu hidden">
+          <!-- Services -->
+          <section class="sidebar-block" id="services-section">
+            <h3
+              class="sidebar-section sidebar-collapsible"
+              id="services-toggle"
+              role="button"
+              aria-expanded="false"
+              tabindex="0"
+            >
+              <span>Services</span>
+              <span class="sidebar-chevron">▸</span>
+            </h3>
+            <nav class="sidebar-panel sidebar-collapse-body collapsed" id="services-menu">
               <!-- dynamically generated -->
               <div id="services-list"><!-- populated by servicesTray.js --></div>
               <div id="service-control">
@@ -115,30 +129,63 @@
                   <button type="submit" id="save-service-button">Save</button>
                 </form>
               </div>
+            </nav>
+          </section>
+
+          <!-- Server -->
+          <section class="sidebar-block" id="mcp-section">
+            <h3
+              class="sidebar-section sidebar-collapsible"
+              id="mcp-toggle"
+              role="button"
+              aria-expanded="true"
+              tabindex="0"
+            >
+              <span>Server</span>
+              <span class="sidebar-chevron">▾</span>
+            </h3>
+            <div class="sidebar-panel sidebar-collapse-body" id="mcp-body">
+              <div id="mcp-control"></div>
             </div>
-          </nav>
+          </section>
 
-          <h3 class="sidebar-section">Server</h3>
+          <!-- Monitoring -->
+          <section class="sidebar-block" id="monitoring-section">
+            <h3
+              class="sidebar-section sidebar-collapsible"
+              id="monitor-toggle"
+              role="button"
+              aria-expanded="true"
+              tabindex="0"
+            >
+              <span>Monitoring</span>
+              <span class="sidebar-chevron">▾</span>
+            </h3>
+            <div class="sidebar-panel sidebar-collapse-body" id="monitor-body">
+              <div id="monitor-control"></div>
+            </div>
+          </section>
 
-          <div id="mcp-control"></div>
-
-          <h3 class="sidebar-section">Monitoring</h3>
-
-          <div id="monitor-control"></div>
-
-          <h3 class="sidebar-section">Links</h3>
-
-          <div class="html">
-            <a href="experiments/seter.html" target="_blank" rel="noopener">Seter</a>
-          </div>
-          <div class="html">
-            <a href="experiments/mirrored fileserver.html" target="_blank" rel="noopener">
-              mirrored fileserver
-            </a>
-          </div>
-          <div class="html">
-            <a href="experiments/sleep-cycle.html" target="_blank" rel="noopener">sleep cycle</a>
-          </div>
+          <!-- Links -->
+          <section class="sidebar-block" id="links-section">
+            <h3
+              class="sidebar-section sidebar-collapsible"
+              id="links-toggle"
+              role="button"
+              aria-expanded="true"
+              tabindex="0"
+            >
+              <span>Links</span>
+              <span class="sidebar-chevron">▾</span>
+            </h3>
+            <div class="sidebar-panel sidebar-links sidebar-collapse-body" id="links-body">
+              <a href="experiments/seter.html" target="_blank" rel="noopener">Seter</a>
+              <a href="experiments/mirrored fileserver.html" target="_blank" rel="noopener">
+                mirrored fileserver
+              </a>
+              <a href="experiments/sleep-cycle.html" target="_blank" rel="noopener">sleep cycle</a>
+            </div>
+          </section>
         </aside>
 
         <main class="main">
@@ -147,8 +194,13 @@
               Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.
             </div>
 
-            <div id="auth-control"></div>
+            <div class="topbar-right">
+              <div id="settings-control"></div>
+              <div id="auth-control"></div>
+            </div>
           </div>
+
+          <div id="status-strip" class="status-strip"></div>
 
           <div class="content">
             <h1>Policies</h1>
@@ -236,6 +288,22 @@
           </div>
         </div>
       </aside>
+
+      <!-- Settings Modal -->
+      <aside id="settings-modal" class="settings-modal">
+        <div class="settings-modal-content">
+          <div class="settings-modal-header">
+            <h2>⚙️ Settings</h2>
+            <button class="settings-modal-close" id="settings-modal-close" title="Close">&times;</button>
+          </div>
+          <div id="settings-form"></div>
+          <div class="settings-modal-footer">
+            <button type="button" id="settings-reset">Reset to defaults</button>
+            <div class="settings-feedback hidden" id="settings-feedback"></div>
+            <button type="button" id="settings-done" class="settings-done">Done</button>
+          </div>
+        </div>
+      </aside>
     </header>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -244,6 +312,7 @@
     <script type="module" src="/js/components/auth.js"></script>
     <script type="module" src="/js/components/mcpControl.js"></script>
     <script type="module" src="/js/components/monitorControl.js"></script>
-    <script type="module" src="/js/main.js"></script>
+    <script type="module" src="/js/components/settingsControl.js"></script>
+    <script type="module" src="/js/components/statusStrip.js"></script>
   </body>
 </html>

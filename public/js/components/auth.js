@@ -18,7 +18,12 @@ async function submitLogin(username, password) {
 function setLoggedInUI() {
   const toggle = document.getElementById('auth-toggle');
   const panel = document.getElementById('auth-panel');
-  if (toggle) toggle.textContent = 'Logout';
+  if (toggle) {
+    toggle.textContent = 'Logout';
+    toggle.style.transition = 'background 0.2s ease, transform 0.15s ease';
+    toggle.style.transform = 'scale(1.05)';
+    requestAnimationFrame(() => { toggle.style.transform = 'scale(1)'; });
+  }
   if (panel) panel.classList.add('hidden');
   const error = document.getElementById('auth-error');
   if (error) error.textContent = '';
@@ -26,7 +31,12 @@ function setLoggedInUI() {
 
 function setLoggedOutUI() {
   const toggle = document.getElementById('auth-toggle');
-  if (toggle) toggle.textContent = 'Login';
+  if (toggle) {
+    toggle.textContent = 'Login';
+    toggle.style.transition = 'background 0.2s ease, transform 0.15s ease';
+    toggle.style.transform = 'scale(1.05)';
+    requestAnimationFrame(() => { toggle.style.transform = 'scale(1)'; });
+  }
 }
 
 function refreshUI() {

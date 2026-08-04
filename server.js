@@ -68,6 +68,44 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// GET /api/health — lightweight, public status for the dashboard status strip.
+// Returns server uptime, DB connectivity, MCP state, and host counts without
+// pinging anything, so it stays fast enough to poll every few seconds.
+app.get('/api/health', async (req, res) => {
+  let db = false;
+  let mcp = { running: false, pid: null };
+  let hosts = { total: 0, enabled: 0 };
+
+  try {
+    const s = mcpServer.status();
+    mcp = { running: !!s.running, pid: s.pid || null };
+  } catch (err) {
+    console.error('[health] mcp status failed:', err.message);
+  }
+
+  try {
+    const pool = await getPool();
+    await pool.request().query('SELECT 1');
+    db = true;
+    const r = await pool.request().query(
+      'SELECT COUNT(*) AS total, SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) AS enabled FROM NetworkHosts'
+    );
+    const row = r.recordset[0];
+    hosts = { total: row.total || 0, enabled: row.enabled || 0 };
+  } catch (err) {
+    console.error('[health] db check failed:', err.message);
+  }
+
+  res.json({
+    status: 'ok',
+    uptime: Math.round(process.uptime()),
+    db,
+    mcp,
+    hosts,
+    checkedAt: new Date().toISOString(),
+  });
+});
+
 app.use('/api/db', dbRoutes);
 app.use('/api/edicts', edictRoutes);
 app.use('/api/tasks', taskRoutes);

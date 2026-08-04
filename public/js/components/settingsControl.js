@@ -116,11 +116,9 @@ function applySettings() {
     const node = el(id);
     if (node) node.style.display = visible ? '' : 'none';
   };
-  setVisible('services-tray', getSetting('showServicesTray'));
-  setVisible('server-heading', getSetting('showMcp'));
-  setVisible('mcp-control', getSetting('showMcp'));
-  setVisible('monitor-heading', getSetting('showMonitoring'));
-  setVisible('monitor-control', getSetting('showMonitoring'));
+  setVisible('services-section', getSetting('showServicesTray'));
+  setVisible('mcp-section', getSetting('showMcp'));
+  setVisible('monitoring-section', getSetting('showMonitoring'));
 }
 
 async function init() {

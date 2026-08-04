@@ -3,6 +3,8 @@
 
 // api/api.js
 import { apiGet, isLoggedIn } from '../api/api.js'; // generic API wrapper functions for calling backend routes. all fetch calls should be made through these functions for better error handling and consistency. do not use fetch() directly in other files, use these apiGet/apiPost/etc functions instead.
+// settings
+import { getSetting, setSetting, loadSettings } from '../utils/settingsStore.js';
 // components
 //import "../components/policyRow.js"; // not currently used, but may be useful for future refactor to make code more modular
 import '../components/servicesTray.js'; // the services tray in the top right corner
@@ -11,44 +13,36 @@ const policyCountEl = document.getElementById('policy-count');
 const policyListEl = document.getElementById('policy-list');
 
 let edictsCache = [];
-let globalSettings = null;
 
-const toggle = document.getElementById('services-toggle');
-const menu = document.getElementById('services-menu');
+// Collapsible sidebar sections (services, server, monitoring, links) — same pattern as trends.
+function initCollapsibleSection(toggleId, bodyId, defaultCollapsed = false) {
+  const toggle = document.getElementById(toggleId);
+  const body = document.getElementById(bodyId);
+  if (!toggle || !body) return;
+  const chevron = toggle.querySelector('.sidebar-chevron');
 
-toggle.addEventListener('click', () => {
-  menu.classList.toggle('hidden');
-});
+  const setCollapsed = (collapsed) => {
+    body.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    if (chevron) chevron.textContent = collapsed ? '▸' : '▾';
+  };
 
-document.addEventListener('click', (event) => {
-  if (!menu.contains(event.target) && !toggle.contains(event.target)) {
-    menu.classList.add('hidden');
-  }
-});
-
-// Load settings from server. Browser caches HTTP responses by default (304 Not Modified),
-// so we use cache: 'no-store' to bypass browser cache. On page load, this ensures we get
-// the latest settings.json from the server. However, changes made to settings.json during
-// runtime won't be reflected until you call loadSettings(true) to force-refresh, or reload the page.
-async function loadSettings(forceRefresh = false) {
-  if (!globalSettings || forceRefresh) {
-    try {
-      const response = await fetch('/api/settings', { cache: 'no-store' });
-      if (!response.ok) throw new Error('Failed to fetch settings');
-      globalSettings = await response.json();
-      applySettingsChanges(); // Apply any UI changes from new settings
-    } catch (err) {
-      console.error('Failed to load settings', err);
-      globalSettings = { enableStatusStrip: true }; // default
+  toggle.addEventListener('click', () => setCollapsed(!body.classList.contains('collapsed')));
+  toggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setCollapsed(!body.classList.contains('collapsed'));
     }
-  }
-  return globalSettings;
+  });
+
+  setCollapsed(defaultCollapsed);
 }
 
-// Apply settings to the UI
-function applySettingsChanges() {
-  // Status strip removed — monitoring now lives in the sidebar panel.
-}
+initCollapsibleSection('services-toggle', 'services-menu', true);
+initCollapsibleSection('mcp-toggle', 'mcp-body', false);
+initCollapsibleSection('monitor-toggle', 'monitor-body', false);
+initCollapsibleSection('links-toggle', 'links-body', false);
+
 let sortKey = 'createdAt';
 let sortDir = 'desc'; // "asc" | "desc"
 
@@ -232,7 +226,7 @@ function renderPolicyRows(edicts) {
       : stateLabel;
 
     row.innerHTML = `\
-                <span class="col-name">${edict.name || '-'}</span>
+                <span class="col-name" title="${edict.name || ''}">${edict.name || '-'}</span>
                 <span class="col-date">${formatDate(edict.plannedStart)}</span>
                 <span class="col-date">${formatDate(edict.plannedEnd)}</span>
                 <span class="col-tasks">${edict.taskCount ?? 0} / ${edict.resourceCount ?? 0}</span>
@@ -513,6 +507,7 @@ function dismissedToday() {
 
 async function loadUnfinishedPolicies() {
   try {
+    await loadSettings();
     console.log('[Notifications] Fetching unfinished policies...');
     unfinishedEdicts = await apiGet('/api/edicts/unfinished');
     console.log(`[Notifications] Found ${unfinishedEdicts.length} unfinished policies`);
@@ -521,8 +516,8 @@ async function loadUnfinishedPolicies() {
     renderNotificationSidebar();
     renderPolicyStats();
 
-    // Show modal if there are unfinished policies (unless dismissed for today)
-    if (unfinishedEdicts.length > 0 && !dismissedToday()) {
+    // Show modal if there are unfinished policies (unless disabled or dismissed for today)
+    if (unfinishedEdicts.length > 0 && getSetting('showUnfinishedPopup') && !dismissedToday()) {
       openNotificationModal();
     }
   } catch (err) {
@@ -688,30 +683,23 @@ function renderTrendChart(canvas, data, summaryEl, label) {
   }
 }
 
-// Collapse/expand the trends section (remembered in localStorage)
-function initTrendsCollapse() {
+// Collapse/expand the trends section (remembered via the settings store)
+async function initTrendsCollapse() {
+  await loadSettings();
   const header = document.getElementById('trends-toggle');
   const body = document.getElementById('trends-body');
   const chevron = document.getElementById('trends-chevron');
   if (!header || !body) return;
 
-  const wasCollapsed = (() => {
-    try {
-      return localStorage.getItem('oswald_trends_collapsed') === '1';
-    } catch {
-      return false;
-    }
-  })();
+  const wasCollapsed = !!getSetting('trendsCollapsed');
 
   const setCollapsed = (isCollapsed) => {
+    const current = body.classList.contains('collapsed');
+    if (current === isCollapsed) return;
     body.classList.toggle('collapsed', isCollapsed);
     header.setAttribute('aria-expanded', String(!isCollapsed));
     if (chevron) chevron.textContent = isCollapsed ? '▸' : '▾';
-    try {
-      localStorage.setItem('oswald_trends_collapsed', isCollapsed ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
+    setSetting('trendsCollapsed', isCollapsed);
     // Re-fit charts after the expand animation completes
     if (!isCollapsed) {
       setTimeout(() => {
@@ -729,6 +717,11 @@ function initTrendsCollapse() {
       e.preventDefault();
       setCollapsed(!body.classList.contains('collapsed'));
     }
+  });
+
+  // Keep the trends section and the settings modal in sync (two-way).
+  window.addEventListener('settings:changed', (e) => {
+    if (e.detail && e.detail.key === 'trendsCollapsed') setCollapsed(Boolean(e.detail.value));
   });
 
   if (wasCollapsed) setCollapsed(true);
