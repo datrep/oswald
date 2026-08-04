@@ -24,8 +24,27 @@
           <div id="auth-control"></div>
         </div>
 
+        <div class="policy-body">
+          <aside class="policy-rail policy-rail--left">
+            <div class="rail-section">
+              <h3 class="rail-title">Policies</h3>
+              <select id="policy-nav-select" class="rail-select" aria-label="Policies"></select>
+            </div>
+            <div class="rail-section">
+              <h3 class="rail-title">Progress</h3>
+              <div id="rail-progress" class="rail-progress"></div>
+            </div>
+          </aside>
+          <div class="policy-center">
         <div class="policy-scroll">
+        <div class="policy-topbar">
         <h2 id="policy-title">Policy</h2>
+        <div class="policy-actions">
+          <button type="button" id="action-edit-policy" class="policy-action-btn" title="Edit this policy"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><span>Edit</span></button>
+          <button type="button" id="action-add-task" class="policy-action-btn primary" title="Add a task"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add Task</span></button>
+          <button type="button" id="action-add-resource" class="policy-action-btn primary" title="Add a resource"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Add Resource</span></button>
+        </div>
+        </div>
 
         <div class="policy-columns">
 
@@ -34,22 +53,8 @@
         <div class="policy-section">
           <div class="section-header">
             <h2>Policy Details</h2>
-            <button id="edit-policy">Edit Policy</button>
-          </div>
-          <!--to change row to box/list style, update CSS and this template accordingly-->
-          <div class="policy-header">
-            <span data-sort="plannedStart">Start</span>
-            <span data-sort="plannedEnd">End</span>
-            <span data-sort="taskCount">Task count</span>
-            <span data-sort="active">Active</span>
-            <span data-sort="priority">Priority</span>
-            <span data-sort="state">State</span>
-            <span data-sort="info">Description</span>
           </div>
           <div id="policy-list"></div>
-
-          <!-- todo implementation, derived from database  -->
-          <div class="policy-description"></div>
         </div>
 
         <!-- TASKS -->
@@ -57,7 +62,6 @@
         <div class="policy-section">
           <div class="section-header">
             <h2>Tasks</h2>
-            <button id="add-task">Add Task</button>
           </div>
 
           <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when tasks are selected -->
@@ -65,19 +69,6 @@
             <span id="task-selected-count">0 selected</span>
             <button id="edit-task">Edit</button>
             <button id="delete-task">Delete</button>
-          </div>
-
-          <div class="task-header">
-            <!-- SORTABLE TASK HEADER (LLM-assisted): click columns to sort asc/desc -->
-            <span data-sort="name">Name</span>
-            <span data-sort="plannedStart">Start</span>
-            <span data-sort="plannedEnd">End</span>
-            <span data-sort="priority">Priority</span>
-            <span data-sort="state">State</span>
-            <span data-sort="active">Active</span>
-            <span data-sort="info">Description</span>
-            <span>select</span>
-            <!-- END SORTABLE TASK HEADER (LLM-assisted) -->
           </div>
 
           <div id="task-list"></div>
@@ -92,7 +83,6 @@
         <div class="policy-section">
           <div class="section-header">
             <h2>Resources</h2>
-            <button id="add-resource">Add Resource</button>
           </div>
 
           <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when resources are selected -->
@@ -127,7 +117,9 @@
           <button id="save-policy">Save Policy</button>
           <button id="delete-policy">Delete Policy</button>
         </div>
+        </div>
       </div>
+    </div>
     </div>
 
     <div id="policy-modal" class="modal">

@@ -3,6 +3,10 @@
 import { apiGet, apiPost, apiPut, apiDelete, isLoggedIn } from '../api/api.js';
 import { getSetting } from '../utils/settingsStore.js';
 
+function confirmIfEnabled(message) {
+  return getSetting('confirmDelete') ? confirm(message) : true;
+}
+
 let editingHostId = null;
 let hosts = [];
 let statusMap = {};
@@ -60,7 +64,7 @@ function render() {
     `;
     row.querySelector('.monitor-edit').addEventListener('click', () => openEdit(h));
     row.querySelector('.monitor-delete').addEventListener('click', async () => {
-      if (!confirm(`Remove host "${h.label || h.ip}"?`)) return;
+      if (!confirmIfEnabled(`Remove host "${h.label || h.ip}"?`)) return;
       try {
         await apiDelete(`/api/ips/hosts/${h.id}`);
         await refresh();

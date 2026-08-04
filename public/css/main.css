@@ -112,6 +112,13 @@ body > header .layout {
   border: none;
 }
 
+/* Subtle accent gradient across the content area (both pages) */
+.main > .content,
+body > .content {
+  background: radial-gradient(1200px 500px at 50% -10%, rgba(124, 140, 248, 0.06), transparent 60%),
+    var(--bg);
+}
+
 /* ---------- Policy page shell (single frame, no page scroll) ---------- */
 .layout.layout--policy {
   flex: 1;
@@ -119,9 +126,196 @@ body > header .layout {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-width: 1280px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
+}
+
+/* Policy workspace side rails (left: nav, right: actions + progress) */
+.policy-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+.policy-rail {
+  width: 220px;
+  flex-shrink: 0;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--bg-elev);
+}
+.policy-rail--left {
+  border-right: 1px solid var(--border);
+}
+.policy-rail--right {
+  border-left: 1px solid var(--border);
+}
+.policy-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.policy-center > .policy-scroll {
+  flex: 1;
+}
+@media (max-width: 1100px) {
+  .policy-rail {
+    display: none;
+  }
+}
+.rail-section {
+  margin-bottom: 22px;
+}
+.rail-title {
+  margin: 0 0 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.rail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rail-policy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  border: 1px solid transparent;
+  overflow: hidden;
+}
+.rail-policy:hover {
+  background: var(--panel-2);
+}
+.rail-policy.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.rail-policy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.rail-policy-dot.active {
+  background: var(--success);
+}
+.rail-policy-dot.inactive {
+  background: var(--faint);
+}
+.rail-policy-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rail-actions button {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.rail-actions button:hover {
+  background: var(--panel-3);
+  border-color: var(--accent);
+}
+.rail-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rail-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+.rail-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.rail-progress-row {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.rail-progress-row.is-warn {
+  color: var(--danger);
+}
+.rail-select {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  font-size: 0.85rem;
+}
+
+/* Policy workspace top bar: title + compact action row */
+.policy-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.policy-topbar #policy-title {
+  margin: 0;
+}
+.policy-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.policy-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.policy-action-btn:hover {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+.policy-action-btn.primary {
+  background: var(--accent);
+  color: #0a0e14;
+  border-color: var(--accent);
+}
+.policy-action-btn.primary:hover {
+  filter: brightness(1.08);
+}
+.policy-action-btn svg {
+  flex-shrink: 0;
 }
 
 body > .content {
@@ -1201,6 +1395,247 @@ main .status-strip {
   width: 100%;
 }
 
+/* Policy details: card (mirrors the task-card feel) */
+.policy-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.policy-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.policy-card-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.policy-card-chips {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.policy-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.policy-chip-state {
+  background: var(--panel-3);
+  color: var(--muted);
+}
+.policy-chip-priority {
+  background: rgba(124, 140, 248, 0.16);
+  color: #a5b4fc;
+}
+.policy-chip-active {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+.policy-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.policy-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.policy-cell-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.policy-cell-value {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.policy-cell-value.is-overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+.policy-cell-value.is-today {
+  color: var(--warning);
+  font-weight: 600;
+}
+.policy-card-info {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.policy-card-info.is-empty {
+  color: var(--faint);
+  font-style: italic;
+}
+.policy-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 8px 0;
+}
+@media (max-width: 520px) {
+  .policy-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tasks: compact cards (replaces the wide table) */
+.task-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.task-card:hover {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.task-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.task-card-head .task-select {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.task-card-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.task-card-chips {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.task-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.task-chip-priority {
+  background: rgba(124, 140, 248, 0.16);
+  color: #a5b4fc;
+}
+.task-chip-state {
+  background: var(--panel-3);
+  color: var(--muted);
+}
+.task-chip-active {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+.task-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.task-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.task-cell-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.task-cell-value {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.task-cell-value.is-overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+.task-cell-value.is-today {
+  color: var(--warning);
+  font-weight: 600;
+}
+.task-card-info {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.task-card-info.is-empty {
+  color: var(--faint);
+  font-style: italic;
+}
+@media (max-width: 520px) {
+  .task-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.task-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.task-card-actions .duplicate-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.task-card-actions .duplicate-btn:hover {
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+
 .task-row,
 .resource-row {
   background: var(--panel);
@@ -1402,6 +1837,12 @@ main .status-strip {
   accent-color: var(--accent);
   flex-shrink: 0;
   cursor: pointer;
+}
+.resource-clickable {
+  cursor: pointer;
+}
+.resource-clickable:hover {
+  border-color: var(--accent);
 }
 
 /* File-type badge shown for non-image resources (instead of a broken <img>) */
@@ -2263,10 +2704,105 @@ select {
   cursor: pointer;
   font-size: 1rem;
   line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-icon {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-right: 6px;
+  color: var(--accent);
 }
 .settings-gear:hover {
   background: var(--panel-2);
   border-color: var(--accent);
+}
+
+/* Hierarchical settings: collapsible categories -> sections */
+.settings-category {
+  margin: 0 0 18px;
+}
+.settings-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  user-select: none;
+}
+.settings-category-header:hover {
+  border-color: var(--accent);
+}
+.settings-category-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.settings-category-chevron {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.settings-category-body {
+  padding: 12px 4px 0;
+}
+.settings-category-body.collapsed {
+  display: none;
+}
+.settings-section-title {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+}
+.settings-actions button {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.settings-actions button:hover {
+  background: var(--panel-3);
+  border-color: var(--accent);
+}
+
+/* Light theme (accent is applied inline from settings) */
+:root {
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f6fb;
+  --bg-elev: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f1f4f9;
+  --panel-3: #e6ebf3;
+  --border: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(15, 23, 42, 0.24);
+  --text: #0f172a;
+  --muted: #475569;
+  --faint: #94a3b8;
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 .topbar-right {
   display: flex;
