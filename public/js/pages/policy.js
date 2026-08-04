@@ -623,17 +623,26 @@ async function flushPendingSubmissions(createdPolicyId) {
     pendingTasks = [];
   }
 
-  // Then submit resources (uploads)
+  // Then submit resources (uploads or queued attach-existing entries)
   if (pendingResources.length) {
     console.log(`[Policy] Flushing ${pendingResources.length} pending resource(s)`);
     for (const r of pendingResources) {
       try {
-        const form = new FormData();
-        form.append('file', r.file);
-        // resourceController tolerates different edict param names
-        form.append('edictID', createdPolicyId);
-        form.append('description', r.description || '');
-        await apiPost('/api/resources', form);
+        if (r.resourcePath && !r.file) {
+          // Queued "attach existing" resource (from the picker)
+          await apiPost('/api/resources/attach', {
+            edictId: createdPolicyId,
+            resourcePath: r.resourcePath,
+            description: r.description || '',
+          });
+        } else {
+          const form = new FormData();
+          form.append('file', r.file);
+          // resourceController tolerates different edict param names
+          form.append('edictID', createdPolicyId);
+          form.append('description', r.description || '');
+          await apiPost('/api/resources', form);
+        }
       } catch (err) {
         console.error('[Policy] Failed to flush pending resource', err, r);
       }
@@ -909,6 +918,118 @@ function closeResourceModal() {
   if (!modal) return;
   modal.style.display = 'none';
   resetResourceForm();
+}
+
+// ---- Attach-existing resource picker (task 56: pull from oswald's /resources) ----
+let resourcePickerCache = [];
+
+function openResourcePicker() {
+  const modal = document.getElementById('resource-picker');
+  if (!modal) return;
+  const search = document.getElementById('resource-picker-search');
+  const list = document.getElementById('resource-picker-list');
+  modal.style.display = 'flex';
+  if (search) search.value = '';
+  if (list) list.innerHTML = '<div class="picker-status muted">Loading resources…</div>';
+  if (search) search.focus();
+  loadResourcePicker();
+}
+
+async function loadResourcePicker() {
+  const list = document.getElementById('resource-picker-list');
+  const status = document.getElementById('resource-picker-status');
+  try {
+    resourcePickerCache = await apiGet('/api/resources');
+    const q = (document.getElementById('resource-picker-search').value || '').trim();
+    renderResourcePicker(resourcePickerCache, q);
+    if (status) status.textContent = `${resourcePickerCache.length} resource(s) available`;
+  } catch (err) {
+    console.error('[Policy] Failed to load resources for picker', err);
+    const message = /401|Unauthorized/i.test(String(err))
+      ? 'You must be logged in to attach resources.'
+      : 'Could not load resources. Please try again.';
+    if (list) list.innerHTML = `<div class="picker-status muted">${message}</div>`;
+  }
+}
+
+function renderResourcePicker(resources, q) {
+  const list = document.getElementById('resource-picker-list');
+  const query = (q || '').toLowerCase();
+  const filtered = query
+    ? resources.filter(
+        (r) =>
+          (r.resourcePath || '').toLowerCase().includes(query) ||
+          (r.description || '').toLowerCase().includes(query) ||
+          (r.edictName || '').toLowerCase().includes(query)
+      )
+    : resources;
+  if (!list) return;
+  if (!filtered.length) {
+    list.innerHTML = '<div class="picker-status muted">No resources found.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const r of filtered) {
+    const name = extractFilename(r.resourcePath || '');
+    const kind = getFileKind(name);
+    const row = document.createElement('div');
+    row.className = 'picker-row';
+    row.title = `Attach ${name}`;
+    row.innerHTML = `
+      <span class="resource-type-badge" data-kind="${kind}">${getFileLabel(kind)}</span>
+      <span class="p-name">${escapeHtml(name)}</span>
+      <span class="p-meta">${r.edictName ? 'in ' + escapeHtml(r.edictName) : ''}</span>
+      <span class="p-attach">Attach</span>
+    `;
+    row.addEventListener('click', () => attachExistingResource(r));
+    list.appendChild(row);
+  }
+}
+
+async function attachExistingResource(resource) {
+  const status = document.getElementById('resource-picker-status');
+  const name = extractFilename(resource.resourcePath || '');
+  try {
+    if (!policyId) {
+      // Create mode: queue the attach until the policy exists
+      const tempId = `temp-res-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      pendingResources.push({
+        _tempId: tempId,
+        resourcePath: resource.resourcePath,
+        description: resource.description || '',
+      });
+      resourcePreviewListEl.appendChild(
+        renderResourcePreview({
+          _tempId: tempId,
+          resourcePath: resource.resourcePath,
+          description: resource.description || '',
+        })
+      );
+      closeResourcePicker();
+      alert(`Queued "${name}" — it will be attached once the policy is saved.`);
+      return;
+    }
+    await apiPost('/api/resources/attach', {
+      edictId: policyId,
+      resourcePath: resource.resourcePath,
+      description: resource.description || '',
+    });
+    closeResourcePicker();
+    await loadResources();
+  } catch (err) {
+    console.error('[Policy] Failed to attach resource', err);
+    const message = /401|Unauthorized/i.test(String(err))
+      ? 'You must be logged in to attach resources.'
+      : 'Attach failed. Please try again.';
+    if (status) status.textContent = message;
+    else alert(message);
+  }
+}
+
+function closeResourcePicker() {
+  const modal = document.getElementById('resource-picker');
+  if (!modal) return;
+  modal.style.display = 'none';
 }
 
 // responsibility: save resource (create or replace)
@@ -1341,6 +1462,17 @@ async function init() {
   bind(addResourceBtn, 'click', openResourceModal);
   bind(cancelResourceBtn, 'click', closeResourceModal);
   bind(saveResourceBtn, 'click', saveResource);
+
+  // Attach-existing resource picker (task 56)
+  bind(document.getElementById('attach-existing-resource'), 'click', openResourcePicker);
+  bind(document.getElementById('resource-picker-close'), 'click', closeResourcePicker);
+  closeOnBackdrop(document.getElementById('resource-picker'), closeResourcePicker);
+  const resourcePickerSearchEl = document.getElementById('resource-picker-search');
+  if (resourcePickerSearchEl) {
+    resourcePickerSearchEl.addEventListener('input', () =>
+      renderResourcePicker(resourcePickerCache, resourcePickerSearchEl.value)
+    );
+  }
 
   // LLM-assisted: New contextual toolbar bindings for resources
   bind(document.getElementById('edit-resource'), 'click', handleEditContextResource);

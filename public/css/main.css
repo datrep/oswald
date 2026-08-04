@@ -3083,6 +3083,62 @@ select {
   animation: fadeInScale 0.25s ease both;
 }
 
+/* Attach-existing resource picker (task 56: pull from oswald's /resources) */
+#resource-picker[style*="flex"] .modal-resource-content {
+  animation: fadeInScale 0.25s ease both;
+}
+#resource-picker input[type="search"] {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.resource-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--bg-soft);
+}
+.picker-row:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.picker-row .p-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker-row .p-meta {
+  color: var(--muted);
+  font-size: 12px;
+  flex: none;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker-row .p-attach {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  flex: none;
+}
+.picker-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* Policy edit modal */
 #policy-modal[style*="flex"] .modal-content {
   animation: fadeInScale 0.25s ease both;

@@ -572,7 +572,10 @@ function bindModals() {
     } catch (err) { toast(err.message); }
   };
   $('nf-input').onkeydown = (e) => { if (e.key === 'Enter') $('nf-ok').click(); };
+<<<<<<< HEAD
   $('rn-ok').onclick = () => $('rn-input')._onOk?.();
+=======
+>>>>>>> 42f89b810a3b5cb89dc8769974f82228c1346fdf
   $('rn-input').onkeydown = (e) => { if (e.key === 'Enter') $('rn-input')._onOk?.(); };
 
   $('btn-newfolder').onclick = () => { $('modal-newfolder').classList.add('show'); $('nf-input').focus(); };

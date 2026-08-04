@@ -103,8 +103,21 @@
               <textarea id="resource-description"></textarea>
 
               <div class="modal-actions">
+                <button id="attach-existing-resource">Attach existing…</button>
                 <button id="save-resource">Save</button>
                 <button id="cancel-resource">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="resource-picker" style="display: none">
+            <div class="modal-resource-content">
+              <h3>Attach existing resource</h3>
+              <input type="search" id="resource-picker-search" placeholder="Search resources…" autocomplete="off" />
+              <div id="resource-picker-list" class="resource-picker-list"></div>
+              <p id="resource-picker-status" class="picker-status muted"></p>
+              <div class="modal-actions">
+                <button id="resource-picker-close">Close</button>
               </div>
             </div>
           </div>

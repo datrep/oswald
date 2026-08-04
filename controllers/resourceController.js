@@ -2,6 +2,8 @@ const {
   createResource: modelCreateResource,
   getResourcesByEdict: modelGetResourcesByEdict,
   getResourcePathById,
+  getAllResources: modelGetAllResources,
+  attachResource: modelAttachResource,
   deleteResourceById: modelDeleteResourceById,
 } = require('../models/resourceModel');
 const path = require('path');
@@ -51,6 +53,36 @@ async function getResourcesByEdict(req, res, next) {
   }
 }
 
+// GET /api/resources — list ALL resources (optionally ?q=), for the attach picker.
+async function getAllResources(req, res, next) {
+  try {
+    const q = req.query.q ? String(req.query.q).trim() : null;
+    const resources = await modelGetAllResources(q || null);
+    res.json(resources);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/resources/attach — attach an existing resourcePath to a policy.
+async function attachResource(req, res, next) {
+  try {
+    const rawEdictId = req.body.edictId ?? req.body.edictID ?? req.body.edictid;
+    const numericEdictId = Number(rawEdictId);
+    const edictId = Number.isInteger(numericEdictId) ? numericEdictId : null;
+    const resourcePath = String(req.body.resourcePath || '').trim();
+    const description = String(req.body.description ?? '').trim();
+
+    if (edictId === null) return res.status(400).json({ error: 'edictId is required' });
+    if (!resourcePath) return res.status(400).json({ error: 'resourcePath is required' });
+
+    await modelAttachResource(edictId, description, resourcePath);
+    res.json({ success: true, message: 'Resource attached' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // DELETE /api/resources/:id
 async function deleteResourceById(req, res, next) {
   try {
@@ -90,5 +122,7 @@ async function deleteResourceById(req, res, next) {
 module.exports = {
   createResource,
   getResourcesByEdict,
+  getAllResources,
+  attachResource,
   deleteResourceById,
 };
