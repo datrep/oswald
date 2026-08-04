@@ -1,5 +1,7 @@
 // responsibility: standard api helpers
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/api.js';
+// settings
+import { getSetting, loadSettings, applyGlobalSettings, initSessionTimeout } from '../utils/settingsStore.js';
 
 // responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
@@ -70,16 +72,19 @@ function configurePageMode() {
     if (!el) return;
     el.style.display = visible ? '' : 'none';
   };
+  const actionEdit = document.getElementById('action-edit-policy');
 
   if (isCreateMode) {
     show(saveBtn, true);
     show(editBtn, false);
     show(deleteBtn, false);
+    show(actionEdit, false);
     if (modalDeleteBtn) modalDeleteBtn.style.display = 'none';
   } else {
     show(saveBtn, true);
     show(editBtn, true);
     show(deleteBtn, true);
+    show(actionEdit, true);
     if (modalDeleteBtn) modalDeleteBtn.style.display = '';
   }
 }
@@ -110,7 +115,7 @@ function populatePolicyForm() {
     startEl.value = formatDateInput(roundToClosestMinute(new Date()));
     endEl.value = '';
     ensureSelectHasValue(priorityEl, null);
-    priorityEl.value = '';
+    priorityEl.value = getSetting('defaultPolicyPriority') ?? '';
     stateEl.value = isCreateMode ? '1' : '';
     infoEl.value = '';
     return;
@@ -147,6 +152,17 @@ function formatDate(value) {
 
 function formatState(state) {
   return STATE_LABELS[state] || state;
+}
+
+// Derive a human "due" status from plannedEnd: overdue / due today / days left.
+function formatDue(plannedEnd) {
+  if (!plannedEnd) return { text: 'no end date', state: 'ok' };
+  const end = new Date(plannedEnd).getTime();
+  if (!Number.isFinite(end)) return { text: '—', state: 'ok' };
+  const days = Math.round((end - Date.now()) / 86400000);
+  if (days < 0) return { text: `${-days}d overdue`, state: 'overdue' };
+  if (days === 0) return { text: 'due today', state: 'today' };
+  return { text: `${days}d left`, state: 'ok' };
 }
 
 // responsibility: simple helpers
@@ -267,32 +283,51 @@ function updateResourceContextToolbar() {
 // responsibility: render helpers
 function renderTaskRow(task, index) {
   const row = document.createElement('div');
-  row.className = 'task-row anim-enter';
+  row.className = 'task-card anim-enter';
   if (index !== undefined && index !== null) {
     row.style.animationDelay = `${index * 0.04}s`;
   }
   const id = task.id ?? task._tempId ?? '';
+  const priorityChip =
+    task.priority != null && task.priority !== ''
+      ? `<span class="task-chip task-chip-priority">P${task.priority}</span>`
+      : '';
+  const stateChip = `<span class="task-chip task-chip-state">${formatState(task.state)}</span>`;
+  const activeChip = `<span class="task-chip task-chip-active">${task.active ? 'Active' : 'Inactive'}</span>`;
+
+  const due = formatDue(task.plannedEnd);
+  const dueClass = due.state === 'overdue' ? ' is-overdue' : due.state === 'today' ? ' is-today' : '';
+  const info = task.info || '';
+  const infoClass = info ? '' : ' is-empty';
+  const assigned = task.assignedToUserId != null ? `User #${task.assignedToUserId}` : '—';
+
   row.innerHTML = `
-        <span class="task-name" title="${task.name || ''}">${task.name || '-'}</span>
-        <span class="task-date">${formatDate(task.plannedStart)}</span>
-        <span class="task-date">${formatDate(task.plannedEnd)}</span>
-        <span class="task-priority">${task.priority ?? '-'}</span>
-        <span class="task-state">${formatState(task.state)}</span>
-        <span class="task-active">${task.active ? 'Yes' : 'No'}</span>
-        <span class="task-description" title="${task.info || ''}">${task.info || ''}</span>
-        <span class="task-actions">
-            <input type="checkbox" class="task-select" data-id="${id}">
+        <div class="task-card-head">
+            <input type="checkbox" class="task-select" data-id="${id}" title="Select task">
+            <span class="task-card-name" title="${task.name || ''}">${task.name || '-'}</span>
+            <span class="task-card-chips">
+                ${priorityChip}${stateChip}${activeChip}
+            </span>
+        </div>
+        <div class="task-card-grid">
+            <div class="task-cell"><span class="task-cell-label">Start</span><span class="task-cell-value">${formatDate(task.plannedStart)}</span></div>
+            <div class="task-cell"><span class="task-cell-label">End</span><span class="task-cell-value">${formatDate(task.plannedEnd)}</span></div>
+            <div class="task-cell"><span class="task-cell-label">Created</span><span class="task-cell-value">${formatDate(task.createdAt)}</span></div>
+            <div class="task-cell"><span class="task-cell-label">Due</span><span class="task-cell-value${dueClass}">${due.text}</span></div>
+            <div class="task-cell"><span class="task-cell-label">Assigned</span><span class="task-cell-value">${assigned}</span></div>
+            <div class="task-cell"><span class="task-cell-label">Completed</span><span class="task-cell-value">${formatDate(task.completedAt)}</span></div>
+        </div>
+        <div class="task-card-info${infoClass}" title="${task.info || ''}">${info || 'No description'}</div>
+        <div class="task-card-actions">
             <button type="button" class="duplicate-btn" data-id="${id}" title="Duplicate this task">+</button>
-        </span>
+        </div>
     `;
 
-  // Add listener to checkbox for contextual toolbar updates
   const checkbox = row.querySelector('.task-select');
   if (checkbox) {
     checkbox.addEventListener('change', updateTaskContextToolbar);
   }
 
-  // Duplicate button: open task modal pre-filled with this task's data
   const dupBtn = row.querySelector('.duplicate-btn');
   if (dupBtn) {
     dupBtn.addEventListener('click', (e) => {
@@ -363,11 +398,22 @@ function renderResourcePreview(resource, index) {
   }
   const viewBtn = row.querySelector('.resource-view-btn');
   if (viewBtn) {
-    viewBtn.addEventListener('click', () => openResourceViewer(resource));
+    viewBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openResourceViewer(resource);
+    });
   }
   const checkbox = row.querySelector('.resource-select');
   if (checkbox) {
-    checkbox.addEventListener('change', updateResourceContextToolbar);
+    checkbox.addEventListener('change', (e) => {
+      e.stopPropagation();
+      updateResourceContextToolbar();
+    });
+  }
+  // Clicking anywhere on the card opens the viewer (if enabled)
+  if (webPath && getSetting('openResourceOnClick')) {
+    row.classList.add('resource-clickable');
+    row.addEventListener('click', () => openResourceViewer(resource));
   }
   return row;
 }
@@ -429,10 +475,12 @@ async function loadTasks() {
     taskListEl.innerHTML = '';
     tasks.forEach((task, i) => taskListEl.appendChild(renderTaskRow(task, i)));
     renderPolicyRows(currentPolicy);
+    renderRailProgress();
   } catch (err) {
     console.error('[UI] Failed to load tasks', err);
     currentTasks = [];
     renderPolicyRows(currentPolicy);
+    renderRailProgress();
   }
 }
 
@@ -447,11 +495,66 @@ async function loadResources() {
       resourcePreviewListEl.appendChild(renderResourcePreview(resource, i));
     });
     renderPolicyRows(currentPolicy);
+    renderRailProgress();
   } catch (err) {
     console.error('[UI] Failed to load resources', err);
     resourcesCache = [];
     renderPolicyRows(currentPolicy);
+    renderRailProgress();
   }
+}
+
+// responsibility: left rail — quick nav between policies (dropdown)
+async function loadPolicyNav() {
+  const sel = document.getElementById('policy-nav-select');
+  if (!sel) return;
+  try {
+    const policies = await apiGet('/api/edicts');
+    const currentId = Number(policyId);
+    sel.innerHTML = '';
+    policies.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name || 'Untitled'}${p.active ? ' • active' : ''}`;
+      opt.selected = p.id === currentId;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+      const id = sel.value;
+      if (id && Number(id) !== currentId) window.location.href = `/pages/policy.html?id=${id}`;
+    });
+  } catch (err) {
+    console.error('[Rail] Failed to load policy nav', err);
+  }
+}
+
+// responsibility: right rail — task completion progress
+function renderRailProgress() {
+  const el = document.getElementById('rail-progress');
+  if (!el) return;
+  const total = currentTasks.length;
+  const done = currentTasks.filter((t) => Number(t.state) === 3).length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  const overdue = currentTasks.filter((t) => formatDue(t.plannedEnd).state === 'overdue').length;
+  el.innerHTML = `
+    <div class="rail-progress-bar"><div class="rail-progress-fill" style="width:${pct}%"></div></div>
+    <div class="rail-progress-row">${done} / ${total} tasks complete</div>
+    ${overdue ? `<div class="rail-progress-row is-warn">${overdue} task${overdue === 1 ? '' : 's'} overdue</div>` : ''}
+    <div class="rail-progress-row">${resourcesCache.length} resource${resourcesCache.length === 1 ? '' : 's'}</div>
+  `;
+}
+
+// Confirm a destructive action only if the setting allows it.
+function confirmIfEnabled(message) {
+  return getSetting('confirmDelete') ? confirm(message) : true;
+}
+
+// Left/right rails visibility from settings.
+function applyPolicyRails() {
+  const show = getSetting('showPolicyRails');
+  document.querySelectorAll('.policy-rail').forEach((r) => {
+    r.style.display = show ? '' : 'none';
+  });
 }
 
 // responsibility: create policy
@@ -579,7 +682,7 @@ async function handleDelete(btn = deleteBtn) {
     alert('No policy to delete.');
     return;
   }
-  const confirmDelete = confirm('Are you sure you want to delete this policy?');
+  const confirmDelete = confirmIfEnabled('Are you sure you want to delete this policy?');
   if (!confirmDelete) return;
 
   setSaveState(btn, true, 'Delete');
@@ -649,8 +752,9 @@ function openTaskModal(task = null) {
     : formatDateInput(roundToClosestMinute(new Date())); // auto-fill to now for new tasks
   document.getElementById('task-end').value = formatDateInput(task?.plannedEnd);
   ensureSelectHasValue(document.getElementById('task-priority'), task?.priority);
-  document.getElementById('task-priority').value = task?.priority ?? '';
-  document.getElementById('task-state').value = task?.state ?? 1;
+  document.getElementById('task-priority').value =
+    task?.priority ?? getSetting('defaultTaskPriority') ?? '';
+  document.getElementById('task-state').value = task?.state ?? getSetting('defaultTaskState') ?? 1;
   document.getElementById('task-info').value = task?.info ?? '';
   document.getElementById('task-user').value = task?.assignedToUserId ?? '';
 
@@ -745,7 +849,7 @@ async function handleRemoveTasks() {
     alert('Select at least one task to delete.');
     return;
   }
-  if (!confirm('Delete selected tasks?')) return;
+  if (!confirmIfEnabled('Delete selected tasks?')) return;
   try {
     console.log(`[Policy.delete_task] Executed: delete_task (${selected.length} task(s))`);
     for (const id of selected) {
@@ -893,7 +997,7 @@ async function deleteSelectedResources() {
     alert('No resources selected.');
     return;
   }
-  if (!confirm('Delete selected resources?')) return;
+  if (!confirmIfEnabled('Delete selected resources?')) return;
   try {
     console.log(
       `[Policy.delete_resource] Executed: delete_resource (${selected.length} resource(s))`
@@ -1144,6 +1248,13 @@ async function init() {
 
   configurePageMode();
 
+  // Global settings (theme/accent/session) + workspace rails
+  await loadSettings();
+  applyGlobalSettings();
+  initSessionTimeout();
+  applyPolicyRails();
+  window.addEventListener('settings:changed', applyPolicyRails);
+
   populateStateSelect(stateEl);
   populateStateSelect(document.getElementById('task-state'));
   if (isCreateMode && !stateEl.value) stateEl.value = '1';
@@ -1188,6 +1299,14 @@ async function init() {
     e.preventDefault();
     handleSave();
   });
+
+  // Clicking the backdrop closes the form modals (policy / task / resource)
+  const closeOnBackdrop = (el, closeFn) => {
+    if (el) el.addEventListener('click', (e) => { if (e.target === el) closeFn(); });
+  };
+  closeOnBackdrop(policyModalEl, closePolicyModal);
+  closeOnBackdrop(document.getElementById('task-modal'), closeTaskModal);
+  closeOnBackdrop(document.getElementById('resource-modal'), closeResourceModal);
 
   // Clear field errors on input
   bind(nameEl, 'input', () => showFieldError(nameEl, ''));
@@ -1237,6 +1356,11 @@ async function init() {
     if (e.key === 'Escape' && viewerEl && viewerEl.style.display === 'flex') closeResourceViewer();
   });
 
+  // Top action bar: Edit / Add Task / Add Resource
+  bind(document.getElementById('action-edit-policy'), 'click', () => openPolicyModal());
+  bind(document.getElementById('action-add-task'), 'click', () => openTaskModal(null));
+  bind(document.getElementById('action-add-resource'), 'click', () => openResourceModal());
+
   if (isCreateMode) {
     // Creating: open the edit modal, auto-fill start date
     openPolicyModal();
@@ -1250,6 +1374,7 @@ async function init() {
   await loadPolicy();
   await loadTasks();
   await loadResources();
+  loadPolicyNav();
 }
 
 function renderPolicyRows(policy) {
@@ -1259,7 +1384,7 @@ function renderPolicyRows(policy) {
 
   if (!policy) {
     const empty = document.createElement('div');
-    empty.className = 'policy-row anim-fade-in';
+    empty.className = 'policy-empty anim-fade-in';
     empty.textContent = isCreateMode
       ? 'Policy summary will appear after save.'
       : 'No policy selected.';
@@ -1267,19 +1392,37 @@ function renderPolicyRows(policy) {
     return;
   }
 
-  const row = document.createElement('div');
-  row.className = 'policy-row anim-fade-in-up';
-  row.innerHTML = `
-        <span>${formatDate(policy.plannedStart)}</span>
-        <span>${formatDate(policy.plannedEnd)}</span>
-        <span>${policy.taskCount ?? 0} / ${policy.resourceCount ?? 0}</span>
-        <span>${policy.active ? 'Yes' : 'No'}</span>
-        <span>${policy.priority ?? '-'}</span>
-        <span>${formatState(policy.state)}</span>
-        <span class="policy-info">${policy.info || 'No description available.'}</span>
-    `;
+  const due = formatDue(policy.plannedEnd);
+  const dueClass = due.state === 'overdue' ? ' is-overdue' : due.state === 'today' ? ' is-today' : '';
+  const priorityChip =
+    policy.priority != null && policy.priority !== ''
+      ? `<span class="policy-chip policy-chip-priority">P${policy.priority}</span>`
+      : '';
+  const stateChip = `<span class="policy-chip policy-chip-state">${formatState(policy.state)}</span>`;
+  const activeChip = `<span class="policy-chip policy-chip-active">${policy.active ? 'Active' : 'Inactive'}</span>`;
+  const info = policy.info || '';
+  const infoClass = info ? '' : ' is-empty';
 
-  policyListEl.appendChild(row);
+  const card = document.createElement('div');
+  card.className = 'policy-card anim-fade-in-up';
+  card.innerHTML = `
+        <div class="policy-card-head">
+            <span class="policy-card-name" title="${policy.name || ''}">${policy.name || '-'}</span>
+            <span class="policy-card-chips">
+                ${stateChip}${priorityChip}${activeChip}
+            </span>
+        </div>
+        <div class="policy-card-grid">
+            <div class="policy-cell"><span class="policy-cell-label">Start</span><span class="policy-cell-value">${formatDate(policy.plannedStart)}</span></div>
+            <div class="policy-cell"><span class="policy-cell-label">End</span><span class="policy-cell-value">${formatDate(policy.plannedEnd)}</span></div>
+            <div class="policy-cell"><span class="policy-cell-label">Created</span><span class="policy-cell-value">${formatDate(policy.createdAt)}</span></div>
+            <div class="policy-cell"><span class="policy-cell-label">Due</span><span class="policy-cell-value${dueClass}">${due.text}</span></div>
+            <div class="policy-cell"><span class="policy-cell-label">Tasks</span><span class="policy-cell-value">${policy.taskCount ?? 0} / ${policy.resourceCount ?? 0}</span></div>
+            <div class="policy-cell"><span class="policy-cell-label">Completed</span><span class="policy-cell-value">${formatDate(policy.completedAt)}</span></div>
+        </div>
+        <div class="policy-card-info${infoClass}">${info || 'No description'}</div>
+    `;
+  policyListEl.appendChild(card);
 }
 
 init();

@@ -1,4 +1,9 @@
 import { apiGet, apiPost, apiPut, apiDelete, isLoggedIn } from '../api/api.js';
+import { getSetting } from '../utils/settingsStore.js';
+
+function confirmIfEnabled(message) {
+  return getSetting('confirmDelete') ? confirm(message) : true;
+}
 
 // Inline SVG fallback so a missing icon never 404s.
 const FALLBACK_ICON =
@@ -167,7 +172,7 @@ function renderServiceItem(service, index) {
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async (e) => {
       e.preventDefault();
-      if (!confirm(`Delete service "${service.name}"?`)) return;
+      if (!confirmIfEnabled(`Delete service "${service.name}"?`)) return;
       try {
         await apiDelete(`/api/services/${service.id}`);
         await loadServices();

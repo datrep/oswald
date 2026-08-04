@@ -1,0 +1,19 @@
+{
+  "name": "oswald-fileserver",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FS-1: local web UI for the Oswald fileserver (separate service, same repo).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "sharp": "^0.33.5"
+  }
+}

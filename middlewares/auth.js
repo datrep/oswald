@@ -13,4 +13,17 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Must run AFTER authenticateToken (which sets req.user with JWT claims).
+// Checks that the token carries the required permission code.
+function requirePermission(code) {
+  return (req, res, next) => {
+    const perms = req.user?.permissions || [];
+    if (!perms.includes(code)) {
+      return res.status(403).json({ error: `Missing permission: ${code}` });
+    }
+    next();
+  };
+}
+
 module.exports = authenticateToken;
+module.exports.requirePermission = requirePermission;

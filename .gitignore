@@ -5,6 +5,11 @@ public/resources
 temp
 /config/ips.txt
 
+# Fileserver (FS-1) service
+fileserver/temp-uploads
+fileserver/thumb-cache
+fileserver/node_modules/
+
 # Environment files (secrets)
 .env
 app.env

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fileserver</title>
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+  <header class="fs-topbar">
+    <div class="fs-brand">
+      <svg class="icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <h1>Fileserver</h1>
+    </div>
+
+    <div class="fs-root-picker">
+      <label for="root-select">Root</label>
+      <select id="root-select" title="Browsing root"></select>
+    </div>
+
+    <div class="fs-tools">
+      <button id="btn-upload" class="btn" title="Upload files (ZIPs are extracted)">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload
+      </button>
+      <button id="btn-newfolder" class="btn">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+        New folder
+      </button>
+      <div class="fs-view-toggle" role="group">
+        <button id="view-list" class="active" title="List view">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+        <button id="view-grid" title="Grid (thumbnails)">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </button>
+      </div>
+      <input id="search-input" type="search" placeholder="Search files…" autocomplete="off" />
+      <button id="btn-signout" class="btn ghost">Sign out</button>
+    </div>
+  </header>
+
+  <div class="fs-breadcrumb" id="breadcrumb" aria-label="Current path"></div>
+
+  <main class="fs-body">
+    <aside class="fs-tree" id="fs-tree" aria-label="Folder tree"></aside>
+
+    <section class="fs-content">
+      <div class="fs-toolbar">
+        <span id="dir-info" class="muted"></span>
+        <div class="fs-toolbar-right">
+          <select id="filter-select" title="Filter by type">
+            <option value="all">All types</option>
+            <option value="image">Images</option>
+            <option value="office">Office (doc/xls)</option>
+            <option value="pdf">PDF</option>
+            <option value="text">Text / code</option>
+            <option value="audio">Audio</option>
+            <option value="video">Video</option>
+            <option value="archive">Archives</option>
+            <option value="other">Other</option>
+          </select>
+          <label class="sort-label" for="sort-select">Sort</label>
+          <select id="sort-select" title="Sort by">
+            <option value="name">Name</option>
+            <option value="size">Size</option>
+            <option value="mtime">Modified</option>
+          </select>
+          <button id="sort-dir" title="Toggle direction">↑</button>
+        </div>
+      </div>
+      <div id="file-list" class="fs-list" tabindex="0"></div>
+      <div id="drop-hint" class="drop-hint">Drop files anywhere to upload — ZIP archives are extracted</div>
+    </section>
+  </main>
+
+  <!-- Login -->
+  <div id="modal-login" class="modal show">
+    <div class="modal-card login-card">
+      <div class="modal-head"><h2>Sign in</h2><p class="muted">to me: use OSWALD.</p></div>
+      <input id="login-user" placeholder="Username" autocomplete="username" />
+      <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password" />
+      <p id="login-error" class="error hidden"></p>
+      <button id="login-submit" class="primary">Sign in</button>
+      <p class="muted tiny">The fileserver shares your Oswald login. Root access is granted to all authenticated users for now.</p>
+    </div>
+  </div>
+
+  <!-- Viewer -->
+  <div id="modal-viewer" class="modal">
+    <div class="modal-card viewer-card">
+      <div class="modal-head">
+        <h2 id="viewer-title" title=""></h2>
+        <div class="modal-actions">
+          <a id="viewer-download" class="btn" target="_blank" rel="noopener">Download</a>
+          <button id="viewer-edit" class="btn">Edit</button>
+          <button id="viewer-close" class="btn close" title="Close">✕</button>
+        </div>
+      </div>
+      <div id="viewer-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Text editor -->
+  <div id="modal-textedit" class="modal">
+    <div class="modal-card editor-card">
+      <div class="modal-head">
+        <h2 id="editor-title" title=""></h2>
+        <div class="modal-actions">
+          <button id="editor-save" class="primary">Save</button>
+          <button id="editor-cancel">Cancel</button>
+        </div>
+      </div>
+      <textarea id="editor-body" spellcheck="false" placeholder="Loading…"></textarea>
+      <p id="editor-status" class="muted"></p>
+    </div>
+  </div>
+
+  <!-- New folder -->
+  <div id="modal-newfolder" class="modal">
+    <div class="modal-card small">
+      <div class="modal-head"><h2>New folder</h2></div>
+      <input id="nf-input" placeholder="Folder name" autocomplete="off" />
+      <div class="row">
+        <button id="nf-ok" class="primary">Create</button>
+        <button id="nf-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename -->
+  <div id="modal-rename" class="modal">
+    <div class="modal-card small">
+      <div class="modal-head"><h2 id="rename-title">Rename</h2></div>
+      <input id="rn-input" autocomplete="off" />
+      <div class="row">
+        <button id="rn-ok" class="primary">Rename</button>
+        <button id="rn-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Move -->
+  <div id="modal-move" class="modal">
+    <div class="modal-card">
+      <div class="modal-head"><h2 id="move-title">Move to…</h2></div>
+      <div id="move-tree" class="move-tree"></div>
+      <div class="row">
+        <button id="move-ok" class="primary">Move here</button>
+        <button id="move-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm -->
+  <div id="modal-confirm" class="modal">
+    <div class="modal-card small">
+      <div class="modal-head"><h2 id="confirm-title">Are you sure?</h2></div>
+      <p id="confirm-text" class="muted"></p>
+      <div class="row">
+        <button id="confirm-ok" class="danger">Delete</button>
+        <button id="confirm-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" multiple hidden />
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

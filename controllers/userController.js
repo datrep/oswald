@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/userModel');
+const Role = require('../models/roleModel');
+
+const DEFAULT_ROLE = 'user';
 
 async function registerUser(req, res, next) {
   const { username, password } = req.body;
@@ -12,8 +15,11 @@ async function registerUser(req, res, next) {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     await User.createUser(username, hashedPassword);
+    // New accounts get the read-only baseline role; an admin promotes them later.
+    const created = await User.findUserByUsername(username);
+    await Role.assignRole(created.id, DEFAULT_ROLE);
 
-    res.status(201).json({ message: 'User registered successfully' });
+    res.status(201).json({ message: 'User registered successfully', role: DEFAULT_ROLE });
   } catch (err) {
     next(err);
   }
@@ -33,9 +39,16 @@ async function loginUser(req, res, next) {
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid username or password' });
 
-    const token = jwt.sign({ userID: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const [roles, permissions] = await Promise.all([
+      Role.getRolesForUser(user.id),
+      Role.getPermissionsForUser(user.id),
+    ]);
 
-    res.status(200).json({ message: 'Login successful', token });
+    const token = jwt.sign({ userID: user.id, roles, permissions }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
+
+    res.status(200).json({ message: 'Login successful', token, roles, permissions });
   } catch (err) {
     next(err);
   }
@@ -80,7 +93,46 @@ async function getUserInfo(req, res, next) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.status(200).json(user);
+    const [roles, permissions] = await Promise.all([
+      Role.getRolesForUser(userID),
+      Role.getPermissionsForUser(userID),
+    ]);
+
+    res.status(200).json({ ...user, roles, permissions });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/users/roles — list roles + permissions (admin only).
+async function getRoles(req, res, next) {
+  try {
+    const [roles, permissions] = await Promise.all([
+      Role.getAllRoles(),
+      Role.getAllPermissions(),
+    ]);
+    res.json({ roles, permissions });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PUT /api/users/:userId/role — grant a role to a user (admin only).
+async function assignUserRole(req, res, next) {
+  const { userId } = req.params;
+  const { role } = req.body;
+  const parsedId = Number.parseInt(userId, 10);
+
+  if (!Number.isInteger(parsedId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  if (!role || typeof role !== 'string') {
+    return res.status(400).json({ error: 'role is required' });
+  }
+
+  try {
+    await Role.assignRole(parsedId, role);
+    res.json({ message: `Role "${role}" assigned` });
   } catch (err) {
     next(err);
   }
@@ -92,4 +144,6 @@ module.exports = {
   updateUser,
   deleteUser,
   getUserInfo,
+  getRoles,
+  assignUserRole,
 };

@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 const multer = require('multer');
 const authenticateToken = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/auth');
 const resourceController = require('../controllers/resourceController');
 
 const storage = multer.diskStorage({
@@ -50,8 +51,8 @@ function uploadSingle(req, res, next) {
   });
 }
 
-router.post('/', authenticateToken, uploadSingle, resourceController.createResource);
-router.delete('/:id', authenticateToken, resourceController.deleteResourceById);
+router.post('/', authenticateToken, requirePermission('resources.manage'), uploadSingle, resourceController.createResource);
+router.delete('/:id', authenticateToken, requirePermission('resources.manage'), resourceController.deleteResourceById);
 router.get('/edict/:edictId', resourceController.getResourcesByEdict);
 
 module.exports = router;
