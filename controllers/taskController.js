@@ -5,6 +5,7 @@ const {
   updateTask: modelUpdateTask,
   deleteTask: modelDeleteTask,
   getTasksByEdict: modelGetTasksByEdict,
+  getCompletionTrends: modelGetCompletionTrends,
 } = require('../models/taskModel');
 
 // GET all tasks
@@ -123,6 +124,16 @@ async function getTasksByEdict(req, res, next) {
   }
 }
 
+// GET /api/tasks/trends
+async function getCompletionTrends(req, res, next) {
+  try {
+    const trends = await modelGetCompletionTrends();
+    res.json(trends);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllTasks,
   getTaskById,
@@ -130,4 +141,5 @@ module.exports = {
   updateTask,
   deleteTask,
   getTasksByEdict,
+  getCompletionTrends,
 };

@@ -88,21 +88,32 @@
               <div id="service-control">
                 <button id="service-add-button" class="service-add-button">+ Add More</button>
 
-                <div id="service-add-form" class="service-add-form hidden">
-                  <input type="text" id="service-name" placeholder="Service Name" />
+                <form id="service-add-form" class="service-add-form hidden">
+                  <div class="form-field">
+                    <label for="service-name">Name</label>
+                    <input type="text" id="service-name" placeholder="Service name" required />
+                  </div>
 
-                  <select id="service-type">
-                    <option value="url">Website</option>
+                  <div class="form-field">
+                    <label for="service-type">Type</label>
+                    <select id="service-type">
+                      <option value="url">Website</option>
+                      <option value="local_app">Local Application</option>
+                    </select>
+                  </div>
 
-                    <option value="local_app">Local Application</option>
-                  </select>
+                  <div class="form-field">
+                    <label for="service-target">URL / Path</label>
+                    <input type="text" id="service-target" placeholder="URL or executable path" required />
+                  </div>
 
-                  <input type="text" id="service-target" placeholder="URL or executable path" />
+                  <div class="form-field">
+                    <label for="service-icon">Icon Path</label>
+                    <input type="text" id="service-icon" placeholder="Icon path (optional)" />
+                  </div>
 
-                  <input type="text" id="service-icon" placeholder="Icon path (optional)" />
-
-                  <button id="save-service-button">Save</button>
-                </div>
+                  <button type="submit" id="save-service-button">Save</button>
+                </form>
               </div>
             </div>
           </nav>
@@ -110,6 +121,10 @@
           <h3 class="sidebar-section">Server</h3>
 
           <div id="mcp-control"></div>
+
+          <h3 class="sidebar-section">Monitoring</h3>
+
+          <div id="monitor-control"></div>
 
           <h3 class="sidebar-section">Links</h3>
 
@@ -132,13 +147,6 @@
               Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.
             </div>
 
-            <div class="topbar-icons">
-              <div class="notification-icon-wrapper" id="topbar-notification-icon">
-                <div class="notification-circle">
-                  <span id="topbar-notification-count">0</span>
-                </div>
-              </div>
-            </div>
             <div id="auth-control"></div>
           </div>
 
@@ -146,6 +154,27 @@
             <h1>Policies</h1>
 
             <div id="policy-stats" class="policy-stats"></div>
+
+            <div class="trends-section" id="trends-section">
+              <div class="trends-header" id="trends-toggle" role="button" aria-expanded="true" tabindex="0">
+                <h2>Completion Trends</h2>
+                <span class="trends-chevron" id="trends-chevron">▾</span>
+              </div>
+              <div class="trends-body" id="trends-body">
+              <div class="trends-grid">
+                <div class="trend-card">
+                  <h3>Policies Completed</h3>
+                  <div class="chart-wrap"><canvas id="policy-trend-chart"></canvas></div>
+                  <p class="trend-summary" id="policy-trend-summary"></p>
+                </div>
+                <div class="trend-card">
+                  <h3>Tasks Completed</h3>
+                  <div class="chart-wrap"><canvas id="task-trend-chart"></canvas></div>
+                  <p class="trend-summary" id="task-trend-summary"></p>
+                </div>
+              </div>
+              </div>
+            </div>
 
             <div class="policy-count">
               <div id="policy-count">
@@ -170,23 +199,6 @@
           <div class="bottombar">
             <div style="color: #7279db">Audendo magnus tegitur, timor vincit qui patitur.</div>
           </div>
-
-          <footer class="status-strip">
-            <div class="status-item" title="10.244.10.15">
-              <span class="status-dot online"></span>
-              <span>Database</span>
-            </div>
-
-            <div class="status-item" title="10.244.10.125">
-              <span class="status-dot offline"></span>
-              <span>NAS</span>
-            </div>
-
-            <div class="status-item" title="10.244.10.124">
-              <span class="status-dot warning"></span>
-              <span>VPN Relay</span>
-            </div>
-          </footer>
         </main>
       </div>
 
@@ -200,6 +212,9 @@
           <p style="color: #aaa; font-size: 0.9rem; margin: 0 0 15px 0">
             The following policies have passed their end date and are not yet archived:
           </p>
+          <div class="notification-dismiss-row">
+            <button type="button" id="notification-dismiss-today">Don't show for today</button>
+          </div>
           <table class="notification-table">
             <caption>
               Unfinished Policies
@@ -223,10 +238,12 @@
       </aside>
     </header>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="/js/utils/helpers.js"></script>
     <script type="module" src="/js/pages/index.js"></script>
     <script type="module" src="/js/components/auth.js"></script>
     <script type="module" src="/js/components/mcpControl.js"></script>
+    <script type="module" src="/js/components/monitorControl.js"></script>
     <script type="module" src="/js/main.js"></script>
   </body>
 </html>

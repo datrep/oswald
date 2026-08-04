@@ -40,6 +40,7 @@ CREATE TABLE Edicts (
     createdAt DATETIME DEFAULT GETDATE(),
     plannedStart DATETIME NOT NULL,
     plannedEnd DATETIME NULL,
+    completedAt DATETIME NULL,
     active AS (CASE WHEN GETDATE() >= plannedStart AND (plannedEnd IS NULL OR GETDATE() <= plannedEnd) THEN 1 ELSE 0 END),
     info NVARCHAR(MAX),
     priority INT NULL,
@@ -66,6 +67,7 @@ CREATE TABLE Tasks (
     createdAt DATETIME DEFAULT GETDATE(),
     plannedStart DATETIME NOT NULL,
     plannedEnd DATETIME NULL,
+    completedAt DATETIME NULL,
     active AS (CASE WHEN GETDATE() >= plannedStart AND (plannedEnd IS NULL OR GETDATE() <= plannedEnd) THEN 1 ELSE 0 END),
     info NVARCHAR(MAX),
     priority INT NULL,
@@ -84,6 +86,16 @@ CREATE TABLE EdictResources (
     resourcePath NVARCHAR(255) NOT NULL,
     description NVARCHAR(255) NULL,
     FOREIGN KEY (edictId) REFERENCES Edicts(id) ON DELETE NO ACTION
+);
+GO
+
+PRINT 'Creating NetworkHosts table...';
+CREATE TABLE NetworkHosts (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    label NVARCHAR(100) NOT NULL,
+    ip NVARCHAR(45) NOT NULL,
+    enabled BIT NOT NULL DEFAULT 1,
+    sortOrder INT NOT NULL DEFAULT 0
 );
 GO
 

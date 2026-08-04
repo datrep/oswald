@@ -1,5 +1,5 @@
 // responsibility: standard api helpers
-import { apiGet, apiPost, apiDelete } from '../api/api.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../api/api.js';
 
 // responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
@@ -31,12 +31,15 @@ const resourceFileInput = document.getElementById('resource-file');
 const resourceDescriptionInput = document.getElementById('resource-description');
 const saveResourceBtn = document.getElementById('save-resource');
 
-// responsibility: policy buttons
+// responsibility: policy buttons + edit modal
 const saveBtn = document.getElementById('save-policy');
 const deleteBtn = document.getElementById('delete-policy');
 const editBtn = document.getElementById('edit-policy');
 const policyFormEl = document.getElementById('policy-form');
-const policyFormPanelEl = document.getElementById('policy-form-panel');
+const policyModalEl = document.getElementById('policy-modal');
+const modalSaveBtn = document.getElementById('modal-save-policy');
+const modalDeleteBtn = document.getElementById('modal-delete-policy');
+const cancelPolicyBtn = document.getElementById('cancel-policy');
 const policyListEl = document.getElementById('policy-list');
 
 // responsibility: task/resource lists
@@ -61,7 +64,7 @@ const bind = (el, evt, fn) => {
   if (el && fn) el.addEventListener(evt, fn);
 };
 
-// responsibility: field edit toggles
+// responsibility: page mode (which actions are available)
 function configurePageMode() {
   const show = (el, visible) => {
     if (!el) return;
@@ -72,35 +75,53 @@ function configurePageMode() {
     show(saveBtn, true);
     show(editBtn, false);
     show(deleteBtn, false);
+    if (modalDeleteBtn) modalDeleteBtn.style.display = 'none';
   } else {
     show(saveBtn, true);
     show(editBtn, true);
     show(deleteBtn, true);
+    if (modalDeleteBtn) modalDeleteBtn.style.display = '';
   }
 }
 
-// responsibility: enable/disable base fields
-function setFieldsEditable(enabled) {
-  nameEl.disabled = !enabled;
-  startEl.disabled = !enabled;
-  endEl.disabled = !enabled;
-  priorityEl.disabled = !enabled;
-  stateEl.disabled = !enabled;
-  infoEl.disabled = !enabled;
+// responsibility: open/close the policy edit modal
+function openPolicyModal() {
+  if (!policyModalEl) return;
+  populatePolicyForm();
+  const advancedFields = document.getElementById('policy-advanced-fields');
+  const advancedToggle = document.getElementById('policy-advanced-toggle');
+  if (advancedFields) advancedFields.classList.add('hidden');
+  if (advancedToggle) advancedToggle.classList.remove('expanded');
+  const feedback = document.getElementById('policy-form-feedback');
+  if (feedback) feedback.classList.add('hidden');
+  policyModalEl.style.display = 'flex';
+  setTimeout(() => nameEl && nameEl.focus(), 100);
 }
 
-function setPolicyFormVisible(visible) {
-  if (!policyFormPanelEl) return;
-  policyFormPanelEl.classList.toggle('hidden', !visible);
+function closePolicyModal() {
+  if (!policyModalEl) return;
+  policyModalEl.style.display = 'none';
 }
 
-function togglePolicyEditor() {
-  if (!policyFormPanelEl) return;
-  const isHidden = policyFormPanelEl.classList.contains('hidden');
-  const show = isHidden;
-  setPolicyFormVisible(show);
-  setFieldsEditable(show);
-  if (editBtn) editBtn.textContent = show ? 'Hide Editor' : 'Edit Policy';
+function populatePolicyForm() {
+  const p = currentPolicy;
+  if (!p) {
+    nameEl.value = '';
+    startEl.value = formatDateInput(roundToClosestMinute(new Date()));
+    endEl.value = '';
+    ensureSelectHasValue(priorityEl, null);
+    priorityEl.value = '';
+    stateEl.value = isCreateMode ? '1' : '';
+    infoEl.value = '';
+    return;
+  }
+  nameEl.value = p.name || '';
+  startEl.value = formatDateInput(p.plannedStart);
+  endEl.value = formatDateInput(p.plannedEnd);
+  ensureSelectHasValue(priorityEl, p.priority);
+  priorityEl.value = p.priority ?? '';
+  stateEl.value = p.state ?? '';
+  infoEl.value = p.info ?? '';
 }
 
 // responsibility: date formatting helpers
@@ -201,7 +222,7 @@ function collectPolicyData() {
   return {
     name: nameEl.value,
     plannedStart: startEl.value || null,
-    plannedEnd: endEl.value || null, // optional
+    plannedEnd: endEl.value || null, // optional (DB allows NULL)
     priority: toOptionalInt(priorityEl.value),
     state: toOptionalInt(stateEl.value),
     info: infoEl.value,
@@ -244,48 +265,44 @@ function updateResourceContextToolbar() {
 // ===========================
 
 // responsibility: render helpers
-function renderTaskRow(task) {
+function renderTaskRow(task, index) {
   const row = document.createElement('div');
-  row.className = 'task-row';
+  row.className = 'task-row anim-enter';
+  if (index !== undefined && index !== null) {
+    row.style.animationDelay = `${index * 0.04}s`;
+  }
+  const id = task.id ?? task._tempId ?? '';
   row.innerHTML = `
-        <div class="task-header-row">
-            <span class="task-name">${task.name || '-'}</span>
-            <span class="task-active">${task.active ? 'Yes' : 'No'}</span>
-            <input type="checkbox" class="task-select" data-id="${task.id ?? task._tempId ?? ''}">
-        </div>
-        <div class="task-dates">${formatDate(task.plannedStart)} - ${formatDate(task.plannedEnd)}</div>
-        <div class="task-description">${task.info || ''}</div>
-        <div class="task-footer">
-            <span class="task-priority">${task.priority ?? '-'}</span>
-        </div>
+        <span class="task-name" title="${task.name || ''}">${task.name || '-'}</span>
+        <span class="task-date">${formatDate(task.plannedStart)}</span>
+        <span class="task-date">${formatDate(task.plannedEnd)}</span>
+        <span class="task-priority">${task.priority ?? '-'}</span>
+        <span class="task-state">${formatState(task.state)}</span>
+        <span class="task-active">${task.active ? 'Yes' : 'No'}</span>
+        <span class="task-description" title="${task.info || ''}">${task.info || ''}</span>
+        <span class="task-actions">
+            <input type="checkbox" class="task-select" data-id="${id}">
+            <button type="button" class="duplicate-btn" data-id="${id}" title="Duplicate this task">+</button>
+        </span>
     `;
 
-  // LLM-assisted: Add listener to checkbox for contextual toolbar updates
+  // Add listener to checkbox for contextual toolbar updates
   const checkbox = row.querySelector('.task-select');
   if (checkbox) {
     checkbox.addEventListener('change', updateTaskContextToolbar);
   }
 
-  return row;
-}
-
-function renderResourceRow(resource) {
-  const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
-
-  const row = document.createElement('div');
-  row.className = 'resource-row';
-  const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
-  row.innerHTML = `
-        <!-- <span class="resource-file">${fileName}</span> -->    
-        <span class="resource-webpath">${resource.resourcePath ? `<a href="/${webPath}" download>${webPath}</a>` : fileName}</span>
-        <span class="resource-path">${resource.resourcePath || fileName}</span>
-        <span class="resource-description">${resource.description || 'no description'}</span>
-        <span class="resource-checkbox"><input type="checkbox" class="resource-select" data-id="${resource.id ?? resource._tempId ?? ''}"></span>
-    `;
-
-  const checkbox = row.querySelector('.resource-select');
-  if (checkbox) {
-    checkbox.addEventListener('change', updateResourceContextToolbar);
+  // Duplicate button: open task modal pre-filled with this task's data
+  const dupBtn = row.querySelector('.duplicate-btn');
+  if (dupBtn) {
+    dupBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dup = { ...task };
+      delete dup.id;
+      delete dup._tempId;
+      dup.name = (dup.name || '') + ' (copy)';
+      openTaskModal(dup);
+    });
   }
 
   return row;
@@ -294,6 +311,7 @@ function renderResourceRow(resource) {
 function renderResourcePreview(resource) {
   const webPath = formatResourcePath(resource.resourcePath || resource.file?.name || '');
   const fileName = extractFilename(resource.resourcePath || resource.file?.name || '');
+  const id = resource.id ?? resource._tempId ?? '';
   const row = document.createElement('div');
   row.className = 'resource-preview-row';
   row.innerHTML = `
@@ -301,13 +319,18 @@ function renderResourcePreview(resource) {
             ${webPath ? `<img src="/${webPath}" alt="${fileName}">` : `<div class="thumbnail-placeholder">No preview available</div>`}
         </div>
         <div class="resource-preview-text">
-            <div class="resource-preview-path">${resource.resourcePath ? resource.resourcePath : fileName}</div>
+            <div class="resource-preview-path" title="${fileName}">${fileName}</div>
             <div class="resource-preview-description">${resource.description || 'No description'}</div>
         </div>
         <div class="resource-actions">
             ${webPath ? `<a href="/${webPath}" target="_blank" rel="noopener noreferrer" title="View ${fileName}">View</a>` : `<span class="resource-missing">No preview</span>`}
+            <input type="checkbox" class="resource-select" data-id="${id}" title="Select for edit/delete">
         </div>
     `;
+  const checkbox = row.querySelector('.resource-select');
+  if (checkbox) {
+    checkbox.addEventListener('change', updateResourceContextToolbar);
+  }
   return row;
 }
 
@@ -349,13 +372,6 @@ async function loadPolicy() {
     const policy = await apiGet(`/api/edicts/${policyId}`);
     currentPolicy = policy;
     titleEl.textContent = policy.name;
-    nameEl.value = policy.name || '';
-    startEl.value = formatDateInput(policy.plannedStart);
-    endEl.value = formatDateInput(policy.plannedEnd);
-    ensureSelectHasValue(priorityEl, policy.priority);
-    priorityEl.value = policy.priority ?? '';
-    stateEl.value = policy.state ?? '';
-    infoEl.value = policy.info ?? '';
     renderPolicyRows(currentPolicy);
   } catch (err) {
     console.error('[UI] Failed to load policy', err);
@@ -371,7 +387,7 @@ async function loadTasks() {
     const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
     currentTasks = tasks;
     taskListEl.innerHTML = '';
-    tasks.forEach((task) => taskListEl.appendChild(renderTaskRow(task)));
+    tasks.forEach((task, i) => taskListEl.appendChild(renderTaskRow(task, i)));
     renderPolicyRows(currentPolicy);
   } catch (err) {
     console.error('[UI] Failed to load tasks', err);
@@ -386,11 +402,9 @@ async function loadResources() {
   try {
     const resources = await apiGet(`/api/resources/edict/${policyId}`);
     resourcesCache = resources;
-    resourceListEl.innerHTML = '';
-    if (resourcePreviewListEl) resourcePreviewListEl.innerHTML = '';
+    resourcePreviewListEl.innerHTML = '';
     resources.forEach((resource) => {
-      resourceListEl.appendChild(renderResourceRow(resource));
-      if (resourcePreviewListEl) resourcePreviewListEl.appendChild(renderResourcePreview(resource));
+      resourcePreviewListEl.appendChild(renderResourcePreview(resource));
     });
     renderPolicyRows(currentPolicy);
   } catch (err) {
@@ -402,46 +416,54 @@ async function loadResources() {
 
 // responsibility: create policy
 async function createPolicy() {
-  try {
-    const data = collectPolicyData();
-    if (!data.plannedStart) {
-      alert('Policy planned start is required.');
-      return;
-    }
-    console.log('[Policy.save_policy] Executed: create_policy');
-    const response = await fetch('/api/edicts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      alert(result.message || 'Failed to create policy');
-      return;
-    }
-    console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
-    alert('Policy created successfully');
-    // Switch the current page into view-mode for the newly created policy
-    policyId = result.id;
-    isCreateMode = false;
-    // Flush any queued tasks/resources that were added while policy did not exist
-    await flushPendingSubmissions(policyId);
-    // Reload server-backed lists
-    await loadPolicy();
-    await loadTasks();
-    await loadResources();
-    // Hide editor now that policy is created
-    setPolicyFormVisible(false);
-    setFieldsEditable(false);
-  } catch (err) {
-    console.error('[Policy] Create failed', err);
-    alert('Error creating policy');
+  const advancedHidden = document.getElementById('policy-advanced-fields')?.classList.contains('hidden');
+
+  const data = {
+    name: nameEl.value,
+    plannedStart: startEl.value || null,
+    plannedEnd: endEl.value || null, // optional (DB allows NULL)
+    priority: advancedHidden ? null : toOptionalInt(priorityEl.value),
+    state: advancedHidden ? 1 : toOptionalInt(stateEl.value), // default Draft
+    info: advancedHidden ? '' : (infoEl.value || ''),
+  };
+
+  if (!data.plannedStart) {
+    showFieldError(startEl, 'Planned start date is required.');
+    throw new Error('Validation failed');
   }
+  if (!data.name || !data.name.trim()) {
+    showFieldError(nameEl, 'Policy name is required.');
+    throw new Error('Validation failed');
+  }
+  console.log('[Policy.save_policy] Executed: create_policy');
+  const response = await fetch('/api/edicts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to create policy');
+  }
+  console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
+  // Switch the current page into view-mode for the newly created policy
+  policyId = result.id;
+  isCreateMode = false;
+  // Flush any queued tasks/resources that were added while policy did not exist
+  await flushPendingSubmissions(policyId);
+  // Reload server-backed lists
+  await loadPolicy();
+  await loadTasks();
+  await loadResources();
+  // Close the edit modal now that the policy exists
+  closePolicyModal();
 }
 
 // Flush pending tasks and resources after a policy has been created
 async function flushPendingSubmissions(createdPolicyId) {
   if (!createdPolicyId) return;
+
+  let flushed = 0;
 
   // Submit tasks first
   if (pendingTasks.length) {
@@ -454,6 +476,7 @@ async function flushPendingSubmissions(createdPolicyId) {
         console.error('[Policy] Failed to flush pending task', err, t);
       }
     }
+    flushed += pendingTasks.length;
     pendingTasks = [];
   }
 
@@ -472,75 +495,88 @@ async function flushPendingSubmissions(createdPolicyId) {
         console.error('[Policy] Failed to flush pending resource', err, r);
       }
     }
+    flushed += pendingResources.length;
     pendingResources = [];
   }
 
-  alert('Pending tasks and resources have been saved.');
+  if (flushed > 0) {
+    alert('Pending tasks and resources have been saved.');
+  }
 }
 
 // responsibility: update policy
 async function updatePolicy() {
   if (!policyId) {
-    alert('No policy selected.');
-    return;
+    throw new Error('No policy selected.');
   }
-  try {
-    const data = collectPolicyData();
-    if (!data.plannedStart) {
-      alert('Policy planned start is required.');
-      return;
-    }
-    console.log(`[Policy.save_policy] Executed: update_policy (id: ${policyId})`);
-    const response = await fetch(`/api/edicts/${policyId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      alert(result.message || 'Failed to update policy');
-      return;
-    }
-    console.log(`[Policy.save_policy] Completed: update_policy (id: ${policyId})`);
-    await loadPolicy();
-    alert('Policy updated successfully');
-  } catch (err) {
-    console.error('[Policy] Update failed', err);
-    alert('Error updating policy');
+  // When editing, advanced fields are always shown — read all values from form
+  const data = collectPolicyData();
+  if (!data.plannedStart) {
+    showFieldError(startEl, 'Planned start date is required.');
+    throw new Error('Validation failed');
   }
+  if (!data.name || !data.name.trim()) {
+    showFieldError(nameEl, 'Policy name is required.');
+    throw new Error('Validation failed');
+  }
+  console.log(`[Policy.save_policy] Executed: update_policy (id: ${policyId})`);
+  const response = await fetch(`/api/edicts/${policyId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to update policy');
+  }
+  console.log(`[Policy.save_policy] Completed: update_policy (id: ${policyId})`);
+  await loadPolicy();
 }
 
 // responsibility: delete policy
-async function handleDelete() {
+async function handleDelete(btn = deleteBtn) {
   if (!policyId) {
     alert('No policy to delete.');
     return;
   }
   const confirmDelete = confirm('Are you sure you want to delete this policy?');
   if (!confirmDelete) return;
+
+  setSaveState(btn, true, 'Delete');
   try {
     console.log(`[Policy.delete_policy] Executed: delete_policy (id: ${policyId})`);
     const response = await fetch(`/api/edicts/${policyId}`, { method: 'DELETE' });
     if (!response.ok) {
       const result = await response.json();
-      alert(result.message || 'Failed to delete policy');
-      return;
+      throw new Error(result.message || 'Failed to delete policy');
     }
     console.log(`[Policy.delete_policy] Completed: delete_policy (id: ${policyId})`);
-    alert('Policy deleted successfully');
     window.location.href = '/index.html';
   } catch (err) {
     console.error('[Policy] Delete failed', err);
-    alert('Error deleting policy');
+    alert('Error deleting policy: ' + err.message);
+    setSaveState(btn, false, 'Delete');
   }
 }
 
 // responsibility: save policy (create or update)
 async function handleSave() {
-  if (isCreateMode) {
-    await createPolicy();
-  } else {
-    await updatePolicy();
+  setSaveState(modalSaveBtn, true);
+  try {
+    if (isCreateMode) {
+      await createPolicy();
+    } else {
+      await updatePolicy();
+    }
+    closePolicyModal();
+  } catch (err) {
+    showFormFeedback(
+      document.getElementById('policy-form-feedback'),
+      'error',
+      'Failed to save policy.'
+    );
+  } finally {
+    setSaveState(modalSaveBtn, false);
   }
 }
 
@@ -562,16 +598,31 @@ function resetTaskForm() {
 function openTaskModal(task = null) {
   const modal = document.getElementById('task-modal');
   if (!modal) return;
-  currentTaskId = task ? task.id : null;
+  currentTaskId = task && task.id ? task.id : null;
+
+  const titleEl = document.getElementById('task-modal-title');
+  if (titleEl) titleEl.textContent = currentTaskId ? 'Edit Task' : 'Add Task';
+
   document.getElementById('task-name').value = task?.name ?? '';
-  document.getElementById('task-start').value = formatDateInput(task?.plannedStart);
+  document.getElementById('task-start').value = task?.plannedStart
+    ? formatDateInput(task.plannedStart)
+    : formatDateInput(roundToClosestMinute(new Date())); // auto-fill to now for new tasks
   document.getElementById('task-end').value = formatDateInput(task?.plannedEnd);
   ensureSelectHasValue(document.getElementById('task-priority'), task?.priority);
   document.getElementById('task-priority').value = task?.priority ?? '';
   document.getElementById('task-state').value = task?.state ?? 1;
   document.getElementById('task-info').value = task?.info ?? '';
   document.getElementById('task-user').value = task?.assignedToUserId ?? '';
+
+  // Advanced fields default to closed (user expands when needed)
+  const advancedFields = document.getElementById('task-advanced-fields');
+  const advancedToggle = document.getElementById('task-advanced-toggle');
+  advancedFields?.classList.add('hidden');
+  advancedToggle?.classList.remove('expanded');
+
   modal.style.display = 'flex';
+  // Focus the name field for quick keyboard entry
+  setTimeout(() => document.getElementById('task-name')?.focus(), 100);
 }
 
 // responsibility: close task modal
@@ -584,43 +635,67 @@ function closeTaskModal() {
 
 // responsibility: create or edit task
 async function handleCreateTask() {
+  // Clear previous field errors
+  showFieldError(document.getElementById('task-start'), '');
+  showFieldError(document.getElementById('task-name'), '');
+
   if (!document.getElementById('task-start').value) {
-    alert('Task planned start is required.');
+    showFieldError(document.getElementById('task-start'), 'Planned start date is required.');
     return;
   }
+
+  // Smart defaults: if advanced fields are hidden, inherit from parent policy
+  const advancedHidden = document.getElementById('task-advanced-fields')?.classList.contains('hidden');
+  const priorityVal = advancedHidden && currentPolicy
+    ? (currentPolicy.priority ?? '')
+    : document.getElementById('task-priority').value;
+  const stateVal = advancedHidden ? '1' : document.getElementById('task-state').value;
+  const endVal = document.getElementById('task-end').value || null; // optional (DB allows NULL)
+  const infoVal = advancedHidden ? '' : document.getElementById('task-info').value;
+  const userVal = advancedHidden ? '' : document.getElementById('task-user').value;
 
   const payload = {
     name: document.getElementById('task-name').value,
     plannedStart: document.getElementById('task-start').value,
-    plannedEnd: document.getElementById('task-end').value || null, // optional
-    priority: toOptionalInt(document.getElementById('task-priority').value),
-    state: toOptionalInt(document.getElementById('task-state').value),
-    info: document.getElementById('task-info').value,
-    assignedToUserId: toOptionalInt(document.getElementById('task-user').value),
+    plannedEnd: endVal,
+    priority: toOptionalInt(priorityVal),
+    state: toOptionalInt(stateVal),
+    info: infoVal,
+    assignedToUserId: toOptionalInt(userVal),
   };
 
-  if (!policyId) {
-    // Queue task locally until policy is created
-    const tempId = `temp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    const queued = Object.assign({}, payload, { _tempId: tempId });
-    pendingTasks.push(queued);
-    // Render immediately so user sees the queued task
-    taskListEl.appendChild(renderTaskRow(queued));
-    console.log('[Policy] Queued task until policy is created', queued);
-  } else {
-    if (currentTaskId) {
-      payload.id = currentTaskId;
-      console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
-      console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`); // placeholder for PUT /api/tasks/:id
+  setSaveState(createTaskBtn, true);
+
+  try {
+    if (!policyId) {
+      // Queue task locally until policy is created
+      const tempId = `temp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      const queued = Object.assign({}, payload, { _tempId: tempId });
+      pendingTasks.push(queued);
+      // Render immediately so user sees the queued task
+      taskListEl.appendChild(renderTaskRow(queued));
+      console.log('[Policy] Queued task until policy is created', queued);
     } else {
-      payload.edictId = policyId;
-      console.log('[Policy.add_task] Executed: add_task');
-      await apiPost('/api/tasks', payload);
-      console.log('[Policy.add_task] Completed: add_task');
+      if (currentTaskId) {
+        // Update existing task via PUT
+        console.log(`[Policy.edit_task] Executed: edit_task (id: ${currentTaskId})`);
+        await apiPut(`/api/tasks/${currentTaskId}`, payload);
+        console.log(`[Policy.edit_task] Completed: edit_task (id: ${currentTaskId})`);
+      } else {
+        payload.edictId = policyId;
+        console.log('[Policy.add_task] Executed: add_task');
+        await apiPost('/api/tasks', payload);
+        console.log('[Policy.add_task] Completed: add_task');
+      }
     }
+    closeTaskModal();
+    await loadTasks();
+  } catch (err) {
+    console.error('[Task] Save failed', err);
+    alert('Failed to save task: ' + (err.message || 'Unknown error'));
+  } finally {
+    setSaveState(createTaskBtn, false);
   }
-  closeTaskModal();
-  await loadTasks();
 }
 
 // responsibility: remove tasks
@@ -700,6 +775,9 @@ async function saveResource() {
     return;
   }
   const description = resourceDescriptionInput.value || '';
+
+  setSaveState(saveResourceBtn, true);
+
   try {
     if (!policyId) {
       // Queue resource until policy is created
@@ -712,15 +790,14 @@ async function saveResource() {
         const idx = pendingResources.findIndex((r) => r._tempId === editingResourceId);
         if (idx !== -1) {
           pendingResources[idx] = { _tempId: editingResourceId, file, description };
-          // update DOM row if present
+          // update DOM card if present
           const checkbox = document.querySelector(
             `.resource-select[data-id="${editingResourceId}"]`
           );
-          const row = checkbox ? checkbox.closest('.resource-row') : null;
+          const row = checkbox ? checkbox.closest('.resource-preview-row') : null;
           if (row) {
-            row.querySelector('.resource-webpath').textContent = file.name;
-            row.querySelector('.resource-path').textContent = file.name;
-            row.querySelector('.resource-description').textContent = description || '';
+            row.querySelector('.resource-preview-path').textContent = file.name;
+            row.querySelector('.resource-preview-description').textContent = description || '';
           }
           editingResourceId = null;
           closeResourceModal();
@@ -730,7 +807,9 @@ async function saveResource() {
       const tempId = `temp-res-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
       pendingResources.push({ _tempId: tempId, file, description });
       // Render immediately so user sees the queued resource
-      resourceListEl.appendChild(renderResourceRow({ _tempId: tempId, file, description }));
+      resourcePreviewListEl.appendChild(
+        renderResourcePreview({ _tempId: tempId, file, description })
+      );
       closeResourceModal();
       console.log('[Policy] Queued resource until policy is created', file.name);
       return;
@@ -759,6 +838,8 @@ async function saveResource() {
   } catch (err) {
     console.error('[UI] Failed to save resource', err);
     alert('Resource save failed');
+  } finally {
+    setSaveState(saveResourceBtn, false);
   }
 }
 
@@ -784,8 +865,8 @@ async function deleteSelectedResources() {
         const idx = pendingResources.findIndex((r) => r._tempId === id);
         if (idx !== -1) pendingResources.splice(idx, 1);
       }
-      // remove row from DOM
-      const row = checkbox.closest('.resource-row');
+      // remove card from DOM
+      const row = checkbox.closest('.resource-preview-row');
       if (row) row.remove();
     }
     console.log(
@@ -913,13 +994,19 @@ async function init() {
     body: 'Use an action-oriented title. Example: “Draft announcement copy” or “Review resources”.',
   });
 
-  bind(document.getElementById('policy-start-now'), 'click', () => setDatetimeLocalNow(startEl));
   bind(document.getElementById('policy-end-now'), 'click', () => setDatetimeLocalNow(endEl));
   bind(document.getElementById('policy-end-clear'), 'click', () => setInputBlank(endEl));
 
-  bind(document.getElementById('task-start-now'), 'click', () =>
-    setDatetimeLocalNow(document.getElementById('task-start'))
-  );
+  // Policy advanced fields toggle
+  bind(document.getElementById('policy-advanced-toggle'), 'click', () => {
+    const fields = document.getElementById('policy-advanced-fields');
+    const toggle = document.getElementById('policy-advanced-toggle');
+    if (!fields || !toggle) return;
+    const isHidden = fields.classList.contains('hidden');
+    fields.classList.toggle('hidden', !isHidden);
+    toggle.classList.toggle('expanded', isHidden);
+  });
+
   bind(document.getElementById('task-end-now'), 'click', () =>
     setDatetimeLocalNow(document.getElementById('task-end'))
   );
@@ -927,13 +1014,42 @@ async function init() {
     setInputBlank(document.getElementById('task-end'))
   );
 
-  bind(saveBtn, 'click', handleSave);
-  bind(deleteBtn, 'click', handleDelete);
-  bind(editBtn, 'click', togglePolicyEditor);
+  bind(saveBtn, 'click', () => openPolicyModal());
+  bind(deleteBtn, 'click', () => handleDelete(deleteBtn));
+  bind(editBtn, 'click', () => openPolicyModal());
+  bind(cancelPolicyBtn, 'click', closePolicyModal);
+  bind(modalDeleteBtn, 'click', () => handleDelete(modalDeleteBtn));
+  // Policy form: pressing Enter in any field saves
+  policyFormEl?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleSave();
+  });
+
+  // Clear field errors on input
+  bind(nameEl, 'input', () => showFieldError(nameEl, ''));
+  bind(startEl, 'input', () => showFieldError(startEl, ''));
+  const taskNameEl = document.getElementById('task-name');
+  const taskStartEl = document.getElementById('task-start');
+  bind(taskNameEl, 'input', () => showFieldError(taskNameEl, ''));
+  bind(taskStartEl, 'input', () => showFieldError(taskStartEl, ''));
 
   bind(cancelTaskBtn, 'click', closeTaskModal);
-  bind(createTaskBtn, 'click', handleCreateTask);
-  bind(addTaskBtn, 'click', openTaskModal);
+  // Task form: Enter in any field creates the task; Create button is type=submit
+  document.getElementById('task-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleCreateTask();
+  });
+  bind(addTaskBtn, 'click', () => openTaskModal(null));
+
+  // Advanced fields toggle in task modal
+  bind(document.getElementById('task-advanced-toggle'), 'click', () => {
+    const fields = document.getElementById('task-advanced-fields');
+    const toggle = document.getElementById('task-advanced-toggle');
+    if (!fields || !toggle) return;
+    const isHidden = fields.classList.contains('hidden');
+    fields.classList.toggle('hidden', !isHidden);
+    toggle.classList.toggle('expanded', isHidden);
+  });
 
   // LLM-assisted: New contextual toolbar bindings for tasks
   bind(document.getElementById('edit-task'), 'click', handleEditContextTask);
@@ -948,22 +1064,18 @@ async function init() {
   bind(document.getElementById('delete-resource'), 'click', handleDeleteContextResource);
 
   if (isCreateMode) {
-    // Creating: show editor by default.
-    setPolicyFormVisible(true);
-    setFieldsEditable(true);
+    // Creating: open the edit modal, auto-fill start date
+    openPolicyModal();
     renderPolicyRows(null);
     console.log('[Policy] Create mode: True');
     return;
   }
 
-  // Viewing: load data and hide editor by default
+  // Viewing: load data, edit via the Edit Policy button/modal
   console.log('[Policy] View mode', policyId);
   await loadPolicy();
   await loadTasks();
   await loadResources();
-  // Enable via Edit Policy button
-  setPolicyFormVisible(false);
-  setFieldsEditable(false);
 }
 
 function renderPolicyRows(policy) {

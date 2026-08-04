@@ -4,6 +4,7 @@ const router = express.Router();
 const taskController = require('../controllers/taskController');
 
 router.get('/', taskController.getAllTasks);
+router.get('/trends', taskController.getCompletionTrends);
 router.get('/:id', taskController.getTaskById);
 router.post('/', taskController.createTask);
 router.put('/:id', taskController.updateTask);

@@ -29,7 +29,7 @@ do {
 
 if ($choice -eq "1") {
     $localHost = $env:LOCAL_SERVER_HOST
-    Write-Host "Starting locally on http://$($localHost):3000" -ForegroundColor Green
+    Write-Host "Starting locally on http://$($localHost):$($env:PORT)" -ForegroundColor Green
     Start-Sleep -Seconds 1
     # Clean up old resources
     Write-Host "Cleaning up old local resources..."
@@ -41,14 +41,14 @@ if ($choice -eq "1") {
     $env:SERVER_HOST = $localHost
   
     # Open local server in browser
-    start-process "http://$($localHost):3000/"
+    start-process "http://$($localHost):$($env:PORT)/"
     Start-Sleep -Seconds 2
     node .\server.js
 
 
 } else {
     $remoteHost = $env:REMOTE_SERVER_HOST
-    Write-Host "Starting remotely on http://$($remoteHost):3000" -ForegroundColor Green
+    Write-Host "Starting remotely on http://$($remoteHost):$($env:PORT)" -ForegroundColor Green
     Start-Sleep -Seconds 1
     Write-Host "Contacting remote server..."
     Start-Sleep -Seconds 1
@@ -56,7 +56,7 @@ if ($choice -eq "1") {
     Start-Sleep -Seconds 2
     
     # Open remote server in browser
-    start-process "http://$($remoteHost):3000/"
+    start-process "http://$($remoteHost):$($env:PORT)/"
 }
 
 

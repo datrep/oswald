@@ -6,6 +6,7 @@ const {
   updateEdict: modelUpdateEdict,
   deleteEdict: modelDeleteEdict,
   getUnfinishedEdicts: modelGetUnfinishedEdicts,
+  getCompletionTrends: modelGetCompletionTrends,
 } = require('../models/edictModel');
 
 const { NotFoundError } = require('../utils/errors');
@@ -98,6 +99,16 @@ async function getUnfinishedEdicts(req, res, next) {
   }
 }
 
+// GET completion trends (monthly completions + totals)
+async function getCompletionTrends(req, res, next) {
+  try {
+    const trends = await modelGetCompletionTrends();
+    res.json(trends);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllEdicts,
   getEdictById,
@@ -106,4 +117,5 @@ module.exports = {
   updateEdict,
   deleteEdict,
   getUnfinishedEdicts,
+  getCompletionTrends,
 };

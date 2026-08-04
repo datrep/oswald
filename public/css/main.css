@@ -112,18 +112,33 @@ body > header .layout {
   border: none;
 }
 
-/* ---------- Policy page shell (scrolls normally) ---------- */
+/* ---------- Policy page shell (single frame, no page scroll) ---------- */
 .layout.layout--policy {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  overflow: hidden;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 body > .content {
-  padding: 20px 24px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
+  padding: 0;
+}
+
+/* Scrollable middle region of the policy frame */
+.policy-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 24px;
 }
 
 /* ---------- Top bar / bottom bar / status strip ---------- */
@@ -204,43 +219,6 @@ main .bottombar {
 }
 main .status-strip {
   border: none;
-}
-
-/* ---------- Topbar right icons ---------- */
-.topbar-icons {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.notification-icon-wrapper {
-  position: relative;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-.notification-icon-wrapper:hover {
-  transform: scale(1.1);
-}
-.notification-circle {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: #0a0e14;
-  font-size: 0.9rem;
-  box-shadow: 0 2px 8px var(--accent-soft);
-  transition: background 0.2s ease;
-}
-.notification-icon-wrapper:hover .notification-circle {
-  background: var(--accent-2);
-}
-.notification-circle:empty,
-.notification-circle:has(span:empty) {
-  background: var(--panel-3);
-  color: var(--muted);
 }
 
 /* ---------- Auth control ---------- */
@@ -462,34 +440,74 @@ main .status-strip {
   width: 100%;
 }
 .services-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
-  margin-top: 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 8px;
+  margin-top: 4px;
   background: var(--panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  z-index: 1000;
 }
 .service-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
 }
 .service-item:hover {
   background: var(--panel-2);
 }
+.service-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.service-link span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .service-icon {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
+}
+.service-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.service-actions button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+}
+.service-actions button:hover {
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+.service-actions .service-delete:hover {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+.service-group-heading {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 6px 4px 2px;
 }
 .service-add-button {
   width: 100%;
@@ -524,6 +542,145 @@ main .status-strip {
 .mcp-actions button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.mcp-pid {
+  color: var(--faint);
+  font-size: 0.72rem;
+}
+.mcp-roots {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+.mcp-roots code {
+  font-family: var(--mono);
+  color: var(--accent);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.mcp-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin: 6px 0 0;
+  min-height: 1rem;
+}
+
+/* ---------- Monitoring panel ---------- */
+.monitor-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.monitor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.monitor-empty {
+  color: var(--faint);
+  font-size: 0.75rem;
+  padding: 4px 0;
+}
+.monitor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+.monitor-row:hover {
+  background: var(--panel-2);
+}
+.monitor-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.monitor-dot.online {
+  background: var(--success);
+}
+.monitor-dot.warning {
+  background: var(--warning);
+}
+.monitor-dot.offline {
+  background: var(--danger);
+}
+.monitor-dot.idle {
+  background: var(--faint);
+}
+.monitor-dot.disabled {
+  background: var(--panel-3);
+}
+.monitor-label {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.monitor-ip {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+.monitor-latency {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  min-width: 38px;
+  text-align: right;
+}
+.monitor-actions {
+  display: flex;
+  gap: 2px;
+}
+.monitor-actions button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+}
+.monitor-actions button:hover {
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+.monitor-actions .monitor-delete:hover {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+.monitor-add {
+  width: 100%;
+}
+.monitor-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.monitor-add-form.hidden {
+  display: none;
+}
+.monitor-form-actions {
+  display: flex;
+  gap: 8px;
+}
+.monitor-form-actions button {
+  flex: 1;
+}
+.monitor-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin: 0;
+  min-height: 1rem;
 }
 
 /* ---------- Experiment links ---------- */
@@ -582,6 +739,103 @@ main .status-strip {
 }
 .stat-danger .stat-value {
   color: var(--danger);
+}
+
+/* ---------- Completion trends ---------- */
+.trends-section {
+  margin: 4px 0 14px;
+}
+.trends-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 10px;
+}
+.trends-header h2 {
+  font-size: 1.05rem;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.trends-chevron {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  transition: transform 0.25s ease;
+}
+.trends-header[aria-expanded='false'] .trends-chevron {
+  transform: rotate(-90deg);
+}
+.trends-body {
+  overflow: hidden;
+  max-height: 340px;
+  opacity: 1;
+  transition: max-height 0.35s ease, opacity 0.3s ease;
+}
+.trends-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.trend-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.trend-card h3 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.chart-wrap {
+  position: relative;
+  height: 160px;
+}
+.trend-summary {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+@media (max-width: 1400px) {
+  .trends-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .trends-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Notification: dismiss for today ---------- */
+.notification-dismiss-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 0 12px;
+}
+.notification-dismiss-row button {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.notification-dismiss-row button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .policy-header {
@@ -778,6 +1032,34 @@ main .status-strip {
   margin: 0 0 12px;
 }
 
+/* Section header row (title + action button) */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-header h2 {
+  margin: 0;
+}
+
+/* Policy + Tasks side by side */
+.policy-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.policy-columns > .policy-section {
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .policy-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Policy page table (7 columns) */
 .policy-section .policy-header,
 .policy-section .policy-row {
@@ -796,19 +1078,50 @@ main .status-strip {
   text-transform: uppercase;
   color: var(--faint);
   border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
-  padding-top: 6px;
+  /* match the 1px side borders on rows so grid columns align */
+  border-left: 1px solid transparent;
+  border-right: 1px solid transparent;
+  padding: 6px 14px 8px;
   margin-top: 10px;
   margin-bottom: 10px;
 }
-.task-header > span,
-.resource-header > span {
+
+/* Aligned table grids: header + rows share the same columns */
+.task-header,
+#task-list .task-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.9fr 0.9fr 0.6fr 0.8fr 0.7fr 2fr 84px;
+  gap: 12px;
+  align-items: center;
+}
+.resource-header,
+#resource-list .resource-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 3fr 60px;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Keep cells from forcing fr columns wider than the header (min-width: auto) */
+.policy-section .policy-header > *,
+.policy-section .policy-row > *,
+.task-header > *,
+#task-list .task-row > * {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Match the 1px side borders on rows so grid columns align */
+.policy-section .policy-header {
+  border-left: 1px solid transparent;
+  border-right: 1px solid transparent;
 }
 
 #task-list {
   display: flex;
   flex-direction: column;
+  gap: 6px;
   min-height: 100px;
   max-height: 300px;
   overflow-y: auto;
@@ -820,54 +1133,48 @@ main .status-strip {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 8px;
+  padding: 9px 14px;
+  margin-bottom: 0;
 }
-.task-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.task-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+.task-row:hover,
+.resource-row:hover {
+  border-color: var(--accent);
+  background: var(--panel-2);
 }
 .task-name {
-  flex: 1;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.task-active {
-  margin-right: 4px;
-  font-size: 0.8rem;
+.task-date {
+  font-family: var(--mono);
+  font-size: 0.78rem;
   color: var(--muted);
 }
-.task-select {
-  margin-left: 10px;
-}
-.task-dates {
-  font-family: var(--mono);
-  font-size: 0.8rem;
+.task-priority,
+.task-state,
+.task-active {
+  font-size: 0.85rem;
   color: var(--muted);
 }
 .task-description {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1.3;
   color: var(--muted);
-  margin: 4px 0;
-  max-width: 600px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.task-footer {
+.task-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  margin-top: 4px;
-}
-.task-priority {
-  font-size: 0.9rem;
-  color: var(--muted);
+  gap: 6px;
 }
 
 .resource-row {
@@ -989,6 +1296,8 @@ main .status-strip {
 }
 .resource-actions {
   display: flex;
+  gap: 8px;
+  align-items: center;
   width: 100%;
   margin-top: auto;
 }
@@ -998,7 +1307,7 @@ main .status-strip {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
+  flex: 1;
   padding: 8px 12px;
   font-size: 0.9rem;
   border-radius: var(--radius-sm);
@@ -1011,6 +1320,13 @@ main .status-strip {
 .resource-actions button:hover {
   background: var(--panel-3);
   border-color: var(--accent);
+}
+.resource-actions .resource-select {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 /* ---------- Edit policy form ---------- */
@@ -1121,6 +1437,62 @@ input::placeholder,
 textarea::placeholder {
   color: var(--faint);
 }
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+}
+input.is-invalid:focus,
+select.is-invalid:focus,
+textarea.is-invalid:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.25);
+}
+.field-error {
+  font-size: 0.72rem;
+  color: var(--danger);
+  margin-top: 2px;
+  display: none;
+}
+.field-error.visible {
+  display: block;
+}
+
+/* ---------- Save-in-progress states ---------- */
+button.is-saving {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+  opacity: 0.8;
+}
+button.is-saving::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.form-feedback {
+  font-size: 0.8rem;
+  margin: 0;
+  min-height: 1rem;
+  transition: opacity 0.2s ease;
+}
+.form-feedback.success {
+  color: var(--success);
+}
+.form-feedback.error {
+  color: var(--danger);
+}
 input[type='datetime-local'] {
   color-scheme: dark;
 }
@@ -1189,6 +1561,22 @@ select {
   flex-direction: column;
   gap: 6px;
 }
+
+/* ---------- Form field primitives (best practice) ---------- */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form-row .form-field {
+  gap: 6px;
+}
 .input-actions {
   display: flex;
   gap: 6px;
@@ -1204,6 +1592,68 @@ select {
   color: var(--accent);
   border-color: var(--accent);
   background: transparent;
+}
+
+/* ---------- Advanced fields toggle ---------- */
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.advanced-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.advanced-toggle .toggle-arrow {
+  display: inline-block;
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+}
+.advanced-toggle.expanded .toggle-arrow {
+  transform: rotate(90deg);
+}
+.advanced-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: slideDown 0.2s ease;
+}
+.advanced-fields.hidden {
+  display: none;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Duplicate button (inline on rows) ---------- */
+.duplicate-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.duplicate-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ---------- Modals ---------- */
@@ -1422,4 +1872,264 @@ select {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ============================================================
+   ANIMATION SYSTEM
+   ============================================================ */
+
+/* ---------- Keyframes ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 140, 248, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(124, 140, 248, 0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  50%  { opacity: 1; transform: scale(1.05); }
+  70%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- Utility classes ---------- */
+.anim-fade-in {
+  animation: fadeIn 0.35s ease both;
+}
+.anim-fade-in-up {
+  animation: fadeInUp 0.4s ease both;
+}
+.anim-fade-in-down {
+  animation: fadeInDown 0.35s ease both;
+}
+.anim-fade-in-scale {
+  animation: fadeInScale 0.3s ease both;
+}
+.anim-slide-in-right {
+  animation: slideInRight 0.35s ease both;
+}
+.anim-scale-in {
+  animation: scaleIn 0.3s ease both;
+}
+.anim-bounce-in {
+  animation: bounceIn 0.45s ease both;
+}
+
+/* Staggered children: parent gets .anim-stagger, children get delay classes */
+.anim-stagger > * { animation: fadeInUp 0.35s ease both; }
+.anim-stagger > *:nth-child(1)  { animation-delay: 0.00s; }
+.anim-stagger > *:nth-child(2)  { animation-delay: 0.04s; }
+.anim-stagger > *:nth-child(3)  { animation-delay: 0.08s; }
+.anim-stagger > *:nth-child(4)  { animation-delay: 0.12s; }
+.anim-stagger > *:nth-child(5)  { animation-delay: 0.16s; }
+.anim-stagger > *:nth-child(6)  { animation-delay: 0.20s; }
+.anim-stagger > *:nth-child(7)  { animation-delay: 0.24s; }
+.anim-stagger > *:nth-child(8)  { animation-delay: 0.28s; }
+.anim-stagger > *:nth-child(9)  { animation-delay: 0.32s; }
+.anim-stagger > *:nth-child(10) { animation-delay: 0.36s; }
+.anim-stagger > *:nth-child(n+11) { animation-delay: 0.40s; }
+
+/* Reduce motion: respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Animated transitions on common interactive elements ---------- */
+
+/* Policy rows: smooth entry */
+@keyframes policyRowEnter {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.policy-row.anim-enter {
+  animation: policyRowEnter 0.3s ease both;
+}
+
+/* Task rows: smooth entry */
+@keyframes taskRowEnter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.task-row.anim-enter,
+.resource-row.anim-enter {
+  animation: taskRowEnter 0.25s ease both;
+}
+
+/* Resource preview cards: scale-in */
+.resource-preview-row.anim-enter {
+  animation: scaleIn 0.3s ease both;
+}
+
+/* Stat cards: count-up feel */
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card.anim-pop {
+  animation: bounceIn 0.4s ease both;
+}
+
+/* Service items */
+.service-item.anim-enter {
+  animation: slideInRight 0.25s ease both;
+}
+
+/* Monitor rows */
+.monitor-row.anim-enter {
+  animation: slideInRight 0.25s ease both;
+}
+
+/* Monitor dot pulse for live status */
+.monitor-dot.online {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Notification items in sidebar */
+.notification-item.anim-enter {
+  animation: fadeInUp 0.25s ease both;
+}
+
+/* Modal backdrop + content: refined */
+.modal {
+  animation: fadeIn 0.2s ease both;
+}
+.modal-content {
+  animation: fadeInScale 0.25s ease both;
+}
+#resource-modal[style*="flex"] .modal-resource-content {
+  animation: fadeInScale 0.25s ease both;
+}
+
+/* Policy edit modal */
+#policy-modal[style*="flex"] .modal-content {
+  animation: fadeInScale 0.25s ease both;
+}
+
+/* Sidebar clock: subtle pulse on second change */
+.clock {
+  transition: color 0.3s ease;
+}
+
+/* Auth panel dropdown */
+.auth-panel:not(.hidden) {
+  animation: fadeInDown 0.2s ease both;
+}
+
+/* Services menu dropdown */
+.services-menu:not(.hidden) {
+  animation: fadeInDown 0.2s ease both;
+}
+
+/* Help popover */
+.help-popover {
+  animation: fadeInScale 0.2s ease both;
+}
+
+/* Form-feedback messages */
+.form-feedback {
+  transition: opacity 0.2s ease;
+}
+.form-feedback.success,
+.form-feedback.error {
+  animation: fadeInUp 0.25s ease both;
+}
+
+/* Trends body expand (already has transition, enhance) */
+.trends-body {
+  transition: max-height 0.4s ease, opacity 0.35s ease, margin 0.35s ease;
+}
+
+/* Policy controls bar */
+.policy-controls {
+  transition: background 0.2s ease;
+}
+
+/* Global toolbar buttons */
+.global-toolbar button {
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.global-toolbar button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Bottom bar */
+.bottombar {
+  transition: background 0.2s ease;
+}
+
+/* Shimmer loading placeholder (for future async content) */
+.shimmer-placeholder {
+  background: linear-gradient(90deg, var(--panel-2) 25%, var(--panel-3) 50%, var(--panel-2) 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Skeleton state for stat cards while loading */
+.stat-card.is-loading .stat-value,
+.stat-card.is-loading .stat-label {
+  color: transparent;
+  background: linear-gradient(90deg, var(--panel-2) 25%, var(--panel-3) 50%, var(--panel-2) 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
 }

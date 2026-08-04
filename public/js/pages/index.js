@@ -47,14 +47,7 @@ async function loadSettings(forceRefresh = false) {
 
 // Apply settings to the UI
 function applySettingsChanges() {
-  const strip = document.querySelector('.status-strip');
-  if (!strip) return;
-
-  if (!globalSettings.enableStatusStrip) {
-    strip.style.display = 'none';
-  } else {
-    strip.style.display = 'flex';
-  }
+  // Status strip removed — monitoring now lives in the sidebar panel.
 }
 let sortKey = 'createdAt';
 let sortDir = 'desc'; // "asc" | "desc"
@@ -219,15 +212,16 @@ function renderPolicyRows(edicts) {
 
   if (edicts.length === 0) {
     const empty = document.createElement('div');
-    empty.className = 'policy-row';
+    empty.className = 'policy-row anim-fade-in';
     empty.textContent = 'No policies available';
     policyListEl.appendChild(empty);
     return;
   }
 
-  edicts.forEach((edict) => {
+  edicts.forEach((edict, i) => {
     const row = document.createElement('div');
-    row.className = 'policy-row';
+    row.className = 'policy-row anim-enter';
+    row.style.animationDelay = `${i * 0.03}s`;
     row.style.cursor = 'pointer';
 
     // Include description inside the same row, below the main info
@@ -283,8 +277,8 @@ function renderPolicyStats() {
 
   container.innerHTML = cards
     .map(
-      (c) => `
-        <div class="stat-card ${c.tone ? `stat-${c.tone}` : ''}">
+      (c, i) => `
+        <div class="stat-card ${c.tone ? `stat-${c.tone}` : ''} anim-bounce-in" style="animation-delay:${i * 0.06}s">
           <div class="stat-value">${c.value}</div>
           <div class="stat-label">${c.label}</div>
         </div>`
@@ -332,113 +326,7 @@ async function initPolicies() {
   }
 }
 
-async function fetchIPStatuses() {
-  const settings = await loadSettings();
-  if (!settings.enableStatusStrip) {
-    const strip = document.querySelector('.status-strip');
-    if (strip) strip.style.display = 'none';
-    return;
-  }
-  // Skip polling when logged out — the strip shows a "log in" message instead,
-  // so we don't spam the auth-protected endpoint (and the console) with 401s.
-  if (!isLoggedIn()) return;
-  try {
-    const resp = await apiGet('/api/ips/check');
-    if (!resp || !resp.ok) {
-      console.warn('[IP] bad response', resp);
-      renderIPResults([]);
-      return;
-    }
-    renderIPResults(resp.results || []);
-  } catch (err) {
-    console.warn('[IP] Failed to fetch statuses', err);
-    console.warn(
-      '[IP] This may be expected if the backend is not configured to /api/ips/check or if there is no network connectivity.'
-    );
-    renderIPResults([]);
-  }
-}
-
-function renderIPResults(results) {
-  const strip = document.querySelector('.status-strip');
-  if (!strip) return;
-
-  strip.style.display = 'flex'; // ensure visible when rendering
-
-  // Clear existing items
-  strip.innerHTML = '';
-
-  if (!results || results.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'status-item';
-    empty.textContent = 'No IP status available';
-    strip.appendChild(empty);
-    return;
-  }
-
-  results.forEach((r) => {
-    const item = document.createElement('div');
-    item.className = 'status-item';
-    item.title =
-      r.ip + (r.time ? ` responded in ${r.time}ms` : '') + (r.error ? `, error: ${r.error}` : ''); // tooltip for more info
-
-    const dot = document.createElement('span');
-    dot.className = 'status-dot';
-    // choose visual class
-    // ensure r.time is treated as a number; treat 200ms and above as a warning
-    const respTime = parseFloat(r.time);
-    if (r.alive) dot.classList.add('online');
-    else if (!isNaN(respTime) && respTime >= 200) dot.classList.add('warning');
-    else dot.classList.add('offline');
-
-    const label = document.createElement('span');
-    label.textContent = r.ip + (r.time ? ` (${r.time}ms)` : '');
-
-    item.appendChild(dot);
-    item.appendChild(label);
-    strip.appendChild(item);
-  });
-}
-
-// Auth-gated IP status polling: only poll while logged in, so we don't spam the
-// protected /api/ips/check endpoint (and the console) with 401s when logged out.
-let ipPollTimer = null;
-
-function renderIPLoginMessage() {
-  const strip = document.querySelector('.status-strip');
-  if (!strip) return;
-  strip.style.display = 'flex';
-  strip.innerHTML = '';
-  const item = document.createElement('div');
-  item.className = 'status-item';
-  item.textContent = 'Log in to view statuses';
-  strip.appendChild(item);
-}
-
-function stopIPPolling() {
-  if (ipPollTimer) {
-    clearInterval(ipPollTimer);
-    ipPollTimer = null;
-  }
-}
-
-function startIPPolling() {
-  stopIPPolling();
-  fetchIPStatuses();
-  ipPollTimer = setInterval(fetchIPStatuses, 5000);
-}
-
-if (isLoggedIn()) {
-  startIPPolling();
-} else {
-  renderIPLoginMessage();
-}
-
-window.addEventListener('auth:login', startIPPolling);
-window.addEventListener('auth:logout', () => {
-  stopIPPolling();
-  renderIPLoginMessage();
-});
+// (IP status strip removed — monitoring now lives in the sidebar panel)
 
 // ===========================
 // POPUP MANAGEMENT SYSTEM (Extensible Framework)
@@ -523,6 +411,7 @@ function renderNotificationModal() {
 
   unfinishedEdicts.forEach((edict) => {
     const row = document.createElement('tr');
+    row.className = 'anim-fade-in-up';
     const DaysOverdue = calculateDaysOverdue(edict.plannedEnd);
     const priorityLabel = edict.priority ? `P${edict.priority}` : '-';
 
@@ -538,14 +427,6 @@ function renderNotificationModal() {
     row.style.cursor = 'pointer';
     row.addEventListener('click', () => {
       window.location.href = `/pages/policy.html?id=${edict.id}`;
-    });
-
-    // Add hover effect
-    row.addEventListener('mouseenter', () => {
-      row.style.backgroundColor = '#2a2a2a';
-    });
-    row.addEventListener('mouseleave', () => {
-      row.style.backgroundColor = '';
     });
 
     tableBody.appendChild(row);
@@ -567,10 +448,11 @@ function renderNotificationSidebar() {
   badge.classList.remove('none');
   list.innerHTML = '';
 
-  unfinishedEdicts.slice(0, 5).forEach((edict) => {
+  unfinishedEdicts.slice(0, 5).forEach((edict, i) => {
     const daysOverdue = calculateDaysOverdue(edict.plannedEnd);
     const item = document.createElement('div');
-    item.className = 'notification-item';
+    item.className = 'notification-item anim-enter';
+    item.style.animationDelay = `${i * 0.05}s`;
 
     item.innerHTML = `
             <div class="notification-item-name">${edict.name}</div>
@@ -612,24 +494,35 @@ function closeNotificationModal() {
   modal.classList.remove('show');
 }
 
+const UNFINISHED_DISMISS_KEY = 'oswald_unfinished_dismiss_date';
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`;
+}
+
+function dismissedToday() {
+  try {
+    return localStorage.getItem(UNFINISHED_DISMISS_KEY) === todayKey();
+  } catch {
+    return false;
+  }
+}
+
 async function loadUnfinishedPolicies() {
   try {
     console.log('[Notifications] Fetching unfinished policies...');
     unfinishedEdicts = await apiGet('/api/edicts/unfinished');
     console.log(`[Notifications] Found ${unfinishedEdicts.length} unfinished policies`);
 
-    // Update topbar notification icon count
-    const topbarCount = document.getElementById('topbar-notification-count');
-    if (topbarCount) {
-      topbarCount.textContent = unfinishedEdicts.length;
-    }
-
     // Render sidebar notification panel
     renderNotificationSidebar();
     renderPolicyStats();
 
-    // Show modal if there are unfinished policies
-    if (unfinishedEdicts.length > 0) {
+    // Show modal if there are unfinished policies (unless dismissed for today)
+    if (unfinishedEdicts.length > 0 && !dismissedToday()) {
       openNotificationModal();
     }
   } catch (err) {
@@ -642,6 +535,16 @@ function setupNotificationModal() {
   const modal = document.getElementById('notification-modal');
 
   closeBtn?.addEventListener('click', closeNotificationModal);
+
+  // Dismiss the auto-popup for the rest of the day
+  document.getElementById('notification-dismiss-today')?.addEventListener('click', () => {
+    try {
+      localStorage.setItem(UNFINISHED_DISMISS_KEY, todayKey());
+    } catch {
+      /* ignore */
+    }
+    closeNotificationModal();
+  });
 
   // Close modal when clicking outside
   modal?.addEventListener('click', (e) => {
@@ -691,6 +594,150 @@ apiGet('/api/services') // Preload services for the tray
 // END UNFINISHED POLICIES NOTIFICATIONS
 // ===========================
 
+// ===========================
+// COMPLETION TRENDS
+// ===========================
+
+async function loadTrends() {
+  const policyCanvas = document.getElementById('policy-trend-chart');
+  const taskCanvas = document.getElementById('task-trend-chart');
+  if (!policyCanvas || !taskCanvas) return;
+
+  if (typeof Chart === 'undefined') {
+    const sec = document.getElementById('trends-section');
+    if (sec) {
+      sec.innerHTML =
+        '<p class="trend-summary">Chart.js failed to load — check the CDN connection.</p>';
+    }
+    return;
+  }
+
+  try {
+    const [policyTrends, taskTrends] = await Promise.all([
+      apiGet('/api/edicts/trends'),
+      apiGet('/api/tasks/trends'),
+    ]);
+    renderTrendChart(
+      policyCanvas,
+      policyTrends,
+      document.getElementById('policy-trend-summary'),
+      'Policies'
+    );
+    renderTrendChart(
+      taskCanvas,
+      taskTrends,
+      document.getElementById('task-trend-summary'),
+      'Tasks'
+    );
+  } catch (err) {
+    console.error('[Trends] Failed to load completion trends', err);
+  }
+}
+
+function renderTrendChart(canvas, data, summaryEl, label) {
+  const buckets = data.buckets || [];
+  const months = buckets.map((b) => b.month);
+  const counts = buckets.map((b) => b.completed);
+
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label,
+          data: counts,
+          backgroundColor: 'rgba(124, 140, 248, 0.65)',
+          borderColor: '#7c8cf8',
+          borderWidth: 1,
+          borderRadius: 4,
+          maxBarThickness: 20,
+          categoryPercentage: 0.6,
+          barPercentage: 0.9,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2332',
+          titleColor: '#e7ecf4',
+          bodyColor: '#8f9aad',
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8f9aad', font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 12 },
+          grid: { color: 'rgba(148,163,184,0.08)' },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: '#8f9aad', font: { size: 10 }, precision: 0 },
+          grid: { color: 'rgba(148,163,184,0.08)' },
+        },
+      },
+    },
+  });
+
+  if (summaryEl) {
+    const pct = data.total > 0 ? Math.round((data.totalCompleted / data.total) * 100) : 0;
+    summaryEl.textContent = `${data.totalCompleted} of ${data.total} completed (${pct}%)`;
+  }
+}
+
+// Collapse/expand the trends section (remembered in localStorage)
+function initTrendsCollapse() {
+  const header = document.getElementById('trends-toggle');
+  const body = document.getElementById('trends-body');
+  const chevron = document.getElementById('trends-chevron');
+  if (!header || !body) return;
+
+  const wasCollapsed = (() => {
+    try {
+      return localStorage.getItem('oswald_trends_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const setCollapsed = (isCollapsed) => {
+    body.classList.toggle('collapsed', isCollapsed);
+    header.setAttribute('aria-expanded', String(!isCollapsed));
+    if (chevron) chevron.textContent = isCollapsed ? '▸' : '▾';
+    try {
+      localStorage.setItem('oswald_trends_collapsed', isCollapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+    // Re-fit charts after the expand animation completes
+    if (!isCollapsed) {
+      setTimeout(() => {
+        ['policy-trend-chart', 'task-trend-chart'].forEach((id) => {
+          const chart = typeof Chart !== 'undefined' && Chart.getChart ? Chart.getChart(id) : null;
+          if (chart) chart.resize();
+        });
+      }, 400);
+    }
+  };
+
+  header.addEventListener('click', () => setCollapsed(!body.classList.contains('collapsed')));
+  header.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setCollapsed(!body.classList.contains('collapsed'));
+    }
+  });
+
+  if (wasCollapsed) setCollapsed(true);
+}
+
+// ===========================
+// END COMPLETION TRENDS
+// ===========================
+
 // Add policy button listener
 document.getElementById('add-policy')?.addEventListener('click', () => {
   window.location.href = '/pages/policy.html';
@@ -707,12 +754,13 @@ setupNotificationModal();
 // Register unfinished policies popup in the popup management system
 registerUnfinishedPoliciesPopup();
 
-// Setup topbar notification icon click handler
-document.getElementById('topbar-notification-icon')?.addEventListener('click', () => {
-  openPopup('unfinishedPolicies');
-});
+// Setup topbar (removed — notification icon no longer shown)
 
 // Load unfinished policies and show notifications
 loadUnfinishedPolicies();
 
 initPolicies();
+
+loadTrends();
+
+initTrendsCollapse();

@@ -6,6 +6,7 @@ const { validateCreateEdict } = require('../middlewares/edictValidation');
 
 router.get('/', edictController.getAllEdicts);
 router.get('/unfinished', edictController.getUnfinishedEdicts);
+router.get('/trends', edictController.getCompletionTrends);
 router.get('/:id', edictController.getEdictById);
 router.post('/', validateCreateEdict, edictController.createEdict);
 router.put('/:id', edictController.updateEdict);

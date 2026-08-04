@@ -38,7 +38,7 @@ const corsOptions = {
     // Allow non-browser requests (no Origin header), localhost, and the LAN subnet.
     if (
       !origin ||
-      origin === 'http://localhost:3000' ||
+      origin === 'http://localhost:8080' ||
       /^http:\/\/172\.22\.160\.\d+/.test(origin)
     ) {
       callback(null, true);

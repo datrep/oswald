@@ -36,9 +36,10 @@ async function createEdict(name, plannedStart, plannedEnd, info, priority, state
     .input('priority', sql.Int, priority)
     .input('state', sql.Int, state).query(`
             INSERT INTO Edicts
-            (name, plannedStart, plannedEnd, info, priority, state)
+            (name, plannedStart, plannedEnd, info, priority, state, completedAt)
             VALUES
-            (@name, @plannedStart, @plannedEnd, @info, @priority, @state);
+            (@name, @plannedStart, @plannedEnd, @info, @priority, @state,
+             CASE WHEN @state = 3 THEN GETDATE() ELSE NULL END);
             SELECT SCOPE_IDENTITY() AS id;
         `);
 
@@ -64,7 +65,8 @@ async function updateEdict(id, name, plannedStart, plannedEnd, info, priority, s
                 plannedEnd = @plannedEnd,
                 info = @info,
                 priority = @priority,
-                state = @state
+                state = @state,
+                completedAt = CASE WHEN @state = 3 THEN COALESCE(completedAt, GETDATE()) ELSE NULL END
             WHERE id = @id
         `);
 }
@@ -92,6 +94,28 @@ async function getUnfinishedEdicts() {
   return result.recordset;
 }
 
+// Completions grouped by month (for trends), plus overall totals
+async function getCompletionTrends() {
+  const pool = await getPool();
+  const buckets = await pool.request().query(`
+    SELECT CONVERT(varchar(7), completedAt, 120) AS month, COUNT(*) AS completed
+    FROM Edicts
+    WHERE completedAt IS NOT NULL
+    GROUP BY CONVERT(varchar(7), completedAt, 120)
+    ORDER BY month
+  `);
+  const totals = await pool.request().query(`
+    SELECT COUNT(*) AS total,
+           SUM(CASE WHEN completedAt IS NOT NULL THEN 1 ELSE 0 END) AS totalCompleted
+    FROM Edicts
+  `);
+  return {
+    buckets: buckets.recordset,
+    total: totals.recordset[0]?.total ?? 0,
+    totalCompleted: totals.recordset[0]?.totalCompleted ?? 0,
+  };
+}
+
 module.exports = {
   getAllEdicts,
   getEdictById,
@@ -100,4 +124,5 @@ module.exports = {
   updateEdict,
   deleteEdict,
   getUnfinishedEdicts,
+  getCompletionTrends,
 };

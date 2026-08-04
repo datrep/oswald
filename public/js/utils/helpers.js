@@ -163,3 +163,67 @@ function attachHelpPopover(buttonEl, { title, body }) {
     if (e.key === 'Escape') close();
   });
 }
+
+// ---------- Form UX helpers ----------
+
+/**
+ * Toggle a button's save-in-progress state.
+ * @param {HTMLElement} btn - The button element
+ * @param {boolean} saving - Whether saving is in progress
+ * @param {string} [label='Save'] - The original label to restore
+ */
+function setSaveState(btn, saving, label = 'Save') {
+  if (!btn) return;
+  if (saving) {
+    btn.disabled = true;
+    btn.classList.add('is-saving');
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = 'Saving…';
+  } else {
+    btn.disabled = false;
+    btn.classList.remove('is-saving');
+    btn.textContent = btn.dataset.originalText || label;
+  }
+}
+
+/**
+ * Show inline validation error on a field.
+ * @param {HTMLElement} field - The input/select/textarea
+ * @param {string} [message] - Error message; pass empty/falsy to clear
+ */
+function showFieldError(field, message) {
+  if (!field) return;
+  const group = field.closest('.form-field, .form-group, .task-form');
+  let errorEl = group ? group.querySelector('.field-error') : null;
+  if (!errorEl && group) {
+    errorEl = document.createElement('div');
+    errorEl.className = 'field-error';
+    group.appendChild(errorEl);
+  }
+  if (message) {
+    field.classList.add('is-invalid');
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.add('visible');
+    }
+  } else {
+    field.classList.remove('is-invalid');
+    if (errorEl) errorEl.classList.remove('visible');
+  }
+}
+
+/**
+ * Show feedback message near a form.
+ * @param {HTMLElement} el - The feedback element
+ * @param {'success'|'error'} type
+ * @param {string} message
+ */
+function showFormFeedback(el, type, message) {
+  if (!el) return;
+  el.textContent = message;
+  el.className = `form-feedback ${type}`;
+  el.classList.remove('hidden');
+  // auto-hide after 4s
+  clearTimeout(el._feedbackTimer);
+  el._feedbackTimer = setTimeout(() => el.classList.add('hidden'), 4000);
+}

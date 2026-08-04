@@ -38,9 +38,10 @@ async function createTask(
     .input('assignedToUserId', sql.Int, assignedToUserId)
     .input('edictId', sql.Int, edictId).query(`
             INSERT INTO Tasks
-            (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId, edictId)
+            (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId, edictId, completedAt)
             VALUES
-            (@name, @plannedStart, @plannedEnd, @info, @priority, @state, @assignedToUserId, @edictId)
+            (@name, @plannedStart, @plannedEnd, @info, @priority, @state, @assignedToUserId, @edictId,
+             CASE WHEN @state = 3 THEN GETDATE() ELSE NULL END)
         `);
 }
 
@@ -76,7 +77,8 @@ async function updateTask(
                 priority = @priority,
                 state = @state,
                 assignedToUserId = @assignedToUserId,
-                edictId = @edictId
+                edictId = @edictId,
+                completedAt = CASE WHEN @state = 3 THEN COALESCE(completedAt, GETDATE()) ELSE NULL END
             WHERE id = @id
         `);
 }
@@ -95,6 +97,28 @@ async function getTasksByEdict(edictId) {
   return result.recordset;
 }
 
+// Completions grouped by month (for trends), plus overall totals
+async function getCompletionTrends() {
+  const pool = await getPool();
+  const buckets = await pool.request().query(`
+    SELECT CONVERT(varchar(7), completedAt, 120) AS month, COUNT(*) AS completed
+    FROM Tasks
+    WHERE completedAt IS NOT NULL
+    GROUP BY CONVERT(varchar(7), completedAt, 120)
+    ORDER BY month
+  `);
+  const totals = await pool.request().query(`
+    SELECT COUNT(*) AS total,
+           SUM(CASE WHEN completedAt IS NOT NULL THEN 1 ELSE 0 END) AS totalCompleted
+    FROM Tasks
+  `);
+  return {
+    buckets: buckets.recordset,
+    total: totals.recordset[0]?.total ?? 0,
+    totalCompleted: totals.recordset[0]?.totalCompleted ?? 0,
+  };
+}
+
 module.exports = {
   getAllTasks,
   getTaskById,
@@ -102,4 +126,5 @@ module.exports = {
   updateTask,
   deleteTask,
   getTasksByEdict,
+  getCompletionTrends,
 };

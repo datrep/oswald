@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '../api/api.js'; // Helper function to make GET requests to the API
+import { apiGet, apiPost, apiPut, apiDelete, isLoggedIn } from '../api/api.js';
 
 // Inline SVG fallback so a missing icon never 404s.
 const FALLBACK_ICON =
@@ -24,38 +24,71 @@ const serviceIconInput = document.getElementById('service-icon');
 servicesToggle.addEventListener('click', () => {
   servicesList.classList.toggle('services-menu');
 });
+let editingServiceId = null;
+
 addButton.addEventListener('click', () => {
-  addForm.classList.toggle('hidden');
+  openAddForm();
 });
 
-saveServiceButton.addEventListener('click', async () => {
+function openAddForm() {
+  editingServiceId = null;
+  serviceNameInput.value = '';
+  serviceTypeInput.value = 'url';
+  serviceTargetInput.value = '';
+  serviceIconInput.value = '';
+  saveServiceButton.textContent = 'Save';
+  addForm.classList.remove('hidden');
+  serviceNameInput.focus();
+}
+
+function openEditForm(service) {
+  editingServiceId = service.id;
+  serviceNameInput.value = service.name || '';
+  serviceTypeInput.value = service.type || 'url';
+  serviceTargetInput.value = service.target || '';
+  serviceIconInput.value = service.iconPath || '';
+  saveServiceButton.textContent = 'Save Changes';
+  addForm.classList.remove('hidden');
+  serviceNameInput.focus();
+}
+
+function resetAddForm() {
+  serviceNameInput.value = '';
+  serviceTypeInput.value = 'url';
+  serviceTargetInput.value = '';
+  serviceIconInput.value = '';
+  saveServiceButton.textContent = 'Save';
+}
+
+document.getElementById('service-add-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setSaveState(saveServiceButton, true);
   try {
     const serviceData = {
-      name: serviceNameInput.value,
+      name: serviceNameInput.value.trim(),
       type: serviceTypeInput.value,
-      target: serviceTargetInput.value,
-      iconPath: serviceIconInput.value,
-      description: '', // You can add a description field to the form if needed
-      enabled: true, // Default to enabled
-      sortOrder: 0, // Default sort order, you can modify this as needed
+      target: serviceTargetInput.value.trim(),
+      iconPath: serviceIconInput.value.trim(),
+      description: '',
+      enabled: true,
+      sortOrder: 0,
     };
-    await apiPost('/api/services', serviceData);
+    if (editingServiceId) {
+      await apiPut(`/api/services/${editingServiceId}`, serviceData);
+      editingServiceId = null;
+    } else {
+      await apiPost('/api/services', serviceData);
+    }
 
-    await loadServices(); // Refresh the services list after adding a new service
+    await loadServices(); // Refresh the services list after saving
 
-    // Clear form inputs
-    serviceNameInput.value = '';
-    serviceTypeInput.value = '';
-    serviceTargetInput.value = '';
-    serviceIconInput.value = '';
-
+    resetAddForm();
     addForm.classList.add('hidden'); // Hide the form after saving
-
-    serviceNameInput.value = '';
-    serviceTargetInput.value = '';
-    serviceIconInput.value = '';
   } catch (err) {
     console.error('[ServicesTray] Failed to save service', err);
+    alert('Failed to save service');
+  } finally {
+    setSaveState(saveServiceButton, false);
   }
 });
 
@@ -77,31 +110,75 @@ function getServiceIcon(service) {
   }
 }
 
+const GROUP_LABELS = { url: 'Websites', local_app: 'Local Apps' };
+
 // servicesList
 function renderServices(services) {
   servicesList.innerHTML = '';
 
-  services.forEach((service) => {
-    const item = document.createElement('a');
-    item.className = 'service-item';
-    item.href = service.target;
-    item.target = '_blank';
+  const sorted = [...services].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+  );
 
-    // Use dynamic favicon logic
-    const iconSrc = getServiceIcon(service);
+  const groups = {};
+  for (const s of sorted) {
+    const key = s.type === 'local_app' ? 'local_app' : 'url';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
+  }
 
-    item.innerHTML = `
-            <img
-                class="service-icon"
-                src="${iconSrc}"
-                alt="${service.name}"
-                onerror="this.src='${FALLBACK_ICON}'"
-            >
-            <span>${service.name}</span>
-        `;
+  for (const [key, items] of Object.entries(groups)) {
+    if (!items.length) continue;
+    const heading = document.createElement('div');
+    heading.className = 'service-group-heading';
+    heading.textContent = GROUP_LABELS[key] || key;
+    servicesList.appendChild(heading);
+    items.forEach((service) => servicesList.appendChild(renderServiceItem(service)));
+  }
+}
 
-    servicesList.appendChild(item);
-  });
+function renderServiceItem(service) {
+  const item = document.createElement('div');
+  item.className = 'service-item';
+  const iconSrc = getServiceIcon(service);
+  const actions = isLoggedIn()
+    ? `<div class="service-actions">
+         <button type="button" class="service-edit" title="Edit service">✎</button>
+         <button type="button" class="service-delete" title="Delete service">✕</button>
+       </div>`
+    : '';
+
+  item.innerHTML = `
+    <a class="service-link" href="${service.target}" target="_blank" rel="noopener">
+      <img class="service-icon" src="${iconSrc}" alt="${service.name}" onerror="this.src='${FALLBACK_ICON}'">
+      <span>${service.name}</span>
+    </a>
+    ${actions}
+  `;
+
+  const editBtn = item.querySelector('.service-edit');
+  const deleteBtn = item.querySelector('.service-delete');
+  if (editBtn) {
+    editBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openEditForm(service);
+    });
+  }
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!confirm(`Delete service "${service.name}"?`)) return;
+      try {
+        await apiDelete(`/api/services/${service.id}`);
+        await loadServices();
+      } catch (err) {
+        console.error('[ServicesTray] delete failed', err);
+        alert('Failed to delete service');
+      }
+    });
+  }
+
+  return item;
 }
 
 async function loadServices() {

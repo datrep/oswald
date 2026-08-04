@@ -22,7 +22,7 @@ This installs npm dependencies and (re)initializes the SQL database from `sql\sc
 ```powershell
 .\start.ps1            # interactive launcher (local / remote)
 # or directly:
-node .\server.js       # http://localhost:3000
+node .\server.js       # http://localhost:8080
 ```
 
 ## Maintenance
