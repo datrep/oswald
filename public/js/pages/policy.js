@@ -579,15 +579,7 @@ async function createPolicy() {
     throw new Error('Validation failed');
   }
   console.log('[Policy.save_policy] Executed: create_policy');
-  const response = await fetch('/api/edicts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const result = await response.json();
-  if (!response.ok) {
-    throw new Error(result.message || 'Failed to create policy');
-  }
+  const result = await apiPost('/api/edicts', data);
   console.log(`[Policy.save_policy] Completed: create_policy (id: ${result.id})`);
   // Switch the current page into view-mode for the newly created policy
   policyId = result.id;
@@ -672,15 +664,7 @@ async function updatePolicy() {
     throw new Error('Validation failed');
   }
   console.log(`[Policy.save_policy] Executed: update_policy (id: ${policyId})`);
-  const response = await fetch(`/api/edicts/${policyId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const result = await response.json();
-  if (!response.ok) {
-    throw new Error(result.message || 'Failed to update policy');
-  }
+  await apiPut(`/api/edicts/${policyId}`, data);
   console.log(`[Policy.save_policy] Completed: update_policy (id: ${policyId})`);
   await loadPolicy();
 }
@@ -697,11 +681,7 @@ async function handleDelete(btn = deleteBtn) {
   setSaveState(btn, true, 'Delete');
   try {
     console.log(`[Policy.delete_policy] Executed: delete_policy (id: ${policyId})`);
-    const response = await fetch(`/api/edicts/${policyId}`, { method: 'DELETE' });
-    if (!response.ok) {
-      const result = await response.json();
-      throw new Error(result.message || 'Failed to delete policy');
-    }
+    await apiDelete(`/api/edicts/${policyId}`);
     console.log(`[Policy.delete_policy] Completed: delete_policy (id: ${policyId})`);
     window.location.href = '/index.html';
   } catch (err) {

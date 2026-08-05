@@ -53,16 +53,19 @@ async function getAllResources(search) {
 
 // Attach an EXISTING file (resourcePath already on disk, e.g. in public/resources)
 // to a policy — used by the "pull from Oswald's /resources" picker.
+// Returns the new row id.
 async function attachResource(edictId, description, resourcePath) {
   const pool = await getPool();
-  await pool
+  const result = await pool
     .request()
     .input('edictId', sql.Int, edictId)
     .input('resourcePath', sql.NVarChar, resourcePath)
     .input('description', sql.NVarChar, description).query(`
             INSERT INTO EdictResources (edictId, resourcePath, description)
+            OUTPUT inserted.id
             VALUES (@edictId, @resourcePath, @description);
         `);
+  return result.recordset[0] ? result.recordset[0].id : null;
 }
 
 async function deleteResourceById(id) {
