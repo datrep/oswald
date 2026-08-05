@@ -50,3 +50,21 @@ exports.getUserInfo = async (userID) => {
     .query('SELECT id, username, createdAt, updatedAt FROM Users WHERE id = @userID');
   return result.recordset[0];
 };
+
+exports.getAllUsersWithRoles = async () => {
+  const pool = await getPool();
+  const result = await pool.request().query(`
+    SELECT u.id, u.username,
+           COALESCE(STRING_AGG(r.name, ','), '') AS roles
+    FROM Users u
+    LEFT JOIN UserRoles ur ON ur.userId = u.id
+    LEFT JOIN Roles r ON r.id = ur.roleId
+    GROUP BY u.id, u.username
+    ORDER BY u.username
+  `);
+  return result.recordset.map((u) => ({
+    id: u.id,
+    username: u.username,
+    roles: u.roles ? u.roles.split(',').filter(Boolean) : [],
+  }));
+};

@@ -39,6 +39,16 @@ function overlayEnv(c) {
     };
   }
 
+  // FS-3 one-way sync job.
+  if (e.FILESERVER_SYNC_SOURCE || e.FILESERVER_SYNC_DEST) {
+    o.sync = {
+      source: e.FILESERVER_SYNC_SOURCE || o.sync?.source,
+      destination: e.FILESERVER_SYNC_DEST || o.sync?.destination,
+      deleteExtraneous: e.FILESERVER_SYNC_DELETE === '0' ? false : o.sync?.deleteExtraneous !== false,
+      intervalMinutes: e.FILESERVER_SYNC_INTERVAL ? Number(e.FILESERVER_SYNC_INTERVAL) : (o.sync?.intervalMinutes || 0),
+    };
+  }
+
   if (e.FILESERVER_THUMB_CACHE) {
     o.thumbnails = { ...(o.thumbnails || {}), cacheDir: e.FILESERVER_THUMB_CACHE };
   }

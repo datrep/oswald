@@ -314,6 +314,8 @@ body.dragging .drop-hint { display: flex; }
 
 .login-card input { width: 100%; margin-bottom: 2px; }
 #login-submit { margin-top: 6px; padding: 9px; border-radius: 9px; border: none; background: var(--accent); color: #fff; font-size: 14px; cursor: pointer; }
+.login-switch { display: block; text-align: center; margin-top: 10px; text-decoration: none; }
+.login-switch:hover { color: var(--accent); }
 
 /* Viewer */
 .viewer-card { width: min(920px, 94vw); }

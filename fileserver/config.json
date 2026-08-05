@@ -4,13 +4,21 @@
   "dashboardBase": "http://172.22.160.3:8080",
   "tls": {
     "enabled": true,
-    "host": "172.22.160.3"
+    "host": "172.22.160.3",
+    "healthPort": 8091
   },
   "mode": "fileserver",
+  "allowSignup": true,
   "mirror": {
     "sourceRootId": "resources",
     "mirrorPath": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror",
     "readOnly": true
+  },
+  "sync": {
+    "source": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources",
+    "destination": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-backup",
+    "deleteExtraneous": true,
+    "intervalMinutes": 0
   },
   "roots": [
     {

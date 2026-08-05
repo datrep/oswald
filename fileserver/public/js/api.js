@@ -46,6 +46,21 @@ export const FS = {
     return body; // { token, roles, permissions }
   },
 
+  // Public bootstrap + self-service sign-up (read-only account).
+  config() {
+    return this.json('/api/fs/config');
+  },
+  async register(username, password) {
+    const r = await this.request('/api/fs/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || 'Registration failed');
+    return body;
+  },
+
   async request(path, opts = {}) {
     const headers = { ...(opts.headers || {}) };
     const token = this.getToken();
@@ -142,6 +157,14 @@ export const FS = {
   },
   users() {
     return this.json('/api/fs/users');
+  },
+
+  // FS-3 one-way sync (files.admin).
+  syncNow() {
+    return this.json('/api/fs/sync', { method: 'POST' });
+  },
+  syncStatus() {
+    return this.json('/api/fs/sync/status');
   },
 
   // URL helpers

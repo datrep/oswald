@@ -52,6 +52,7 @@
           <button id="fav-toggle" class="btn ghost" title="Show favorites only">★ Favorites</button>
           <select id="tag-filter" title="Filter by tag"><option value="">All tags</option></select>
           <button id="btn-share" class="btn ghost hidden" title="Share / folder permissions">Share</button>
+          <button id="btn-sync" class="btn ghost hidden" title="Run one-way mirror sync (FS-3)">Sync</button>
           <select id="filter-select" title="Filter by type">
             <option value="all">All types</option>
             <option value="image">Images</option>
@@ -80,12 +81,14 @@
   <!-- Login -->
   <div id="modal-login" class="modal show">
     <div class="modal-card login-card">
-      <div class="modal-head"><h2>Sign in</h2><p class="muted">to me: use OSWALD.</p></div>
+      <div class="modal-head"><h2 id="login-title">Sign in</h2><p class="muted">to me: use OSWALD.</p></div>
       <input id="login-user" placeholder="Username" autocomplete="username" />
       <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password" />
+      <input id="login-pass2" type="password" placeholder="Confirm password" autocomplete="new-password" class="hidden" />
       <p id="login-error" class="error hidden"></p>
       <button id="login-submit" class="primary">Sign in</button>
-      <p class="muted tiny">The fileserver shares your Oswald login. Root access is granted to all authenticated users for now.</p>
+      <a id="login-toggle" href="#" class="login-switch muted tiny">No account? Sign up</a>
+      <p class="muted tiny">The fileserver shares your Oswald login. New accounts are read-only.</p>
     </div>
   </div>
 

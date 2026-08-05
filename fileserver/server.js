@@ -13,6 +13,7 @@ const selfsigned = require('selfsigned');
 const { authenticateToken } = require('./auth');
 const access = require('./access');
 const meta = require('./fsMeta');
+const syncEngine = require('./sync');
 const core = require('./fsCore');
 const { HttpError, getConfig, getRoots, getRoot, assertInside, listDir, search, streamThumbnail, getMime, isDangerous } = core;
 
@@ -89,6 +90,38 @@ function streamFolderZip(res, abs, rel, name) {
 }
 
 // --- auth --------------------------------------------------------------------
+
+// Public bootstrap: whether self-registration is enabled + the runtime mode.
+app.get('/api/fs/config', (req, res, next) => {
+  try {
+    const c = getConfig();
+    ok(res, { allowSignup: !!c.allowSignup, mode: c.mode });
+  } catch (e) { next(e); }
+});
+
+// Self-service account creation (fileserver login page -> Sign up).
+// Creates a read-only 'user' role account via the dashboard's register endpoint.
+app.post('/api/fs/register', async (req, res, next) => {
+  try {
+    if (!getConfig().allowSignup) {
+      return res.status(403).json({ error: 'Self-registration is disabled' });
+    }
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    const upstream = await fetch(`${getConfig().dashboardBase}/api/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const body = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      return res.status(upstream.status >= 400 && upstream.status < 500 ? upstream.status : 500).json({ error: body.error || 'Registration failed' });
+    }
+    return ok(res, { message: 'Account created', ...body });
+  } catch (e) { next(e); }
+});
 
 // FS-2: server-side login proxy. The UI is HTTPS (TLS), so the browser can't
 // call the HTTP dashboard directly (mixed content) — the fileserver does it.
@@ -344,6 +377,25 @@ app.get('/api/fs/users', authenticateToken, access.requireAdmin, async (req, res
   try { ok(res, { users: await meta.getUsers() }); } catch (e) { next(e); }
 });
 
+// --- FS-3: one-way mirror sync (files.admin) --------------------------------
+app.get('/api/fs/sync/status', authenticateToken, access.requireAdmin, (req, res, next) => {
+  try { ok(res, syncEngine.getStatus()); } catch (e) { next(e); }
+});
+
+app.post('/api/fs/sync', authenticateToken, access.requireAdmin, (req, res, next) => {
+  try {
+    syncEngine
+      .runSync()
+      .then((r) => {
+        if (!r.skippedDueToRunning) {
+          console.log(`[fs] manual sync: +${r.added} ~${r.updated} -${r.deleted}${r.error ? ' error:' + r.error : ''}`);
+        }
+      })
+      .catch((e) => console.error('[fs] sync error', e));
+    ok(res, { running: true, startedAt: new Date().toISOString() });
+  } catch (e) { next(e); }
+});
+
 // --- errors + start -----------------------------------------------------------
 
 app.use((err, req, res, next) => {
@@ -389,13 +441,41 @@ async function getOrCreateCert() {
 
 const port = getConfig().port || 8090;
 const host = getConfig().host || '0.0.0.0';
+
+// Optional scheduled sync (FS-3): intervalMinutes > 0.
+const syncMins = getConfig().sync?.intervalMinutes || 0;
+if (syncMins > 0) {
+  setInterval(() => {
+    syncEngine
+      .runSync()
+      .then((r) => {
+        if (!r.skippedDueToRunning) {
+          console.log(`[fs] scheduled sync: +${r.added} ~${r.updated} -${r.deleted}${r.error ? ' error:' + r.error : ''}`);
+        }
+      })
+      .catch((e) => console.error('[fs] scheduled sync failed', e));
+  }, syncMins * 60 * 1000);
+  console.log(`[fileserver] scheduled sync every ${syncMins} min`);
+}
+
 if (getConfig().tls?.enabled) {
+  // Public HTTPS interface.
   getOrCreateCert()
     .then((creds) => {
       https.createServer(creds, app).listen(port, host, () => {
         console.log(`[fileserver] Oswald Fileserver (FS-1/FS-2) listening on https://${host}:${port}`);
         console.log(`[fileserver] roots: ${getRoots().map((r) => `${r.name} (${r.path})`).join(', ')}`);
       });
+      // Localhost-only HTTP health endpoint (for the container healthcheck / ops).
+      const healthPort = getConfig().tls?.healthPort || 8091;
+      require('http')
+        .createServer((req, res) => {
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end('ok');
+        })
+        .listen(healthPort, '127.0.0.1', () => {
+          console.log(`[fileserver] health endpoint on http://127.0.0.1:${healthPort}/healthz`);
+        });
     })
     .catch((e) => {
       console.error('[fileserver] cert generation failed', e);

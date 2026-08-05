@@ -9,6 +9,7 @@ router.post('/login', userController.loginUser);
 router.put('/:userId', authenticateToken, userController.updateUser);
 router.delete('/:userId', authenticateToken, userController.deleteUser);
 router.get('/me', authenticateToken, userController.getUserInfo);
+router.get('/', authenticateToken, requirePermission('users.manage'), userController.getAllUsers);
 router.get('/roles', authenticateToken, requirePermission('users.manage'), userController.getRoles);
 router.put('/:userId/role', authenticateToken, requirePermission('users.manage'), userController.assignUserRole);
 

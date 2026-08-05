@@ -137,6 +137,25 @@ function tagsFor(root, rel) {
 // ---------- auth ----------
 function showLogin() { $('modal-login').classList.add('show'); }
 
+let loginMode = 'signin';
+
+function setLoginMode(mode) {
+  loginMode = mode;
+  $('login-title').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  $('login-submit').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  $('login-pass2').classList.toggle('hidden', mode !== 'signup');
+  $('login-toggle').textContent = mode === 'signup' ? 'Already have an account? Sign in' : 'No account? Sign up';
+  $('login-error').classList.add('hidden');
+}
+
+// Hide the sign-up link if the server has self-registration disabled.
+async function applyBootstrap() {
+  try {
+    const { allowSignup } = await FS.config();
+    $('login-toggle').classList.toggle('hidden', !allowSignup);
+  } catch { /* ignore */ }
+}
+
 async function initAuth() {
   if (!FS.isLoggedIn()) { showLogin(); return; }
   // Fresh load with a stored session: hide the login modal (it starts .show in HTML).
@@ -163,17 +182,26 @@ async function handleLogin(e) {
   e.preventDefault();
   const user = $('login-user').value.trim();
   const pass = $('login-pass').value;
+  const pass2 = $('login-pass2').value;
   const errEl = $('login-error');
+  const wasSignup = loginMode === 'signup';
   errEl.classList.add('hidden');
   if (!user || !pass) { errEl.textContent = 'Enter username and password.'; errEl.classList.remove('hidden'); return; }
   try {
+    if (wasSignup) {
+      if (pass !== pass2) { errEl.textContent = 'Passwords do not match.'; errEl.classList.remove('hidden'); return; }
+      if (pass.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.classList.remove('hidden'); return; }
+      await FS.register(user, pass); // creates a read-only account
+    }
     const body = await FS.login(user, pass);
     FS.setToken(body.token);
     setSessionCookie(body.token);
     $('modal-login').classList.remove('show');
     $('login-user').value = '';
     $('login-pass').value = '';
-    toast(`Signed in as ${user}`);
+    $('login-pass2').value = '';
+    setLoginMode('signin');
+    toast(wasSignup ? `Account created — signed in as ${user}` : `Signed in as ${user}`);
     await boot();
   } catch (err) {
     errEl.textContent = err.message;
@@ -741,6 +769,33 @@ async function openShare() {
   }
 }
 
+// ---------- FS-3: one-way mirror sync (files.admin) ----------
+async function runSync() {
+  try {
+    await FS.syncNow();
+    toast('Sync started…');
+    const poll = async () => {
+      for (let i = 0; i < 120; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const { running, lastRun } = await FS.syncStatus();
+        if (!running) {
+          if (lastRun && lastRun.error) {
+            toast('Sync error: ' + lastRun.error);
+          } else if (lastRun) {
+            toast(`Sync done: +${lastRun.added} ~${lastRun.updated} -${lastRun.deleted} (${lastRun.unchanged} unchanged)${lastRun.errors?.length ? ` ⚠${lastRun.errors.length} errors` : ''}`);
+          } else {
+            toast('Sync done');
+          }
+          return;
+        }
+      }
+    };
+    poll();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 // ---------- reload / boot ----------
 async function reload() {
   renderTree();
@@ -754,8 +809,10 @@ function bindStatic() {
   initUpload();
   $('login-submit').onclick = handleLogin;
   $('login-pass').onkeydown = (e) => { if (e.key === 'Enter') handleLogin(e); };
+  $('login-toggle').onclick = (e) => { e.preventDefault(); setLoginMode(loginMode === 'signup' ? 'signin' : 'signup'); };
   $('btn-signout').onclick = signOut;
   window.addEventListener('fs:unauthorized', () => { showLogin(); toast('Session expired — sign in again'); });
+  applyBootstrap();
 }
 
 async function boot() {
@@ -787,6 +844,9 @@ async function boot() {
 
   // FS-2: favorites + tags + share
   $('btn-share').classList.toggle('hidden', !FS.can('files.admin'));
+  // FS-3: one-way mirror sync
+  $('btn-sync').classList.toggle('hidden', !FS.can('files.admin'));
+  $('btn-sync').onclick = runSync;
   $('fav-toggle').onclick = () => {
     state.favOnly = !state.favOnly;
     $('fav-toggle').classList.toggle('active', state.favOnly);

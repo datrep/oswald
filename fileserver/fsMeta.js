@@ -1,8 +1,8 @@
 // fsMeta.js — DB metadata for the Oswald fileserver (FS-2).
-// Reuses the dashboard's shared SQL Server pool (../config/db.js) — the
-// fileserver process loads the same repo-root .env, so it connects to DB_Oswald.
+// Uses the fileserver's own SQL Server pool (./db) — reads the same repo-root
+// .env as the dashboard, so the service is fully standalone (ARCH task 49).
 const sql = require('mssql');
-const { getPool } = require('../config/db');
+const { getPool } = require('./db');
 
 // ---- Favorites --------------------------------------------------------------
 

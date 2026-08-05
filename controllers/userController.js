@@ -104,6 +104,16 @@ async function getUserInfo(req, res, next) {
   }
 }
 
+// GET /api/users — list all users with their roles (admin only).
+async function getAllUsers(req, res, next) {
+  try {
+    const users = await User.getAllUsersWithRoles();
+    res.json({ users });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // GET /api/users/roles — list roles + permissions (admin only).
 async function getRoles(req, res, next) {
   try {
@@ -144,6 +154,7 @@ module.exports = {
   updateUser,
   deleteUser,
   getUserInfo,
+  getAllUsers,
   getRoles,
   assignUserRole,
 };
