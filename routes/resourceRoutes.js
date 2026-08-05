@@ -1,14 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const fs = require('fs');
 const multer = require('multer');
 const authenticateToken = require('../middlewares/auth');
 const { requirePermission } = require('../middlewares/auth');
 const resourceController = require('../controllers/resourceController');
 
+// The resources storage directory is a server setting (settings.json -> resourcesDir,
+// default public/resources). Resolved fresh per upload so a settings change is honored.
+function resourcesDir() {
+  try {
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'api', 'settings.json'), 'utf8')
+    );
+    return path.resolve(__dirname, '..', settings.resourcesDir || 'public/resources');
+  } catch {
+    return path.resolve(__dirname, '..', 'public', 'resources');
+  }
+}
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', 'public', 'resources'));
+    const dir = resourcesDir();
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -55,6 +75,7 @@ router.get('/', resourceController.getAllResources);
 router.post('/', authenticateToken, requirePermission('resources.manage'), uploadSingle, resourceController.createResource);
 router.post('/attach', authenticateToken, requirePermission('resources.manage'), resourceController.attachResource);
 router.put('/reorder', authenticateToken, requirePermission('resources.manage'), resourceController.reorderResources);
+router.put('/:id', authenticateToken, requirePermission('resources.manage'), resourceController.updateResource);
 router.delete('/:id', authenticateToken, requirePermission('resources.manage'), resourceController.deleteResourceById);
 router.get('/edict/:edictId', resourceController.getResourcesByEdict);
 

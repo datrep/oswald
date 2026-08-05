@@ -250,7 +250,7 @@ function renderPolicyRows(edicts) {
     row.innerHTML = `\
                 <span class="col-name" title="${edict.name || ''}">${edict.name || '-'}</span>
                 <span class="col-date">${formatDate(edict.plannedStart)}</span>
-                <span class="col-date">${formatDate(edict.plannedEnd)}</span>
+                <span class="col-date${endDateTone(edict.plannedEnd) ? ' ' + endDateTone(edict.plannedEnd) : ''}">${formatDate(edict.plannedEnd)}</span>
                 <span class="col-tasks">${edict.taskCount ?? 0} / ${edict.resourceCount ?? 0}</span>
                 <span class="col-active">${
                   edict.active
@@ -264,6 +264,7 @@ function renderPolicyRows(edicts) {
                 }</span>
                 <span class="col-state">${stateChip}</span>
                 <span class="col-info">${edict.info || 'No description available.'}</span>
+                <span class="policy-id">#${edict.id}</span>
         `;
 
     // Make row clickable
@@ -411,6 +412,19 @@ function calculateDaysOverdue(endDate) {
   return diffDays;
 }
 
+// End-date urgency for the dashboard policy rows: red when overdue, yellow when
+// due within SOON_MS, normal (default) otherwise.
+const END_SOON_MS = 3 * 24 * 60 * 60 * 1000; // warn within 3 days
+function endDateTone(plannedEnd) {
+  if (!plannedEnd) return '';
+  const end = new Date(plannedEnd).getTime();
+  if (Number.isNaN(end)) return '';
+  const now = Date.now();
+  if (end < now) return 'is-overdue';
+  if (end - now <= END_SOON_MS) return 'is-soon';
+  return '';
+}
+
 function renderNotificationModal() {
   const modal = document.getElementById('notification-modal');
   const tableBody = document.getElementById('notification-table-body');
@@ -464,6 +478,19 @@ function renderNotificationSidebar() {
   badge.classList.remove('none');
   list.innerHTML = '';
 
+  // Small "view all" header, right-aligned at the top of the list.
+  if (unfinishedEdicts.length > 5) {
+    const head = document.createElement('div');
+    head.className = 'notifications-head';
+    const va = document.createElement('button');
+    va.type = 'button';
+    va.className = 'notifications-viewall';
+    va.textContent = `View all (${unfinishedEdicts.length})`;
+    va.addEventListener('click', openNotificationModal);
+    head.appendChild(va);
+    list.appendChild(head);
+  }
+
   unfinishedEdicts.slice(0, 5).forEach((edict, i) => {
     const daysOverdue = calculateDaysOverdue(edict.plannedEnd);
     const item = document.createElement('div');
@@ -483,20 +510,6 @@ function renderNotificationSidebar() {
 
     list.appendChild(item);
   });
-
-  // Add "view all" link if more than 5
-  if (unfinishedEdicts.length > 5) {
-    const viewAll = document.createElement('div');
-    viewAll.className = 'notification-item';
-    viewAll.style.textAlign = 'center';
-    viewAll.style.color = '#7279db';
-    viewAll.style.fontWeight = '600';
-    viewAll.textContent = `View all (${unfinishedEdicts.length})`;
-    viewAll.addEventListener('click', () => {
-      openNotificationModal();
-    });
-    list.appendChild(viewAll);
-  }
 }
 
 function openNotificationModal() {

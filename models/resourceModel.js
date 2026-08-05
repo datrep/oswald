@@ -107,6 +107,17 @@ async function deleteResourceById(id) {
   await pool.request().input('id', sql.Int, id).query(`DELETE FROM EdictResources WHERE id = @id`);
 }
 
+// Update only the metadata (description) of an existing resource — the file on
+// disk is untouched, so editing a resource no longer requires re-selecting it.
+async function updateResource(id, description) {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input('id', sql.Int, id)
+    .input('description', sql.NVarChar, description)
+    .query(`UPDATE EdictResources SET description = @description WHERE id = @id`);
+}
+
 module.exports = {
   createResource,
   getResourcesByEdict,
@@ -114,5 +125,6 @@ module.exports = {
   getAllResources,
   attachResource,
   deleteResourceById,
+  updateResource,
   reorderResources,
 };

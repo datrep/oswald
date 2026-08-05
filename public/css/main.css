@@ -282,6 +282,23 @@ body > .content {
 .policy-topbar #policy-title {
   margin: 0;
 }
+.policy-topbar-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.policy-id {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.policy-row .policy-id {
+  position: absolute;
+  right: 12px;
+  bottom: 4px;
+}
 .policy-actions {
   display: flex;
   align-items: center;
@@ -673,6 +690,23 @@ main .status-strip {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.notifications-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2px;
+}
+.notifications-viewall {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.notifications-viewall:hover {
+  text-decoration: underline;
+}
 .notification-item-date {
   color: var(--danger);
   font-size: 0.75rem;
@@ -782,6 +816,74 @@ main .status-strip {
 .mcp-actions button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Compact server control cards + servers link */
+#mcp-control .servers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+#mcp-control .servers-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+#mcp-control .servers-link {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+#mcp-control .servers-link:hover {
+  text-decoration: underline;
+}
+#mcp-control .mcp-control {
+  gap: 3px;
+}
+#mcp-control .mcp-control + .mcp-control {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+#mcp-control .mcp-title {
+  font-size: 0.7rem;
+}
+#mcp-control .mcp-status-line {
+  font-size: 0.72rem;
+  margin-bottom: 2px;
+}
+#mcp-control .mcp-actions {
+  gap: 6px;
+  margin-top: 2px;
+}
+#mcp-control .mcp-actions button {
+  flex: 0 0 auto;
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  opacity: 0.85;
+  cursor: pointer;
+}
+#mcp-control .mcp-actions button:hover:not(:disabled) {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#mcp-control .mcp-actions button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+#mcp-control .mcp-error {
+  min-height: 0;
+  margin: 2px 0 0;
 }
 .mcp-pid {
   color: var(--faint);
@@ -1122,6 +1224,7 @@ main .status-strip {
   border-radius: var(--radius);
   padding: 9px 16px;
   margin-bottom: 6px;
+  position: relative;
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -1164,6 +1267,14 @@ main .status-strip {
   font-family: var(--mono);
   font-size: 0.8rem;
   color: var(--muted);
+}
+.col-date.is-soon {
+  color: var(--warning);
+  font-weight: 600;
+}
+.col-date.is-overdue {
+  color: var(--danger);
+  font-weight: 600;
 }
 .col-tasks {
   color: var(--muted);
@@ -2324,6 +2435,23 @@ select {
   font-weight: 600;
   color: var(--muted);
 }
+.resource-replace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500 !important;
+  cursor: pointer;
+  user-select: none;
+}
+.resource-replace-toggle input {
+  width: auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+#resource-file:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .help-btn {
   width: 20px;
   height: 20px;
@@ -3150,6 +3278,17 @@ select {
 }
 
 /* Attach-existing resource picker (task 56: pull from oswald's /resources) */
+/* Fixed centered overlay — sits above the resource modal it opens from. */
+#resource-picker {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 9, 14, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1001;
+}
 #resource-picker[style*="flex"] .modal-resource-content {
   animation: fadeInScale 0.25s ease both;
 }
@@ -3168,7 +3307,7 @@ select {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
@@ -3177,6 +3316,28 @@ select {
 .picker-row:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+.picker-thumb-slot {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.picker-thumb-slot .picker-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.picker-thumb-slot .resource-type-badge {
+  width: 100%;
+  height: 100%;
+  font-size: 0.62rem;
 }
 .picker-row .p-name {
   flex: 1;
@@ -3202,6 +3363,71 @@ select {
 }
 .picker-status {
   font-size: 12px;
+  color: var(--muted);
+}
+
+/* Custom hover preview for picker rows: thumbnail + name / path / policy. */
+.picker-tip {
+  position: fixed;
+  z-index: 1002;
+  display: none;
+  width: 260px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  pointer-events: none;
+}
+.picker-tip-thumb-slot {
+  width: 100%;
+  height: 96px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.picker-tip-thumb-slot .picker-tip-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.picker-tip-thumb-slot .resource-type-badge {
+  width: 100%;
+  height: 100%;
+  font-size: 0.9rem;
+}
+.picker-tip-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.picker-tip-fields > div {
+  display: flex;
+  gap: 8px;
+  font-size: 0.8rem;
+  align-items: baseline;
+}
+.picker-tip-fields .lbl {
+  flex: none;
+  width: 44px;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+}
+.picker-tip-fields .val {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+.picker-tip-fields .val.mono {
+  font-family: var(--mono);
+  font-size: 0.72rem;
   color: var(--muted);
 }
 

@@ -34,7 +34,12 @@ async function refresh() {
   try {
     const { servers } = await apiGet('/api/servers');
     const canManage = hasPerm('services.manage');
-    container.innerHTML = servers
+    const header =
+      '<div class="servers-head"><span class="servers-label">Managed servers</span>' +
+      '<a class="servers-link" href="pages/servers.html" target="_blank" rel="noopener">servers &#8250;</a></div>';
+    container.innerHTML =
+      header +
+      servers
       .map((s, i) => {
         const running = !!s.running;
         const portHeld = !running && !!s.portActive; // external/detached instance on the port

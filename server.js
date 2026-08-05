@@ -24,6 +24,9 @@ const mcpRoutes = require('./routes/mcpRoutes');
 
 const serverRoutes = require('./routes/serverRoutes');
 
+const authenticateToken = require('./middlewares/auth');
+const { requirePermission } = require('./middlewares/auth');
+
 const {
   globalErrorHandler,
   notFoundHandler,
@@ -35,6 +38,18 @@ const { getPool } = require('./config/db');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Server settings live in a small JSON file (served read-only via GET /api/settings,
+// persisted via PUT /api/settings by admins). Kept out of require() so edits are
+// picked up without a restart.
+const SETTINGS_FILE = path.join(__dirname, 'public', 'js', 'api', 'settings.json');
+function readSettingsFile() {
+  try {
+    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
 
 app.use(logger); //logger before all app.use
 
@@ -65,8 +80,26 @@ app.use(express.static('public/pages'));
 app.use('/edicts', edictRoutes);
 
 app.get('/api/settings', (req, res) => {
-  const settings = require('./public/js/api/settings.json');
-  res.json(settings);
+  res.json(readSettingsFile());
+});
+
+// Admin-only: persist server settings (e.g. the resources storage directory).
+app.put('/api/settings', authenticateToken, requirePermission('users.manage'), (req, res) => {
+  const body = req.body || {};
+  const settings = readSettingsFile();
+  if (typeof body.resourcesDir === 'string' && body.resourcesDir.trim()) {
+    settings.resourcesDir = body.resourcesDir.trim();
+  }
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');
+  res.json(readSettingsFile());
+});
+
+// Serve stored resources from the configured directory (default public/resources).
+// Re-resolves the path on every request so a settings change takes effect without
+// a restart — and /resources/... URLs keep working if storage moves outside public/.
+app.use('/resources', (req, res, next) => {
+  const dir = path.resolve(readSettingsFile().resourcesDir || 'public/resources');
+  express.static(dir)(req, res, next);
 });
 
 app.use('/api', (req, res, next) => {

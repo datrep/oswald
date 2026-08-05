@@ -6,7 +6,7 @@
 // - Overrides are stored under `oswald_settings`; server settings are read-only here.
 // - Any change dispatches `settings:changed` ({ key, value }); reset dispatches `settings:reset`.
 
-import { apiGet, clearToken } from '../api/api.js';
+import { apiGet, apiPut, clearToken } from '../api/api.js';
 
 export const SETTINGS_STORAGE_KEY = 'oswald_settings';
 
@@ -43,7 +43,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'server', title: 'Server Flags', category: 'server', server: true },
 ];
 
-// type: 'boolean' | 'select' | 'color' | 'readonly'
+// type: 'boolean' | 'select' | 'color' | 'readonly' | 'text' (server-editable)
 // `server: true` marks values that come from settings.json and cannot be changed here.
 export const SETTINGS_SCHEMA = [
   // ---- General / Appearance ----
@@ -172,6 +172,20 @@ export const SETTINGS_SCHEMA = [
     ],
     default: 1,
   },
+  {
+    key: 'defaultPolicyEndOffset',
+    label: 'Default policy end',
+    description: 'Prefill the planned end date for a new policy (blank leaves it empty).',
+    section: 'forms',
+    type: 'select',
+    options: [
+      { value: '', label: 'None (blank)' },
+      { value: 7, label: 'In 7 days' },
+      { value: 30, label: 'In 30 days' },
+      { value: 90, label: 'In 90 days' },
+    ],
+    default: '',
+  },
   // ---- Policy Workspace / Resources ----
   {
     key: 'openResourceOnClick',
@@ -181,11 +195,43 @@ export const SETTINGS_SCHEMA = [
     type: 'boolean',
     default: true,
   },
+  {
+    key: 'resourcePickerThumbnails',
+    label: 'Picker thumbnails',
+    description: 'Show image thumbnails in the attach-existing picker (off shows type badges only).',
+    section: 'resources',
+    type: 'boolean',
+    default: true,
+  },
+  {
+    key: 'pickerHoverPreview',
+    label: 'Picker hover preview',
+    description: 'Show the name / mounted path / policy preview when hovering a picker row.',
+    section: 'resources',
+    type: 'boolean',
+    default: true,
+  },
   // ---- Policy Workspace / Tasks ----
   {
     key: 'showArchivedTasks',
     label: 'Show archived tasks',
     description: 'Show tasks in the Archived (state 3) state; off by default to keep the list focused.',
+    section: 'tasks',
+    type: 'boolean',
+    default: false,
+  },
+  {
+    key: 'taskDragReorder',
+    label: 'Drag to reorder',
+    description: 'Allow dragging tasks and resources to reorder them.',
+    section: 'tasks',
+    type: 'boolean',
+    default: true,
+  },
+  {
+    key: 'showTaskIds',
+    label: 'Show task IDs',
+    description: 'Display the numeric ID on each task card.',
     section: 'tasks',
     type: 'boolean',
     default: false,
@@ -249,6 +295,16 @@ export const SETTINGS_SCHEMA = [
     type: 'readonly',
     default: true,
     server: true,
+  },
+  {
+    key: 'resourcesDir',
+    label: 'Resources directory',
+    description: 'Where resource files are stored (server-side; uploads go here, /resources/ serves it).',
+    section: 'server',
+    type: 'text',
+    default: 'public/resources',
+    server: true,
+    editable: true,
   },
 ];
 
@@ -343,6 +399,19 @@ export function resetSettings() {
   overrides = {};
   writeOverrides();
   window.dispatchEvent(new CustomEvent('settings:reset'));
+}
+
+/**
+ * Persist an admin-editable server setting (e.g. resourcesDir) via PUT /api/settings.
+ * Updates the cached server defaults and notifies listeners so the UI reflects it.
+ */
+export async function saveServerSetting(key, value) {
+  const body = {};
+  body[key] = value;
+  const updated = await apiPut('/api/settings', body);
+  serverDefaults = updated || serverDefaults;
+  window.dispatchEvent(new CustomEvent('settings:changed', { detail: { key, value } }));
+  return updated;
 }
 
 // ===========================

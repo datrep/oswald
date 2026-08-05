@@ -11,6 +11,7 @@ import {
   getSetting,
   setSetting,
   resetSettings,
+  saveServerSetting,
   applyGlobalSettings,
   initSessionTimeout,
   exportSettings,
@@ -34,6 +35,9 @@ function optValue(o) {
 }
 function optLabel(o) {
   return typeof o === 'object' && o !== null ? o.label : `${o} sec`;
+}
+function escAttr(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function controlHtml(setting, value) {
@@ -86,6 +90,16 @@ function controlHtml(setting, value) {
         ${label}
         <div class="settings-control">
           <span class="settings-readonly">${value ? 'On' : 'Off'}</span>
+        </div>
+      </div>`;
+  }
+
+  if (setting.type === 'text') {
+    return `
+      <div class="settings-row">
+        ${label}
+        <div class="settings-control">
+          <input type="text" data-key="${setting.key}" value="${escAttr(value ?? setting.default ?? '')}" />
         </div>
       </div>`;
   }
@@ -167,11 +181,26 @@ function renderForm() {
     formEl.appendChild(catEl);
   });
 
-  // Wire controls to the store (applies immediately).
+  // Wire controls to the store (applies immediately). Server-editable settings
+  // (e.g. resourcesDir) go through PUT /api/settings instead of localStorage.
   formEl.querySelectorAll('[data-key]').forEach((input) => {
     input.addEventListener('change', () => {
       const value = input.type === 'checkbox' ? input.checked : input.value;
-      setSetting(input.dataset.key, value);
+      const def = SETTINGS_SCHEMA.find((s) => s.key === input.dataset.key);
+      if (def && def.server && def.editable) {
+        saveServerSetting(input.dataset.key, value)
+          .then(() => {
+            const fb = el('settings-feedback');
+            if (fb) showFormFeedback(fb, 'success', 'Server setting saved');
+          })
+          .catch((err) => {
+            const fb = el('settings-feedback');
+            if (fb) showFormFeedback(fb, 'error', 'Save failed — ' + (err.message || 'check admin permission'));
+            renderForm(); // revert the control to the stored value
+          });
+      } else {
+        setSetting(input.dataset.key, value);
+      }
     });
   });
 

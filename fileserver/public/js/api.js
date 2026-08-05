@@ -61,6 +61,18 @@ export const FS = {
     return body;
   },
 
+  // ---- settings (admin) ----
+  settings() {
+    return this.json('/api/fs/settings');
+  },
+  saveSettings(body) {
+    return this.json('/api/fs/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  },
+
   async request(path, opts = {}) {
     const headers = { ...(opts.headers || {}) };
     const token = this.getToken();

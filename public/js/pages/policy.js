@@ -262,6 +262,11 @@ function populatePolicyForm() {
     nameEl.value = '';
     startEl.value = formatDateInput(roundToClosestMinute(new Date()));
     endEl.value = '';
+    // QoL: prefill a default end date when the setting asks for one.
+    const endOffsetDays = Number(getSetting('defaultPolicyEndOffset') || 0);
+    if (endOffsetDays > 0) {
+      endEl.value = formatDateInput(roundToClosestMinute(new Date(Date.now() + endOffsetDays * 86400000)));
+    }
     ensureSelectHasValue(priorityEl, null);
     priorityEl.value = getSetting('defaultPolicyPriority') ?? '';
     stateEl.value = isCreateMode ? '1' : '';
@@ -454,7 +459,7 @@ function renderTaskRow(task, index) {
         <div class="task-card-head">
             <input type="checkbox" class="task-select" data-id="${id}" title="Select task">
             <span class="task-card-name" title="${task.name || ''}">${task.name || '-'}</span>
-            <span class="task-card-id" title="Task ID">#${id}</span>
+            ${getSetting('showTaskIds') ? `<span class="task-card-id" title="Task ID">#${id}</span>` : ''}
             <span class="task-card-chips">
                 ${priorityChip}${stateChip}${activeChip}
             </span>
@@ -490,8 +495,8 @@ function renderTaskRow(task, index) {
     });
   }
 
-  // Drag-to-reorder only for users who can manage tasks
-  if (isLoggedIn() && hasPerm('tasks.manage')) {
+  // Drag-to-reorder only for users who can manage tasks + the setting is on
+  if (isLoggedIn() && hasPerm('tasks.manage') && getSetting('taskDragReorder') !== false) {
     row.draggable = true;
     row.classList.add('draggable');
     row.addEventListener('dragstart', onTaskDragStart);
@@ -567,6 +572,8 @@ function renderResourcePreview(resource, index) {
   }
   const checkbox = row.querySelector('.resource-select');
   if (checkbox) {
+    // Check only — don't let the click bubble to the row and open the viewer.
+    checkbox.addEventListener('click', (e) => e.stopPropagation());
     checkbox.addEventListener('change', (e) => {
       e.stopPropagation();
       updateResourceContextToolbar();
@@ -578,8 +585,8 @@ function renderResourcePreview(resource, index) {
     row.addEventListener('click', () => openResourceViewer(resource));
   }
 
-  // Drag-to-reorder only for users who can manage resources
-  if (isLoggedIn() && hasPerm('resources.manage')) {
+  // Drag-to-reorder only for users who can manage resources + the setting is on
+  if (isLoggedIn() && hasPerm('resources.manage') && getSetting('taskDragReorder') !== false) {
     row.draggable = true;
     row.classList.add('draggable');
     row.addEventListener('dragstart', onResourceDragStart);
@@ -619,8 +626,10 @@ function getSelectedResource() {
 
 // responsibility: load policy data
 async function loadPolicy() {
+  const titleIdEl = document.getElementById('policy-title-id');
   if (!policyId) {
     titleEl.textContent = 'Policy';
+    if (titleIdEl) titleIdEl.textContent = '';
     titleEl.title = '';
     currentPolicy = null;
     renderPolicyRows(null);
@@ -630,6 +639,7 @@ async function loadPolicy() {
     const policy = await apiGet(`/api/edicts/${policyId}`);
     currentPolicy = policy;
     titleEl.textContent = policy.name;
+    if (titleIdEl) titleIdEl.textContent = '#' + policy.id;
     titleEl.title = policy.name;
     renderPolicyRows(currentPolicy);
   } catch (err) {
@@ -1080,15 +1090,34 @@ function openResourceModal() {
   const modal = document.getElementById('resource-modal');
   if (!modal) return;
   modal.style.display = 'flex';
+  const title = document.getElementById('resource-modal-title');
+  if (title) title.textContent = 'Add Resource';
+  // Create mode: no replace-file toggle, file input enabled.
+  const wrap = document.getElementById('resource-replace-wrap');
+  if (wrap) wrap.style.display = 'none';
+  const cb = document.getElementById('resource-replace-file');
+  if (cb) cb.checked = false;
+  resourceFileInput.disabled = false;
+  resourceFileInput.value = '';
 }
 
 // responsibility: open resource modal (edit)
 function openEditResource() {
   const resource = getSelectedResource();
   if (!resource) return;
-  editingResourceId = resource.id;
+  editingResourceId = resource.id ?? resource._tempId;
   openResourceModal();
   resourceDescriptionInput.value = resource.description || '';
+  const title = document.getElementById('resource-modal-title');
+  if (title) title.textContent = 'Edit Resource';
+  // Editing: replace-file is OFF by default and the file input is greyed out
+  // until the user ticks "Replace the file" — description-only edits need no file.
+  const wrap = document.getElementById('resource-replace-wrap');
+  if (wrap) wrap.style.display = '';
+  const cb = document.getElementById('resource-replace-file');
+  if (cb) cb.checked = false;
+  resourceFileInput.disabled = true;
+  resourceFileInput.value = '';
 }
 
 // responsibility: close resource modal
@@ -1097,6 +1126,21 @@ function closeResourceModal() {
   if (!modal) return;
   modal.style.display = 'none';
   resetResourceForm();
+}
+
+// Discard resources queued for a not-yet-saved policy (create mode only).
+function discardQueuedResources() {
+  pendingResources = pendingResources.filter(
+    (r) => !String(r._tempId || '').startsWith('temp-res-')
+  );
+  resourcePreviewListEl.innerHTML = '';
+}
+
+// Cancel = discard queued resources, then close. (closeResourceModal itself is
+// also called right after a real save, where the queue must be kept.)
+function cancelResourceModal() {
+  discardQueuedResources();
+  closeResourceModal();
 }
 
 // ---- Attach-existing resource picker (task 56: pull from oswald's /resources) ----
@@ -1133,6 +1177,8 @@ async function loadResourcePicker() {
 
 function renderResourcePicker(resources, q) {
   const list = document.getElementById('resource-picker-list');
+  const showThumbs = getSetting('resourcePickerThumbnails') !== false;
+  const hoverPreview = getSetting('pickerHoverPreview') !== false;
   const query = (q || '').toLowerCase();
   const filtered = query
     ? resources.filter(
@@ -1151,18 +1197,89 @@ function renderResourcePicker(resources, q) {
   for (const r of filtered) {
     const name = extractFilename(r.resourcePath || '');
     const kind = getFileKind(name);
+    const webPath = formatResourcePath(r.resourcePath || '');
     const row = document.createElement('div');
     row.className = 'picker-row';
-    row.title = `Attach ${name}`;
-    row.innerHTML = `
-      <span class="resource-type-badge" data-kind="${kind}">${getFileLabel(kind)}</span>
+    const thumbSlot = document.createElement('span');
+    thumbSlot.className = 'picker-thumb-slot';
+    if (kind === 'image' && showThumbs) {
+      const img = document.createElement('img');
+      img.className = 'picker-thumb';
+      img.loading = 'lazy';
+      img.src = '/' + webPath;
+      img.alt = '';
+      img.onerror = () => {
+        thumbSlot.innerHTML = `<span class="resource-type-badge" data-kind="${kind}">${getFileLabel(kind)}</span>`;
+      };
+      thumbSlot.appendChild(img);
+    } else {
+      thumbSlot.innerHTML = `<span class="resource-type-badge" data-kind="${kind}">${getFileLabel(kind)}</span>`;
+    }
+    row.appendChild(thumbSlot);
+    row.insertAdjacentHTML('beforeend', `
       <span class="p-name">${escapeHtml(name)}</span>
-      <span class="p-meta">${r.edictName ? 'in ' + escapeHtml(r.edictName) : ''}</span>
+      <span class="p-meta">${r.edictName ? escapeHtml(r.edictName) : '—'}</span>
       <span class="p-attach">Attach</span>
-    `;
+    `);
+    row.addEventListener('mouseenter', () => {
+      if (hoverPreview) showPickerTip(row, { name, path: r.resourcePath, policy: r.edictName, webPath, kind });
+    });
+    row.addEventListener('mouseleave', hidePickerTip);
     row.addEventListener('click', () => attachExistingResource(r));
     list.appendChild(row);
   }
+}
+
+// Custom hover preview for a picker row: thumbnail + name, mounted path, policy.
+function getPickerTip() {
+  let tip = document.getElementById('picker-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'picker-tip';
+    tip.className = 'picker-tip';
+    document.getElementById('resource-picker').appendChild(tip);
+  }
+  return tip;
+}
+
+function showPickerTip(row, info) {
+  const tip = getPickerTip();
+  const thumb =
+    info.kind === 'image'
+      ? `<img class="picker-tip-thumb" src="/${info.webPath}" alt="">`
+      : `<span class="resource-type-badge" data-kind="${info.kind}">${getFileLabel(info.kind)}</span>`;
+  tip.innerHTML = `
+    <div class="picker-tip-thumb-slot">${thumb}</div>
+    <div class="picker-tip-fields">
+      <div><span class="lbl">Name</span><span class="val">${escapeHtml(info.name)}</span></div>
+      <div><span class="lbl">Path</span><span class="val mono">${escapeHtml(info.path || '—')}</span></div>
+      <div><span class="lbl">Policy</span><span class="val">${escapeHtml(info.policy || '—')}</span></div>
+    </div>
+  `;
+  const tipImg = tip.querySelector('.picker-tip-thumb');
+  if (tipImg) {
+    tipImg.onerror = () => {
+      const slot = tip.querySelector('.picker-tip-thumb-slot');
+      if (slot) {
+        slot.innerHTML = `<span class="resource-type-badge" data-kind="${info.kind}">${getFileLabel(info.kind)}</span>`;
+      }
+    };
+  }
+  tip.style.display = 'block';
+  const rect = row.getBoundingClientRect();
+  const tipRect = tip.getBoundingClientRect();
+  let left = rect.right + 10;
+  if (left + tipRect.width > window.innerWidth - 8) {
+    left = Math.max(8, rect.left - tipRect.width - 10);
+  }
+  const top = Math.min(Math.max(rect.top, 8), window.innerHeight - tipRect.height - 8);
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+function hidePickerTip() {
+  const tip = document.getElementById('picker-tip');
+  if (tip) tip.style.display = 'none';
 }
 
 async function attachExistingResource(resource) {
@@ -1209,38 +1326,29 @@ function closeResourcePicker() {
   const modal = document.getElementById('resource-picker');
   if (!modal) return;
   modal.style.display = 'none';
+  hidePickerTip();
 }
 
-// responsibility: save resource (create or replace)
+// responsibility: save resource (create, replace file, or update description only)
 async function saveResource() {
   const file = resourceFileInput.files[0];
-  if (editingResourceId && !file) {
-    alert('Please select a file when editing a resource.');
-    return;
-  }
   const description = resourceDescriptionInput.value || '';
 
   setSaveState(saveResourceBtn, true);
 
   try {
     if (!policyId) {
-      // Queue resource until policy is created
-      if (!file) {
-        alert('Please choose a file to add as a resource.');
-        return;
-      }
+      // Create mode: update a queued temp resource, or queue a new one.
       if (editingResourceId && String(editingResourceId).startsWith('temp-res-')) {
-        // Replace existing queued resource
         const idx = pendingResources.findIndex((r) => r._tempId === editingResourceId);
         if (idx !== -1) {
           pendingResources[idx] = { _tempId: editingResourceId, file, description };
-          // update DOM card if present
           const checkbox = document.querySelector(
             `.resource-select[data-id="${editingResourceId}"]`
           );
           const row = checkbox ? checkbox.closest('.resource-preview-row') : null;
           if (row) {
-            row.querySelector('.resource-preview-path').textContent = file.name;
+            if (file) row.querySelector('.resource-preview-path').textContent = file.name;
             row.querySelector('.resource-preview-description').textContent = description || '';
           }
           editingResourceId = null;
@@ -1248,32 +1356,42 @@ async function saveResource() {
           return;
         }
       }
+      if (!file) {
+        alert('Please choose a file to add as a resource.');
+        return;
+      }
       const tempId = `temp-res-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
       pendingResources.push({ _tempId: tempId, file, description });
-      // Render immediately so user sees the queued resource
-      resourcePreviewListEl.appendChild(
-        renderResourcePreview({ _tempId: tempId, file, description })
-      );
+      resourcePreviewListEl.appendChild(renderResourcePreview({ _tempId: tempId, file, description }));
       closeResourceModal();
       console.log('[Policy] Queued resource until policy is created', file.name);
       return;
     }
 
-    if (editingResourceId) {
-      console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId})`);
+    if (editingResourceId && file) {
+      // Replace the file: delete the old row, upload the new file.
+      console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId}, replace file)`);
       await apiDelete(`/api/resources/${editingResourceId}`);
-    } else {
-      console.log('[Policy.add_resource] Executed: add_resource');
-    }
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('edictID', policyId);
-    formData.append('filesize', file.size);
-    formData.append('description', description);
-    await apiPost('/api/resources', formData);
-    if (editingResourceId) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('edictID', policyId);
+      formData.append('filesize', file.size);
+      formData.append('description', description);
+      await apiPost('/api/resources', formData);
+      console.log(`[Policy.edit_resource] Completed: edit_resource (id: ${editingResourceId})`);
+    } else if (editingResourceId) {
+      // Description-only edit — no file required.
+      console.log(`[Policy.edit_resource] Executed: edit_resource (id: ${editingResourceId}, description only)`);
+      await apiPut(`/api/resources/${editingResourceId}`, { description });
       console.log(`[Policy.edit_resource] Completed: edit_resource (id: ${editingResourceId})`);
     } else {
+      console.log('[Policy.add_resource] Executed: add_resource');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('edictID', policyId);
+      formData.append('filesize', file.size);
+      formData.append('description', description);
+      await apiPost('/api/resources', formData);
       console.log('[Policy.add_resource] Completed: add_resource');
     }
     editingResourceId = null;
@@ -1358,9 +1476,7 @@ function handleEditContextResource() {
   console.log(
     `[Policy.edit_resource] Executed: edit_resource (id: ${resource.id ?? resource._tempId})`
   );
-  editingResourceId = resource.id ?? resource._tempId;
-  openResourceModal();
-  resourceDescriptionInput.value = resource.description || '';
+  openEditResource();
 }
 
 // responsibility: delete selected resources from contextual toolbar
@@ -1617,7 +1733,7 @@ async function init() {
   };
   closeOnBackdrop(policyModalEl, closePolicyModal);
   closeOnBackdrop(document.getElementById('task-modal'), closeTaskModal);
-  closeOnBackdrop(document.getElementById('resource-modal'), closeResourceModal);
+  closeOnBackdrop(document.getElementById('resource-modal'), cancelResourceModal);
 
   // Clear field errors on input
   bind(nameEl, 'input', () => showFieldError(nameEl, ''));
@@ -1648,8 +1764,18 @@ async function init() {
   bind(document.getElementById('edit-task'), 'click', handleEditContextTask);
   bind(document.getElementById('delete-task'), 'click', handleDeleteContextTask);
 
-  bind(cancelResourceBtn, 'click', closeResourceModal);
+  bind(cancelResourceBtn, 'click', cancelResourceModal);
   bind(saveResourceBtn, 'click', saveResource);
+
+  // Replace-file toggle in the resource edit modal: off by default so you can
+  // edit just the description; ticking it enables the (greyed) file input.
+  const replaceFileCb = document.getElementById('resource-replace-file');
+  if (replaceFileCb) {
+    replaceFileCb.addEventListener('change', () => {
+      resourceFileInput.disabled = !replaceFileCb.checked;
+      if (!replaceFileCb.checked) resourceFileInput.value = '';
+    });
+  }
 
   // Attach-existing resource picker (task 56)
   bind(document.getElementById('attach-existing-resource'), 'click', openResourcePicker);

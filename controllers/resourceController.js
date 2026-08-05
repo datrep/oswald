@@ -5,6 +5,7 @@ const {
   getAllResources: modelGetAllResources,
   attachResource: modelAttachResource,
   deleteResourceById: modelDeleteResourceById,
+  updateResource: modelUpdateResource,
   reorderResources: modelReorderResources,
 } = require('../models/resourceModel');
 const path = require('path');
@@ -120,6 +121,18 @@ async function deleteResourceById(req, res, next) {
   }
 }
 
+// PUT /api/resources/:id — update a resource's description (file untouched).
+async function updateResource(req, res, next) {
+  try {
+    const { id } = req.params;
+    const description = String(req.body?.description ?? '').trim();
+    await modelUpdateResource(id, description);
+    res.json({ success: true, message: 'Resource updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // PUT /api/resources/reorder — persist a manual ordering within a policy
 async function reorderResources(req, res, next) {
   const { edictId, orderedIds } = req.body || {};
@@ -148,5 +161,6 @@ module.exports = {
   getAllResources,
   attachResource,
   deleteResourceById,
+  updateResource,
   reorderResources,
 };

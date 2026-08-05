@@ -3,5 +3,6 @@
   "enableResources": true,
   "enableAuditLogs": false,
   "enableStatusStrip": true,
-  "removeCSS": false
+  "removeCSS": false,
+  "resourcesDir": "public/resources"
 }

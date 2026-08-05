@@ -110,6 +110,92 @@ app.put('/api/fs/config', authenticateToken, access.requireAdmin, (req, res, nex
   } catch (e) { next(e); }
 });
 
+// Admin: read the full runtime config for the Settings UI (read-only-ish view of
+// everything that's safe to surface; ports/TLS/mode are shown for reference).
+app.get('/api/fs/settings', authenticateToken, access.requireAdmin, (req, res, next) => {
+  try {
+    const c = getConfig();
+    ok(res, {
+      allowSignup: !!c.allowSignup,
+      roots: c.roots || [],
+      sync: c.sync || {},
+      mirror: c.mirror || {},
+      search: c.search || {},
+      thumbnails: c.thumbnails || {},
+      textEdit: c.textEdit || {},
+      mode: c.mode,
+      host: c.host,
+      port: c.port,
+      dashboardBase: c.dashboardBase,
+      tls: c.tls || {},
+    });
+  } catch (e) { next(e); }
+});
+
+// Admin: persist editable settings into config.json. config.json is re-read on
+// every request, so changes take effect immediately (roots/sync/mirror/etc.).
+app.put('/api/fs/settings', authenticateToken, access.requireAdmin, (req, res, next) => {
+  try {
+    const cfgPath = path.join(__dirname, 'config.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    const b = req.body || {};
+
+    if (typeof b.allowSignup === 'boolean') cfg.allowSignup = b.allowSignup;
+
+    if (Array.isArray(b.roots)) {
+      cfg.roots = b.roots
+        .filter((r) => r && typeof r.path === 'string' && r.path.trim())
+        .map((r) => ({
+          id: String(r.id || 'root').trim() || 'root',
+          name: String(r.name || r.id || 'Root').trim() || 'Root',
+          path: r.path.trim(),
+        }));
+    }
+
+    if (b.sync && typeof b.sync === 'object') {
+      cfg.sync = {
+        source: typeof b.sync.source === 'string' ? b.sync.source.trim() : cfg.sync?.source,
+        destination: typeof b.sync.destination === 'string' ? b.sync.destination.trim() : cfg.sync?.destination,
+        deleteExtraneous: typeof b.sync.deleteExtraneous === 'boolean' ? b.sync.deleteExtraneous : (cfg.sync?.deleteExtraneous ?? true),
+        intervalMinutes: Number.isFinite(Number(b.sync.intervalMinutes)) ? Math.max(0, Math.floor(Number(b.sync.intervalMinutes))) : (cfg.sync?.intervalMinutes ?? 0),
+      };
+    }
+
+    if (b.mirror && typeof b.mirror === 'object') {
+      cfg.mirror = { ...(cfg.mirror || {}), ...b.mirror };
+      if (typeof b.mirror.mirrorPath === 'string') {
+        const mp = b.mirror.mirrorPath.trim();
+        cfg.mirror.mirrorPath = mp || undefined;
+      }
+      if (typeof b.mirror.readOnly === 'boolean') cfg.mirror.readOnly = b.mirror.readOnly;
+    }
+
+    if (b.search && typeof b.search === 'object') {
+      cfg.search = {
+        maxDepth: Number.isFinite(Number(b.search.maxDepth)) ? Math.max(1, Math.floor(Number(b.search.maxDepth))) : (cfg.search?.maxDepth ?? 6),
+        maxResults: Number.isFinite(Number(b.search.maxResults)) ? Math.max(1, Math.floor(Number(b.search.maxResults))) : (cfg.search?.maxResults ?? 200),
+      };
+    }
+
+    if (b.thumbnails && typeof b.thumbnails === 'object') {
+      cfg.thumbnails = {
+        size: Number.isFinite(Number(b.thumbnails.size)) ? Math.max(16, Math.floor(Number(b.thumbnails.size))) : (cfg.thumbnails?.size ?? 256),
+        cacheDir: typeof b.thumbnails.cacheDir === 'string' ? b.thumbnails.cacheDir.trim() : cfg.thumbnails?.cacheDir,
+      };
+    }
+
+    if (b.textEdit && typeof b.textEdit === 'object') {
+      cfg.textEdit = {
+        maxBytes: Number.isFinite(Number(b.textEdit.maxBytes)) ? Math.max(1024, Math.floor(Number(b.textEdit.maxBytes))) : (cfg.textEdit?.maxBytes ?? 5242880),
+      };
+    }
+
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+    const c = getConfig();
+    ok(res, { saved: true, mode: c.mode, roots: getRoots() });
+  } catch (e) { next(e); }
+});
+
 // Self-service account creation (fileserver login page -> Sign up).
 // Creates a read-only 'user' role account via the dashboard's register endpoint.
 app.post('/api/fs/register', async (req, res, next) => {

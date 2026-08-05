@@ -872,6 +872,175 @@ async function reload() {
   else await loadDir();
 }
 
+// ---------- Settings (admin) ----------
+const settingsDraft = { roots: [] };
+
+function settingsNum(val, fallback) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function settingsRow(label, control) {
+  return `<div class="settings-field"><label>${label}</label>${control}</div>`;
+}
+
+function settingsCheck(id, checked) {
+  return `<label class="settings-check"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span></span></label>`;
+}
+
+function settingsRootRow(r) {
+  return `
+    <div class="settings-root-row">
+      <input type="text" class="sr-id" placeholder="id" value="${escapeHtml(r.id || '')}">
+      <input type="text" class="sr-name" placeholder="name" value="${escapeHtml(r.name || '')}">
+      <input type="text" class="sr-path" placeholder="C:\\path\\to\\folder" value="${escapeHtml(r.path || '')}">
+      <button type="button" class="sr-remove" title="Remove root">✕</button>
+    </div>`;
+}
+
+function settingsFeedback(msg, ok) {
+  const fb = $('settings-feedback');
+  if (!fb) return;
+  fb.textContent = msg;
+  fb.classList.toggle('settings-feedback-ok', !!ok);
+  fb.classList.toggle('settings-feedback-err', !ok);
+  clearTimeout(fb._to);
+  if (msg) fb._to = setTimeout(() => { fb.textContent = ''; }, 4000);
+}
+
+function renderSettings() {
+  const body = $('settings-body');
+  if (!body) return;
+  const d = settingsDraft;
+  const groups = [
+    ['General', settingsRow('Allow self-signup', settingsCheck('st-allowSignup', !!d.allowSignup))],
+    ['Storage roots — custom file paths',
+      `<div id="st-roots" class="settings-roots">${(d.roots || []).map(settingsRootRow).join('')}</div>
+       <button type="button" id="st-roots-add" class="btn ghost tiny">+ Add root</button>
+       <p class="muted tiny">The first root is the default browse root. Path changes take effect immediately (no restart).</p>`],
+    ['One-way Sync (FS-3)',
+      settingsRow('Source', `<input type="text" id="st-sync-source" value="${escapeHtml(d.sync?.source || '')}">`) +
+      settingsRow('Destination', `<input type="text" id="st-sync-destination" value="${escapeHtml(d.sync?.destination || '')}">`) +
+      settingsRow('Delete extraneous', settingsCheck('st-sync-delete', d.sync?.deleteExtraneous !== false)) +
+      settingsRow('Interval (minutes, 0 = manual)', `<input type="number" id="st-sync-interval" min="0" value="${settingsNum(d.sync?.intervalMinutes, 0)}">`)],
+    ['Mirror (read-only replica)',
+      settingsRow('Mirror path', `<input type="text" id="st-mirror-path" value="${escapeHtml(d.mirror?.mirrorPath || '')}">`) +
+      settingsRow('Read-only', settingsCheck('st-mirror-readonly', d.mirror?.readOnly !== false))],
+    ['Search',
+      settingsRow('Max depth', `<input type="number" id="st-search-depth" min="1" value="${settingsNum(d.search?.maxDepth, 6)}">`) +
+      settingsRow('Max results', `<input type="number" id="st-search-results" min="1" value="${settingsNum(d.search?.maxResults, 200)}">`)],
+    ['Thumbnails',
+      settingsRow('Size (px)', `<input type="number" id="st-thumb-size" min="16" value="${settingsNum(d.thumbnails?.size, 256)}">`) +
+      settingsRow('Cache directory', `<input type="text" id="st-thumb-cachedir" value="${escapeHtml(d.thumbnails?.cacheDir || '')}">`)],
+    ['Text editor',
+      settingsRow('Max file size (bytes)', `<input type="number" id="st-editor-maxbytes" min="1024" value="${settingsNum(d.textEdit?.maxBytes, 5242880)}">`)],
+    ['Runtime (read-only)',
+      `<div class="settings-kv"><span>Mode</span><code>${escapeHtml(d.mode || '')}</code></div>` +
+      `<div class="settings-kv"><span>Host</span><code>${escapeHtml(d.host || '')}</code></div>` +
+      `<div class="settings-kv"><span>Port</span><code>${escapeHtml(d.port || '')}</code></div>` +
+      `<div class="settings-kv"><span>Dashboard</span><code>${escapeHtml(d.dashboardBase || '')}</code></div>`],
+  ];
+
+  body.innerHTML = groups.map(([title, inner]) => `<div class="settings-group"><h4>${title}</h4>${inner}</div>`).join('');
+
+  // Roots: add + remove are DOM-only until Save so typed values are never lost.
+  $('st-roots-add')?.addEventListener('click', () => {
+    const wrap = $('st-roots');
+    if (!wrap) return;
+    wrap.insertAdjacentHTML('beforeend', settingsRootRow({ id: '', name: '', path: '' }));
+    const last = wrap.lastElementChild;
+    if (last) last.querySelector('.sr-path').focus();
+  });
+  $('st-roots')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.sr-remove');
+    if (btn) btn.closest('.settings-root-row').remove();
+  });
+}
+
+function collectSettings() {
+  const val = (id) => $(id)?.value.trim() ?? '';
+  return {
+    allowSignup: !!$('st-allowSignup')?.checked,
+    roots: [...document.querySelectorAll('#st-roots .settings-root-row')]
+      .map((row) => ({
+        id: row.querySelector('.sr-id').value.trim(),
+        name: row.querySelector('.sr-name').value.trim(),
+        path: row.querySelector('.sr-path').value.trim(),
+      }))
+      .filter((r) => r.path),
+    sync: {
+      source: val('st-sync-source'),
+      destination: val('st-sync-destination'),
+      deleteExtraneous: !!$('st-sync-delete')?.checked,
+      intervalMinutes: settingsNum($('st-sync-interval')?.value, 0),
+    },
+    mirror: {
+      mirrorPath: val('st-mirror-path'),
+      readOnly: !!$('st-mirror-readonly')?.checked,
+    },
+    search: {
+      maxDepth: settingsNum($('st-search-depth')?.value, 6),
+      maxResults: settingsNum($('st-search-results')?.value, 200),
+    },
+    thumbnails: {
+      size: settingsNum($('st-thumb-size')?.value, 256),
+      cacheDir: val('st-thumb-cachedir'),
+    },
+    textEdit: {
+      maxBytes: settingsNum($('st-editor-maxbytes')?.value, 5242880),
+    },
+  };
+}
+
+async function openSettings() {
+  const modal = $('modal-settings');
+  if (!modal) return;
+  try {
+    const c = await FS.settings();
+    settingsDraft.roots = Array.isArray(c.roots) ? c.roots : [];
+    settingsDraft.allowSignup = !!c.allowSignup;
+    settingsDraft.sync = c.sync || {};
+    settingsDraft.mirror = c.mirror || {};
+    settingsDraft.search = c.search || {};
+    settingsDraft.thumbnails = c.thumbnails || {};
+    settingsDraft.textEdit = c.textEdit || {};
+    settingsDraft.mode = c.mode;
+    settingsDraft.host = c.host;
+    settingsDraft.port = c.port;
+    settingsDraft.dashboardBase = c.dashboardBase;
+    renderSettings();
+    modal.classList.add('show');
+  } catch (err) {
+    toast(err.message || 'Failed to load settings');
+  }
+}
+
+function closeSettings() {
+  $('modal-settings')?.classList.remove('show');
+}
+
+async function saveSettings() {
+  try {
+    const body = collectSettings();
+    await FS.saveSettings(body);
+    settingsFeedback('Settings saved', true);
+    closeSettings();
+    toast('Settings saved');
+    // Roots / mode may have changed — rebuild the root picker + current listing.
+    // Reset root BEFORE loadRoots so it re-picks the first root (loadRoots only
+    // picks when state.root is falsy); otherwise the listing falls back to
+    // "Unknown root".
+    state.root = null;
+    state.path = '';
+    state.nodeMap.clear();
+    await loadRoots();
+    renderBreadcrumb();
+    await reload();
+  } catch (err) {
+    settingsFeedback('Save failed: ' + (err.message || 'unknown error'), false);
+  }
+}
+
 function bindStatic() {
   bindModals();
   initUpload();
@@ -918,6 +1087,16 @@ async function boot() {
   // FS-3: one-way mirror sync
   $('btn-sync').classList.toggle('hidden', !FS.can('files.admin'));
   $('btn-sync').onclick = runSync;
+
+  // Settings (admin only)
+  $('btn-settings').classList.toggle('hidden', !FS.can('files.admin'));
+  $('btn-settings').onclick = openSettings;
+  $('settings-close').onclick = closeSettings;
+  $('settings-cancel').onclick = closeSettings;
+  $('settings-save').onclick = saveSettings;
+  $('modal-settings').addEventListener('click', (e) => {
+    if (e.target === $('modal-settings')) closeSettings();
+  });
 
   // ARCH: runtime mode switch (drop/upload server <-> read-only sync mirror)
   const modeSel = $('mode-select');
