@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const config = require('./config.json');
+const { getConfig, getRoots, getRoot } = require('./config');
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -69,14 +69,8 @@ function isDangerous(name) {
 }
 
 // ---- Config / roots -------------------------------------------------------
-
-function getRoots() {
-  return (config.roots || []).map((r) => ({ id: r.id, name: r.name, path: r.path }));
-}
-
-function getRoot(id) {
-  return (config.roots || []).find((r) => r.id === id) || null;
-}
+// getRoots()/getRoot() come from ./config — mode-aware ('fileserver' vs
+// 'mirror') and read live from config.json + env on each call.
 
 // ---- Safe path resolution -------------------------------------------------
 
@@ -152,8 +146,8 @@ function search(root, query, startRel) {
   const { rootObj, abs } = assertInside(root, startRel);
   if (!query) return [];
   const q = query.toLowerCase();
-  const maxDepth = config.search?.maxDepth ?? 6;
-  const maxResults = config.search?.maxResults ?? 200;
+  const maxDepth = getConfig().search?.maxDepth ?? 6;
+  const maxResults = getConfig().search?.maxResults ?? 200;
   const out = [];
 
   const walk = (dir, depth) => {
@@ -197,7 +191,7 @@ async function streamThumbnail(root, rel, size, res) {
     .createHash('md5')
     .update(`${root}|${rel}|${st.mtimeMs}|${want}`)
     .digest('hex');
-  const cacheDir = config.thumbnails?.cacheDir || path.join(__dirname, '..', 'temp', 'fs-thumbs');
+  const cacheDir = getConfig().thumbnails?.cacheDir || path.join(__dirname, '..', 'temp', 'fs-thumbs');
   const cacheFile = path.join(cacheDir, `${key}.webp`);
 
   try {
@@ -218,7 +212,7 @@ async function streamThumbnail(root, rel, size, res) {
 
 module.exports = {
   HttpError,
-  config,
+  getConfig,
   getRoots,
   getRoot,
   assertInside,

@@ -1,16 +1,20 @@
-// Oswald fileserver — FS-1 local web UI service.
-// Separate Express app, own port, shares the dashboard JWT secret.
+// Oswald fileserver — FS-1 local web UI + FS-2 network share service.
+// Separate Express app, own port, shares the dashboard JWT secret + SQL Server DB.
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
+const https = require('https');
 const multer = require('multer');
 const archiver = require('archiver');
 const AdmZip = require('adm-zip');
+const selfsigned = require('selfsigned');
 
 const { authenticateToken } = require('./auth');
+const access = require('./access');
+const meta = require('./fsMeta');
 const core = require('./fsCore');
-const { HttpError, config, getRoots, getRoot, assertInside, listDir, search, streamThumbnail, getMime, isDangerous, getExt, statEntry } = core;
+const { HttpError, getConfig, getRoots, getRoot, assertInside, listDir, search, streamThumbnail, getMime, isDangerous } = core;
 
 const app = express();
 app.disable('x-powered-by');
@@ -84,28 +88,60 @@ function streamFolderZip(res, abs, rel, name) {
   archive.finalize();
 }
 
-// --- routes ------------------------------------------------------------------
-// Every route requires a valid oswald_token (same JWT secret as the dashboard).
+// --- auth --------------------------------------------------------------------
 
-app.get('/api/fs/roots', authenticateToken, (req, res, next) => {
+// FS-2: server-side login proxy. The UI is HTTPS (TLS), so the browser can't
+// call the HTTP dashboard directly (mixed content) — the fileserver does it.
+// On success we set the same-site session cookie (covers <img>/<video>/<a>)
+// and hand the token back for the Authorization header.
+app.post('/api/fs/login', async (req, res, next) => {
   try {
-    ok(res, { roots: getRoots() });
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    const upstream = await fetch(`${getConfig().dashboardBase}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const body = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      return res.status(upstream.status === 401 ? 401 : 500).json({ error: body.error || 'Login failed' });
+    }
+    const tlsOn = !!getConfig().tls?.enabled;
+    res.cookie('oswald_fs_token', body.token, {
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: tlsOn,
+      maxAge: 60 * 60 * 1000,
+    });
+    return ok(res, { token: body.token, roles: body.roles, permissions: body.permissions });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// --- FS routes (access-controlled) -------------------------------------------
+// Read routes -> requireRead (files.read / ACL), write routes -> requireWrite.
+
+app.get('/api/fs/roots', authenticateToken, access.requireRead, (req, res, next) => {
+  try { ok(res, { roots: getRoots() }); } catch (e) { next(e); }
+});
+
+app.get('/api/fs/list', authenticateToken, access.requireRead, async (req, res, next) => {
+  try {
+    const data = listDir(req.query.root, parseRel(req));
+    const acc = await access.effectiveAccess(req.user, req.query.root, parseRel(req));
+    ok(res, { ...data, access: { read: acc.read, write: acc.write, admin: acc.admin } });
   } catch (e) { next(e); }
 });
 
-app.get('/api/fs/list', authenticateToken, (req, res, next) => {
-  try {
-    ok(res, listDir(req.query.root, parseRel(req)));
-  } catch (e) { next(e); }
+app.get('/api/fs/search', authenticateToken, access.requireRead, (req, res, next) => {
+  try { ok(res, { results: search(req.query.root, req.query.q, parseRel(req)) }); } catch (e) { next(e); }
 });
 
-app.get('/api/fs/search', authenticateToken, (req, res, next) => {
-  try {
-    ok(res, { results: search(req.query.root, req.query.q, parseRel(req)) });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/fs/download', authenticateToken, (req, res, next) => {
+app.get('/api/fs/download', authenticateToken, access.requireRead, (req, res, next) => {
   try {
     const { abs } = assertInside(req.query.root, parseRel(req));
     if (!fs.existsSync(abs)) throw new HttpError(404, 'Not found');
@@ -118,33 +154,31 @@ app.get('/api/fs/download', authenticateToken, (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-app.get('/api/fs/thumb', authenticateToken, async (req, res, next) => {
-  try {
-    await streamThumbnail(req.query.root, parseRel(req), req.query.size, res);
-  } catch (e) { next(e); }
+app.get('/api/fs/thumb', authenticateToken, access.requireRead, async (req, res, next) => {
+  try { await streamThumbnail(req.query.root, parseRel(req), req.query.size, res); } catch (e) { next(e); }
 });
 
-// Text content: GET (size-limited) + PUT (save).
-app.get('/api/fs/content', authenticateToken, (req, res, next) => {
+// Text content: GET (read) + PUT (save).
+app.get('/api/fs/content', authenticateToken, access.requireRead, (req, res, next) => {
   try {
     const { abs } = assertInside(req.query.root, parseRel(req));
     if (!fs.existsSync(abs)) throw new HttpError(404, 'Not found');
     const st = fs.statSync(abs);
     if (!st.isFile()) throw new HttpError(400, 'Not a file');
-    const maxBytes = config.textEdit?.maxBytes ?? 5242880;
+    const maxBytes = getConfig().textEdit?.maxBytes ?? 5242880;
     if (st.size > maxBytes) throw new HttpError(413, `File too large to edit in browser (max ${Math.round(maxBytes / 1024 / 1024)}MB)`);
     res.type('text/plain; charset=utf-8');
     fs.createReadStream(abs).pipe(res);
   } catch (e) { next(e); }
 });
 
-app.put('/api/fs/content', authenticateToken, (req, res, next) => {
+app.put('/api/fs/content', authenticateToken, access.requireWrite, (req, res, next) => {
   try {
     const { abs } = assertInside(req.query.root, parseRel(req));
     if (!fs.existsSync(abs)) throw new HttpError(404, 'Not found');
     const st = fs.statSync(abs);
     if (!st.isFile()) throw new HttpError(400, 'Not a file');
-    const maxBytes = config.textEdit?.maxBytes ?? 5242880;
+    const maxBytes = getConfig().textEdit?.maxBytes ?? 5242880;
     const text = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body ?? '');
     if (Buffer.byteLength(text) > maxBytes) throw new HttpError(413, 'Content too large');
     fs.writeFileSync(abs, text, 'utf8');
@@ -153,7 +187,7 @@ app.put('/api/fs/content', authenticateToken, (req, res, next) => {
 });
 
 // Upload: any type/size; .zip uploads are extracted into the target folder.
-app.post('/api/fs/upload', authenticateToken, upload.array('files'), async (req, res, next) => {
+app.post('/api/fs/upload', authenticateToken, access.requireWrite, upload.array('files'), async (req, res, next) => {
   const root = req.query.root;
   const rel = parseRel(req);
   const files = req.files || [];
@@ -182,7 +216,7 @@ app.post('/api/fs/upload', authenticateToken, upload.array('files'), async (req,
   }
 });
 
-app.post('/api/fs/dir', authenticateToken, (req, res, next) => {
+app.post('/api/fs/dir', authenticateToken, access.requireWrite, (req, res, next) => {
   try {
     const { abs } = assertInside(req.body.root, req.body.path || '');
     const name = String(req.body.name || '').trim();
@@ -196,7 +230,7 @@ app.post('/api/fs/dir', authenticateToken, (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-app.post('/api/fs/rename', authenticateToken, (req, res, next) => {
+app.post('/api/fs/rename', authenticateToken, access.requireWrite, (req, res, next) => {
   try {
     const { abs } = assertInside(req.body.root, req.body.path || '');
     const newName = String(req.body.newName || '').trim();
@@ -211,7 +245,7 @@ app.post('/api/fs/rename', authenticateToken, (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-app.post('/api/fs/move', authenticateToken, (req, res, next) => {
+app.post('/api/fs/move', authenticateToken, access.requireWrite, (req, res, next) => {
   try {
     const { rootObj, abs } = assertInside(req.body.root, req.body.path || '');
     if (!fs.existsSync(abs)) throw new HttpError(404, 'Not found');
@@ -229,13 +263,85 @@ app.post('/api/fs/move', authenticateToken, (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-app.delete('/api/fs', authenticateToken, (req, res, next) => {
+app.delete('/api/fs', authenticateToken, access.requireWrite, (req, res, next) => {
   try {
     const { abs } = assertInside(req.query.root, parseRel(req));
     if (!fs.existsSync(abs)) throw new HttpError(404, 'Not found');
     fs.rmSync(abs, { recursive: true, force: true });
     ok(res, { message: 'Deleted' });
   } catch (e) { next(e); }
+});
+
+// --- Favorites (per-user; requires read access to the target) ----------------
+
+app.get('/api/fs/favorites', authenticateToken, access.requireRead, async (req, res, next) => {
+  try { ok(res, { favorites: await meta.getFavorites(req.user.userID) }); } catch (e) { next(e); }
+});
+
+app.put('/api/fs/favorites', authenticateToken, access.requireRead, async (req, res, next) => {
+  try {
+    await meta.addFavorite(req.user.userID, req.body.root, String(req.body.path || ''));
+    ok(res, { message: 'Favorited' });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/fs/favorites', authenticateToken, access.requireRead, async (req, res, next) => {
+  try {
+    await meta.removeFavorite(req.user.userID, req.query.root, String(req.query.path || ''));
+    ok(res, { message: 'Favorite removed' });
+  } catch (e) { next(e); }
+});
+
+// --- Tags (shared metadata; read = requireRead, write = requireWrite) --------
+
+app.get('/api/fs/tags/all', authenticateToken, access.requireRead, async (req, res, next) => {
+  try { ok(res, { tags: await meta.getTagsAll() }); } catch (e) { next(e); }
+});
+
+app.get('/api/fs/tags', authenticateToken, access.requireRead, async (req, res, next) => {
+  try { ok(res, { tags: await meta.getTags(req.query.root, String(req.query.path || '')) }); } catch (e) { next(e); }
+});
+
+app.post('/api/fs/tags', authenticateToken, access.requireWrite, async (req, res, next) => {
+  try {
+    const tag = String(req.body.tag || '').trim().slice(0, 64);
+    if (!tag) return res.status(400).json({ error: 'tag is required' });
+    await meta.addTag(req.body.root, String(req.body.path || ''), tag, req.user.userID);
+    ok(res, { message: 'Tag added' });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/fs/tags', authenticateToken, access.requireWrite, async (req, res, next) => {
+  try {
+    await meta.removeTag(req.query.root, String(req.query.path || ''), String(req.query.tag || ''));
+    ok(res, { message: 'Tag removed' });
+  } catch (e) { next(e); }
+});
+
+// --- Per-folder ACLs + user list (files.admin only) ---------------------------
+
+app.get('/api/fs/acl', authenticateToken, access.requireAdmin, async (req, res, next) => {
+  try { ok(res, { acls: await meta.getAcls(req.query.root) }); } catch (e) { next(e); }
+});
+
+app.post('/api/fs/acl', authenticateToken, access.requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.body.userId);
+    if (!Number.isInteger(userId)) return res.status(400).json({ error: 'userId required' });
+    await meta.upsertAcl(userId, req.body.rootId, String(req.body.folderPath || ''), !!req.body.canRead, !!req.body.canWrite, req.user.userID);
+    ok(res, { message: 'ACL saved' });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/fs/acl', authenticateToken, access.requireAdmin, async (req, res, next) => {
+  try {
+    await meta.removeAcl(Number(req.query.userId), req.query.rootId, String(req.query.folderPath || ''));
+    ok(res, { message: 'ACL removed' });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/fs/users', authenticateToken, access.requireAdmin, async (req, res, next) => {
+  try { ok(res, { users: await meta.getUsers() }); } catch (e) { next(e); }
 });
 
 // --- errors + start -----------------------------------------------------------
@@ -247,9 +353,57 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal error' });
 });
 
-const port = config.port || 8090;
-const host = config.host || '0.0.0.0';
-app.listen(port, host, () => {
-  console.log(`[fileserver] Oswald Fileserver (FS-1) listening on http://${host}:${port}`);
-  console.log(`[fileserver] roots: ${getRoots().map((r) => `${r.name} (${r.path})`).join(', ')}`);
-});
+async function getOrCreateCert() {
+  const certDir = path.join(__dirname, 'certs');
+  const keyPath = path.join(certDir, 'key.pem');
+  const certPath = path.join(certDir, 'cert.pem');
+  fs.mkdirSync(certDir, { recursive: true });
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    return { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
+  }
+  const host = getConfig().tls?.host || '172.22.160.3';
+  // selfsigned 5.x is async — returns a promise. Include DNS + IP SANs so
+  // browsers accept the cert for both hostname and IP access (Chrome requires
+  // an IP SAN, not just a DNS SAN, when connecting to an IP).
+  const pems = await selfsigned.generate(
+    [{ name: 'commonName', value: host }, { name: 'organizationName', value: 'Oswald Fileserver' }],
+    {
+      days: 3650,
+      keySize: 2048,
+      algorithm: 'sha256',
+      extensions: [{
+        name: 'subjectAltName',
+        altNames: [
+          { type: 2, value: host },
+          { type: 2, value: 'localhost' },
+          { type: 7, value: host },
+          { type: 7, value: '127.0.0.1' },
+        ],
+      }],
+    }
+  );
+  fs.writeFileSync(keyPath, pems.private);
+  fs.writeFileSync(certPath, pems.cert);
+  return { key: pems.private, cert: pems.cert };
+}
+
+const port = getConfig().port || 8090;
+const host = getConfig().host || '0.0.0.0';
+if (getConfig().tls?.enabled) {
+  getOrCreateCert()
+    .then((creds) => {
+      https.createServer(creds, app).listen(port, host, () => {
+        console.log(`[fileserver] Oswald Fileserver (FS-1/FS-2) listening on https://${host}:${port}`);
+        console.log(`[fileserver] roots: ${getRoots().map((r) => `${r.name} (${r.path})`).join(', ')}`);
+      });
+    })
+    .catch((e) => {
+      console.error('[fileserver] cert generation failed', e);
+      process.exit(1);
+    });
+} else {
+  app.listen(port, host, () => {
+    console.log(`[fileserver] Oswald Fileserver (FS-1/FS-2) listening on http://${host}:${port}`);
+    console.log(`[fileserver] roots: ${getRoots().map((r) => `${r.name} (${r.path})`).join(', ')}`);
+  });
+}

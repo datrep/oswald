@@ -49,6 +49,9 @@
       <div class="fs-toolbar">
         <span id="dir-info" class="muted"></span>
         <div class="fs-toolbar-right">
+          <button id="fav-toggle" class="btn ghost" title="Show favorites only">★ Favorites</button>
+          <select id="tag-filter" title="Filter by tag"><option value="">All tags</option></select>
+          <button id="btn-share" class="btn ghost hidden" title="Share / folder permissions">Share</button>
           <select id="filter-select" title="Filter by type">
             <option value="all">All types</option>
             <option value="image">Images</option>
@@ -93,10 +96,12 @@
         <h2 id="viewer-title" title=""></h2>
         <div class="modal-actions">
           <a id="viewer-download" class="btn" target="_blank" rel="noopener">Download</a>
+          <button id="viewer-fav" class="btn" title="Favorite">★</button>
           <button id="viewer-edit" class="btn">Edit</button>
           <button id="viewer-close" class="btn close" title="Close">✕</button>
         </div>
       </div>
+      <div id="viewer-tags" class="viewer-tags hidden"></div>
       <div id="viewer-body" class="modal-body"></div>
     </div>
   </div>
@@ -160,6 +165,23 @@
       <div class="row">
         <button id="confirm-ok" class="danger">Delete</button>
         <button id="confirm-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share / folder permissions (files.admin) -->
+  <div id="modal-share" class="modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="share-title">Share folder</h2>
+        <button id="share-close" class="btn close" title="Close">✕</button>
+      </div>
+      <p class="muted tiny" id="share-path"></p>
+      <p class="muted tiny">Grant users read/write on this folder and its contents. An empty path = the whole root.</p>
+      <div id="share-users" class="share-users"></div>
+      <div class="row">
+        <button id="share-save" class="primary">Save</button>
+        <button id="share-cancel">Cancel</button>
       </div>
     </div>
   </div>

@@ -1,0 +1,37 @@
+# Oswald fileserver — ARCH: docker-compose service (task 49), co-located in repo.
+#
+# Default launch stays NATIVE (start-fileserver.ps1); this is the reproducible
+# alternative. It uses the repo-root .env for DB creds + JWT via ${VAR}
+# substitution, and shares the same resources root + trusted cert as the native
+# service. When you want to switch, stop the native process first (they both
+# use port 8090).
+#
+#   docker compose build fileserver
+#   docker compose up -d fileserver
+#
+services:
+  fileserver:
+    build: ./fileserver
+    image: oswald-fileserver
+    container_name: oswald-fileserver
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      NODE_ENV: production
+      DB_SERVER: host.docker.internal
+      DB_PORT: "${DB_PORT:-1433}"
+      DB_DATABASE: "${DB_DATABASE:-DB_Oswald}"
+      DB_USER: "${DB_USER}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
+      FILESERVER_PORT: "8090"
+      FILESERVER_DASHBOARD_BASE: "http://172.22.160.3:8080"
+      FILESERVER_ROOT_PATH: /data/resources
+      FILESERVER_ROOT_ID: resources
+      FILESERVER_ROOT_NAME: Resources
+    volumes:
+      - ./public/resources:/data/resources          # shared root (dashboard resources)
+      - ./fileserver/certs:/app/certs:ro            # reuse the trusted self-signed cert
+    extra_hosts:
+      - "host.docker.internal:host-gateway"         # reach the host's SQL Server

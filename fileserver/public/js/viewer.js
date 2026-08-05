@@ -56,16 +56,19 @@ export async function openViewer(file) {
   const download = document.getElementById('viewer-download');
   const editBtn = document.getElementById('viewer-edit');
   const kind = getFileKind(file.name);
+  const canWrite = file.write ?? FS.can('files.write');
   const src = FS.downloadUrl(file.root, file.rel);
 
   titleEl.textContent = file.name;
   titleEl.title = file.name;
   download.href = src;
   download.setAttribute('download', file.name);
-  editBtn.classList.toggle('hidden', kind !== 'text');
+  editBtn.classList.toggle('hidden', kind !== 'text' || !canWrite);
   editBtn.dataset.root = file.root;
   editBtn.dataset.rel = file.rel;
   body.innerHTML = '';
+  const tagsEl = document.getElementById('viewer-tags');
+  if (tagsEl) { tagsEl.classList.add('hidden'); tagsEl.innerHTML = ''; }
   viewer.classList.add('show');
 
   try {
@@ -108,6 +111,66 @@ export async function openViewer(file) {
     console.error('[fs viewer] failed to render', err);
     body.innerHTML = '<div class="rv-download-card"><p class="rv-note">Could not render this file inline — use Download to open it.</p></div>';
   }
+  loadViewerMeta(file);
+}
+
+// FS-2: favorites star + tag chips/editor in the viewer.
+async function loadViewerMeta(file) {
+  const favBtn = document.getElementById('viewer-fav');
+  const tagsEl = document.getElementById('viewer-tags');
+  if (!favBtn || !tagsEl) return;
+
+  favBtn.classList.toggle('on', false);
+  favBtn.onclick = async () => {
+    try {
+      const isFav = favBtn.classList.contains('on');
+      if (isFav) await FS.favoriteRemove(file.root, file.rel);
+      else await FS.favoriteAdd(file.root, file.rel);
+      favBtn.classList.toggle('on', !isFav);
+      window.dispatchEvent(new CustomEvent('fs:favorites-changed'));
+    } catch (err) {
+      console.error('[fs viewer] favorite toggle failed', err);
+    }
+  };
+
+  try {
+    const { favorites } = await FS.favorites();
+    favBtn.classList.toggle('on', favorites.some((f) => f.rootId === file.root && f.filePath === file.rel));
+  } catch { /* ignore */ }
+
+  try {
+    const { tags } = await FS.tags(file.root, file.rel);
+    tagsEl.classList.remove('hidden');
+    const canWrite = file.write ?? FS.can('files.write');
+    tagsEl.innerHTML =
+      '<span class="vt-label">Tags:</span>' +
+      tags.map((t) => `<span class="tag-chip">${escapeHtml(t)}${canWrite ? `<button class="tag-x" data-tag="${escapeHtml(t)}" title="Remove tag">×</button>` : ''}</span>`).join('') +
+      (canWrite ? '<input class="tag-input" type="text" placeholder="+ tag" maxlength="64" />' : '');
+
+    tagsEl.querySelectorAll('.tag-x').forEach((b) => {
+      b.addEventListener('click', async () => {
+        try {
+          await FS.tagRemove(file.root, file.rel, b.dataset.tag);
+          await loadViewerMeta(file);
+          window.dispatchEvent(new CustomEvent('fs:tags-changed'));
+        } catch (err) { console.error('[fs viewer] tag remove failed', err); }
+      });
+    });
+
+    const input = tagsEl.querySelector('.tag-input');
+    if (input) {
+      input.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        const tag = input.value.trim();
+        if (!tag) return;
+        try {
+          await FS.tagAdd(file.root, file.rel, tag);
+          await loadViewerMeta(file);
+          window.dispatchEvent(new CustomEvent('fs:tags-changed'));
+        } catch (err) { console.error('[fs viewer] tag add failed', err); }
+      });
+    }
+  } catch { /* ignore */ }
 }
 
 export function closeViewer() {

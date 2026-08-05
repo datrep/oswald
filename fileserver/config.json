@@ -2,6 +2,16 @@
   "port": 8090,
   "host": "0.0.0.0",
   "dashboardBase": "http://172.22.160.3:8080",
+  "tls": {
+    "enabled": true,
+    "host": "172.22.160.3"
+  },
+  "mode": "fileserver",
+  "mirror": {
+    "sourceRootId": "resources",
+    "mirrorPath": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror",
+    "readOnly": true
+  },
   "roots": [
     {
       "id": "resources",

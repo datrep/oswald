@@ -13,6 +13,12 @@ const state = {
   sortDir: 1,
   filter: 'all',
   query: '',
+  favOnly: false,      // FS-2: favorites-only filter
+  tagFilter: '',       // FS-2: active tag filter
+  access: null,        // FS-2: effective {read,write,admin} for the current folder
+  favSet: new Set(),   // "root|path" favorites
+  tagsByPath: new Map(), // "root|path" -> [tags]
+  tagsAll: [],
   nodeMap: new Map(),  // tree rel -> {expanded}
 };
 
@@ -57,6 +63,77 @@ function toast(msg) {
   t._to = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
+// ---------- FS-2: favorites + tags ----------
+function favKey(root, rel) { return root + '|' + rel; }
+function isFav(root, rel) { return state.favSet.has(favKey(root, rel)); }
+
+async function loadFavorites() {
+  try {
+    const { favorites } = await FS.favorites();
+    state.favSet = new Set(favorites.map((f) => favKey(f.rootId, f.filePath)));
+  } catch {
+    state.favSet = new Set();
+  }
+}
+
+async function loadTagsAll() {
+  try {
+    const { tags } = await FS.tagsAll();
+    state.tagsAll = tags.map((t) => t.tag);
+    const sel = $('tag-filter');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All tags</option>' +
+      state.tagsAll.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    sel.value = state.tagsAll.includes(cur) ? cur : '';
+  } catch {
+    state.tagsAll = [];
+  }
+}
+
+async function toggleFav(root, rel) {
+  const key = favKey(root, rel);
+  try {
+    if (isFav(root, rel)) {
+      await FS.favoriteRemove(root, rel);
+      state.favSet.delete(key);
+      toast('Removed from favorites');
+    } else {
+      await FS.favoriteAdd(root, rel);
+      state.favSet.add(key);
+      toast('Favorited');
+    }
+    document.querySelectorAll('.fav-star').forEach((s) => {
+      if (s.dataset.key === key) s.classList.toggle('on', isFav(root, rel));
+    });
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+// Fetch + cache tags for the file entries in a listing (parallel).
+async function loadTagsFor(entries) {
+  const targets = [];
+  for (const e of entries) {
+    if (e.isDir) continue;
+    targets.push({ key: favKey(state.root, joinRel(state.path, e.name)), rel: joinRel(state.path, e.name) });
+  }
+  await Promise.allSettled(
+    targets.map(async ({ key, rel }) => {
+      try {
+        const { tags } = await FS.tags(state.root, rel);
+        state.tagsByPath.set(key, tags);
+      } catch {
+        state.tagsByPath.set(key, []);
+      }
+    })
+  );
+}
+
+function tagsFor(root, rel) {
+  return state.tagsByPath.get(favKey(root, rel)) || [];
+}
+
 // ---------- auth ----------
 function showLogin() { $('modal-login').classList.add('show'); }
 
@@ -64,6 +141,8 @@ async function initAuth() {
   if (!FS.isLoggedIn()) { showLogin(); return; }
   // Fresh load with a stored session: hide the login modal (it starts .show in HTML).
   $('modal-login').classList.remove('show');
+  // Ensure the session cookie exists (media requests over HTTPS need it).
+  setSessionCookie(FS.getToken());
   try {
     await FS.roots(); // validates token
   } catch {
@@ -72,7 +151,8 @@ async function initAuth() {
 }
 
 function setSessionCookie(token) {
-  document.cookie = `oswald_fs_token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+  const secure = location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `oswald_fs_token=${encodeURIComponent(token)}; path=/; SameSite=Lax${secure}`;
 }
 
 function clearSessionCookie() {
@@ -245,8 +325,14 @@ async function loadDir() {
   const list = $('file-list');
   try {
     const data = await FS.list(state.root, state.path);
-    $('dir-info').textContent = `${data.entries.length} item${data.entries.length === 1 ? '' : 's'}`;
-    const entries = sortEntries(data.entries).filter(matchesFilter);
+    state.access = data.access || null;
+    $('btn-upload').classList.toggle('hidden', !data.access?.write);
+    $('btn-newfolder').classList.toggle('hidden', !data.access?.write);
+    let entries = sortEntries(data.entries).filter(matchesFilter);
+    if (state.favOnly) entries = entries.filter((e) => isFav(state.root, joinRel(state.path, e.name)));
+    if (state.tagFilter) entries = entries.filter((e) => e.isDir || tagsFor(state.root, joinRel(state.path, e.name)).includes(state.tagFilter));
+    const shown = state.favOnly || state.tagFilter ? ` (${entries.length} shown)` : '';
+    $('dir-info').textContent = `${data.entries.length} item${data.entries.length === 1 ? '' : 's'}${shown}`;
     list.dataset.mode = 'dir';
     list.classList.toggle('list-mode', state.view === 'list');
     list.classList.toggle('grid-mode', state.view === 'grid');
@@ -255,6 +341,7 @@ async function loadDir() {
       list.innerHTML = '<div class="fs-empty">This folder is empty — drop files here to upload.</div>';
       return;
     }
+    await loadTagsFor(entries);
     list.innerHTML = state.view === 'grid' ? renderGrid(entries) : renderRows(entries);
     renderBreadcrumb();
   } catch (err) {
@@ -262,27 +349,34 @@ async function loadDir() {
   }
 }
 
-function rowActions(entry) {
+function rowActions(entry, canWrite) {
   const rel = joinRel(state.path, entry.name);
+  const writeActions = canWrite
+    ? `${!entry.isDir && (entry.kind === 'text' || entry.kind === 'image') ? `<button data-act="edit" title="Edit"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>` : ''}
+      <button data-act="rename" title="Rename"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+      <button data-act="move" title="Move"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg></button>
+      <button data-act="del" class="act-del" title="Delete"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`
+    : '';
   return `
     <div class="row-actions">
       ${!entry.isDir ? `<a href="${FS.downloadUrl(state.root, rel)}" download title="Download"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>` : ''}
-      ${!entry.isDir && (entry.kind === 'text' || entry.kind === 'image') ? `<button data-act="edit" title="Edit"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>` : ''}
-      <button data-act="rename" title="Rename"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
-      <button data-act="move" title="Move"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg></button>
-      <button data-act="del" class="act-del" title="Delete"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      ${writeActions}
     </div>`;
 }
 
 function renderRows(entries) {
+  const canWrite = !!state.access?.write;
   return entries.map((e) => {
     const rel = joinRel(state.path, e.name);
+    const key = favKey(state.root, rel);
     const iconCls = e.isDir ? 'dir' : 'k-' + (e.kind || 'other');
+    const star = `<button class="fav-star${isFav(state.root, rel) ? ' on' : ''}" data-key="${key}" title="Favorite">★</button>`;
+    const tags = e.isDir ? '' : tagsFor(state.root, rel).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('');
     return `<div class="fs-row" data-rel="${escapeHtml(rel)}" data-name="${escapeHtml(e.name)}" data-kind="${e.isDir ? 'dir' : e.kind}">
-      <div class="name"><span class="file-icon ${iconCls}">${KIND_ICON[e.isDir ? 'dir' : e.kind] || 'FILE'}</span><span title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span></div>
+      <div class="name"><span class="file-icon ${iconCls}">${KIND_ICON[e.isDir ? 'dir' : e.kind] || 'FILE'}</span><span title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>${star}${tags ? `<span class="tag-line">${tags}</span>` : ''}</div>
       <div class="size">${e.isDir ? '—' : fmtBytes(e.size)}</div>
       <div class="mtime">${fmtTime(e.mtime)}</div>
-      ${rowActions(e)}
+      ${rowActions(e, canWrite)}
     </div>`;
   }).join('');
 }
@@ -290,15 +384,20 @@ function renderRows(entries) {
 function renderGrid(entries) {
   return entries.map((e) => {
     const rel = joinRel(state.path, e.name);
+    const key = favKey(state.root, rel);
     const iconCls = e.isDir ? 'dir' : 'k-' + (e.kind || 'other');
     const thumb = e.isDir
       ? `<div class="thumb"><span class="file-icon dir">DIR</span></div>`
       : e.kind === 'image'
         ? `<div class="thumb"><img loading="lazy" src="${FS.thumbUrl(state.root, rel)}" alt="${escapeHtml(e.name)}" onerror="this.outerHTML='<span class=&quot;file-icon k-image&quot;>IMG</span>'"></div>`
         : `<div class="thumb"><span class="file-icon ${iconCls}">${KIND_ICON[e.kind] || 'FILE'}</span></div>`;
+    const star = `<button class="fav-star grid${isFav(state.root, rel) ? ' on' : ''}" data-key="${key}" title="Favorite">★</button>`;
+    const tags = e.isDir ? '' : tagsFor(state.root, rel).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('');
     return `<div class="fs-grid-card" data-rel="${escapeHtml(rel)}" data-name="${escapeHtml(e.name)}" data-kind="${e.isDir ? 'dir' : e.kind}">
       ${thumb}
+      ${star}
       <div class="gname" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</div>
+      ${tags ? `<div class="g-tags">${tags}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -341,14 +440,15 @@ function navigateTo(rel, name) {
 }
 
 function openEntry(entry, mode) {
+  const write = !!state.access?.write;
   if (mode === 'search') {
     if (entry.kind === 'dir') { navigateTo(entry.rel); return; }
-    openViewer({ root: state.root, rel: entry.rel, name: entry.name });
+    openViewer({ root: state.root, rel: entry.rel, name: entry.name, write });
     return;
   }
   const rel = joinRel(state.path, entry.name);
   if (entry.kind === 'dir') { navigateTo(rel); return; }
-  openViewer({ root: state.root, rel, name: entry.name });
+  openViewer({ root: state.root, rel, name: entry.name, write });
 }
 
 async function handleListClick(ev) {
@@ -356,7 +456,14 @@ async function handleListClick(ev) {
   if (!row) return;
   const mode = $('file-list').dataset.mode || 'dir';
   const actBtn = ev.target.closest('[data-act]');
-  const entry = { rel: row.dataset.rel, name: row.dataset.name, kind: row.dataset.kind };
+  const entry = { rel: row.dataset.rel, name: row.dataset.name, kind: row.dataset.kind, write: !!state.access?.write };
+
+  const favStar = ev.target.closest('.fav-star');
+  if (favStar) {
+    ev.stopPropagation();
+    toggleFav(state.root, entry.rel);
+    return;
+  }
 
   if (actBtn) {
     ev.stopPropagation();
@@ -544,10 +651,13 @@ function bindModals() {
     ['modal-confirm', 'confirm-cancel'],
     ['modal-textedit', 'editor-cancel'],
     ['modal-viewer', 'viewer-close'],
+    ['modal-share', 'share-cancel'],
   ];
   for (const [mid, btnId] of closers) {
     $(btnId).onclick = () => $(mid).classList.remove('show');
   }
+  $('share-close').onclick = () => $('modal-share').classList.remove('show');
+  $('btn-share').onclick = openShare;
   // outside click + Escape closes modals
   document.querySelectorAll('.modal').forEach((m) => {
     m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('show'); });
@@ -572,10 +682,7 @@ function bindModals() {
     } catch (err) { toast(err.message); }
   };
   $('nf-input').onkeydown = (e) => { if (e.key === 'Enter') $('nf-ok').click(); };
-<<<<<<< HEAD
   $('rn-ok').onclick = () => $('rn-input')._onOk?.();
-=======
->>>>>>> 42f89b810a3b5cb89dc8769974f82228c1346fdf
   $('rn-input').onkeydown = (e) => { if (e.key === 'Enter') $('rn-input')._onOk?.(); };
 
   $('btn-newfolder').onclick = () => { $('modal-newfolder').classList.add('show'); $('nf-input').focus(); };
@@ -584,6 +691,54 @@ function bindModals() {
     const b = $('viewer-edit');
     if (b.dataset.rel) { closeViewer(); openEditor(state.root, b.dataset.rel, b.dataset.rel.split('/').pop()); }
   };
+}
+
+// ---------- FS-2: Share / folder permissions (files.admin) ----------
+async function openShare() {
+  const modal = $('modal-share');
+  const container = $('share-users');
+  $('share-path').textContent = `${state.root}${state.path ? '/' + state.path : ' (whole root)'}`;
+  container.innerHTML = '<div class="muted tiny">Loading…</div>';
+  modal.classList.add('show');
+  try {
+    const [{ users }, { acls }] = await Promise.all([FS.users(), FS.acl(state.root)]);
+    const folderPath = state.path;
+    const byUser = new Map();
+    for (const a of acls) if (a.folderPath === folderPath) byUser.set(a.userId, a);
+    container.innerHTML = '';
+    for (const u of users) {
+      const a = byUser.get(u.id);
+      const row = document.createElement('div');
+      row.className = 'share-user';
+      row.dataset.userId = u.id;
+      row.innerHTML = `
+        <span class="su-name">${escapeHtml(u.username)}</span>
+        <label><input type="checkbox" class="su-read" ${a?.canRead ? 'checked' : ''}> read</label>
+        <label><input type="checkbox" class="su-write" ${a?.canWrite ? 'checked' : ''}> write</label>
+      `;
+      container.appendChild(row);
+    }
+    $('share-save').onclick = async () => {
+      try {
+        for (const row of container.querySelectorAll('.share-user')) {
+          const userId = Number(row.dataset.userId);
+          const read = row.querySelector('.su-read').checked;
+          const write = row.querySelector('.su-write').checked;
+          if (!read && !write) {
+            await FS.aclRemove(userId, state.root, folderPath);
+          } else {
+            await FS.aclSave({ userId, rootId: state.root, folderPath, canRead: read, canWrite: write });
+          }
+        }
+        toast('Permissions saved');
+        modal.classList.remove('show');
+      } catch (err) {
+        toast(err.message);
+      }
+    };
+  } catch (err) {
+    container.innerHTML = `<div class="muted tiny">${escapeHtml(err.message)}</div>`;
+  }
 }
 
 // ---------- reload / boot ----------
@@ -629,6 +784,21 @@ async function boot() {
   };
 
   $('file-list').addEventListener('click', handleListClick);
+
+  // FS-2: favorites + tags + share
+  $('btn-share').classList.toggle('hidden', !FS.can('files.admin'));
+  $('fav-toggle').onclick = () => {
+    state.favOnly = !state.favOnly;
+    $('fav-toggle').classList.toggle('active', state.favOnly);
+    reload();
+  };
+  $('tag-filter').onchange = () => { state.tagFilter = $('tag-filter').value; reload(); };
+
+  window.addEventListener('fs:favorites-changed', async () => { await loadFavorites(); await reload(); });
+  window.addEventListener('fs:tags-changed', async () => { await loadTagsAll(); await reload(); });
+
+  await Promise.all([loadFavorites(), loadTagsAll()]);
+  await reload();
 }
 
 bindStatic();
