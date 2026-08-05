@@ -778,6 +778,7 @@ async function createPolicy() {
   await loadPolicy();
   await loadTasks();
   await loadResources();
+  await loadModules();
   // Close the edit modal now that the policy exists
   closePolicyModal();
 }
@@ -1322,6 +1323,153 @@ async function attachExistingResource(resource) {
   }
 }
 
+// ---- Policy modules (module-attachment framework, PREREQ) ----
+// Registry of module types a policy can attach. The backend allowlist lives in
+// models/policyModuleModel.js; this richer registry drives the UI.
+//
+// FUTURE SCOPE: add new module types here (e.g. { type: 'certificates', ... })
+// and to MODULE_TYPES in policyModuleModel.js — the framework handles the rest.
+const POLICY_MODULES = [
+  { type: 'jobs', label: 'Job Applications', icon: '💼', description: 'Track job applications — pipeline, follow-ups, stats.' },
+  { type: 'career_files', label: 'Career Files', icon: '📁', description: 'Resume, certs and career documents.' },
+];
+const modulesEl = document.getElementById('policy-modules');
+
+function moduleMeta(type) {
+  return POLICY_MODULES.find((x) => x.type === type) || { type, label: type, icon: '🧩', description: '' };
+}
+
+async function loadModules() {
+  if (!policyId || !modulesEl) return;
+  try {
+    const modules = await apiGet(`/api/edicts/${policyId}/modules`);
+    renderModules(modules);
+  } catch (err) {
+    console.error('[UI] Failed to load modules', err);
+    modulesEl.innerHTML = '<div class="muted" style="padding:8px 2px;font-size:13px">Failed to load modules.</div>';
+  }
+}
+
+function renderModules(modules) {
+  modulesEl.innerHTML = '';
+  if (!modules.length) {
+    modulesEl.innerHTML = '<div class="muted" style="padding:6px 2px;font-size:13px">No modules attached yet — add one to bring a tool into this policy.</div>';
+    return;
+  }
+  for (const m of modules) modulesEl.appendChild(renderModulePanel(m));
+}
+
+function modulePage(type) {
+  return { jobs: '/pages/jobs.html', career_files: '/pages/career-files.html' }[type] || null;
+}
+
+function renderModulePanel(m) {
+  const meta = moduleMeta(m.moduleType);
+  const card = document.createElement('div');
+  card.className = 'module-panel';
+  card.dataset.moduleType = m.moduleType;
+  const canManage = isLoggedIn() && hasPerm('policies.manage');
+  const page = modulePage(m.moduleType);
+  card.innerHTML = `
+    <div class="module-panel-head">
+      <span class="module-panel-icon">${meta.icon}</span>
+      <div class="module-panel-title">
+        <strong>${escapeHtml(meta.label)}</strong>
+        <span class="module-panel-summary muted">…</span>
+      </div>
+      ${page ? `<a class="module-open" href="${page}" title="Open ${escapeHtml(meta.label)}">Open →</a>` : ''}
+      ${canManage ? `<button type="button" class="module-detach" data-type="${escapeHtml(m.moduleType)}" title="Remove this module">✕</button>` : ''}
+    </div>
+    <div class="module-panel-body">
+      <div class="muted module-placeholder">${escapeHtml(meta.description)}</div>
+    </div>
+  `;
+  fillModuleSummary(m.moduleType, card.querySelector('.module-panel-summary'));
+  const detach = card.querySelector('.module-detach');
+  if (detach) detach.addEventListener('click', () => detachModule(m.moduleType));
+  return card;
+}
+
+// Compact summary/identifier on a module panel (best-effort; needs a signed-in user).
+async function fillModuleSummary(type, el) {
+  if (!el) return;
+  try {
+    if (type === 'jobs') {
+      const s = await apiGet('/api/applications/stats');
+      el.textContent = `${s.total} applications · ${s.active} active · ${s.offers} offers`;
+    } else if (type === 'career_files') {
+      const files = await apiGet('/api/career-files');
+      el.textContent = `${files.length} file${files.length === 1 ? '' : 's'}`;
+    }
+  } catch {
+    el.textContent = '';
+  }
+}
+
+async function openModulePicker() {
+  const modal = document.getElementById('module-picker');
+  const list = document.getElementById('module-picker-list');
+  if (!modal || !list) return;
+  modal.style.display = 'flex';
+  list.innerHTML = '<div class="picker-status muted">Loading…</div>';
+  const status = document.getElementById('module-picker-status');
+  if (status) status.textContent = '';
+  let attached = [];
+  if (policyId) {
+    try {
+      attached = await apiGet(`/api/edicts/${policyId}/modules`);
+    } catch { /* ignore */ }
+  }
+  const attachedTypes = new Set(attached.map((m) => m.moduleType));
+  const available = POLICY_MODULES.filter((m) => !attachedTypes.has(m.type));
+  if (!available.length) {
+    list.innerHTML = '<div class="picker-status muted">All available modules are already attached.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const m of available) {
+    const row = document.createElement('div');
+    row.className = 'picker-row';
+    row.innerHTML = `
+      <span class="picker-thumb-slot module-picker-icon">${m.icon}</span>
+      <span class="p-name"><strong>${escapeHtml(m.label)}</strong><span class="muted" style="font-size: 12px; display: block">${escapeHtml(m.description)}</span></span>
+      <span class="p-attach">Add</span>
+    `;
+    row.addEventListener('click', () => attachModule(m.type));
+    list.appendChild(row);
+  }
+}
+
+function closeModulePicker() {
+  const modal = document.getElementById('module-picker');
+  if (modal) modal.style.display = 'none';
+}
+
+async function attachModule(moduleType) {
+  if (!policyId) {
+    alert('Save the policy first, then attach modules.');
+    return;
+  }
+  try {
+    await apiPost(`/api/edicts/${policyId}/modules`, { moduleType });
+    closeModulePicker();
+    await loadModules();
+  } catch (err) {
+    alert(actionErrorMessage(err, 'add module', 'Failed to attach module.'));
+  }
+}
+
+async function detachModule(moduleType) {
+  const meta = moduleMeta(moduleType);
+  if (!confirm(`Remove the "${meta.label}" module from this policy?`)) return;
+  try {
+    await apiDelete(`/api/edicts/${policyId}/modules/${encodeURIComponent(moduleType)}`);
+    await loadModules();
+  } catch (err) {
+    alert(actionErrorMessage(err, 'remove module', 'Failed to remove module.'));
+  }
+}
+
 function closeResourcePicker() {
   const modal = document.getElementById('resource-picker');
   if (!modal) return;
@@ -1788,6 +1936,11 @@ async function init() {
     );
   }
 
+  // Module-attachment framework (PREREQ)
+  bind(document.getElementById('action-add-module'), 'click', openModulePicker);
+  bind(document.getElementById('module-picker-close'), 'click', closeModulePicker);
+  closeOnBackdrop(document.getElementById('module-picker'), closeModulePicker);
+
   // LLM-assisted: New contextual toolbar bindings for resources
   bind(document.getElementById('edit-resource'), 'click', handleEditContextResource);
   bind(document.getElementById('delete-resource'), 'click', handleDeleteContextResource);
@@ -1836,6 +1989,7 @@ async function init() {
   await loadPolicy();
   await loadTasks();
   await loadResources();
+  await loadModules();
   loadPolicyNav();
 }
 

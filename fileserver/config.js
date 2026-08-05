@@ -5,11 +5,14 @@
 // settings can change without a code change (edit config.json / env, restart or
 // just let the next request pick it up). The env overrides also let the Docker
 // image inject roots/DB/TLS that don't make sense baked into a Windows JSON.
-const fs = require('fs');
+// Uses the shared JSON reader (#69).
 const path = require('path');
+const { loadEnv, readJsonFile } = require('../shared/config');
+
+loadEnv();
 
 function readBase() {
-  return JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+  return readJsonFile(path.join(__dirname, 'config.json'));
 }
 
 function overlayEnv(c) {

@@ -3,7 +3,14 @@ const sql = require('mssql');
 
 async function getAllEdicts() {
   const pool = await getPool();
-  const result = await pool.request().query(`SELECT * FROM Edicts ORDER BY createdAt DESC`);
+  // Enrich with the comma-joined module types attached to each policy (MOD-2:
+  // lets the dashboard show a live jobs-module status chip on policy rows).
+  const result = await pool.request().query(`
+            SELECT e.*,
+                (SELECT STRING_AGG(moduleType, ',') WITHIN GROUP (ORDER BY moduleType) FROM PolicyModules pm WHERE pm.edictId = e.id) AS modules
+            FROM Edicts e
+            ORDER BY e.createdAt DESC
+        `);
   return result.recordset;
 }
 

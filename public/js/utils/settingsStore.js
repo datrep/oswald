@@ -36,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'resources', title: 'Resources', category: 'workspace' },
   { id: 'tasks', title: 'Tasks', category: 'workspace' },
   { id: 'popup', title: 'Unfinished Popup', category: 'notifications' },
+  { id: 'followups', title: 'Job Follow-ups', category: 'notifications' },
   { id: 'monitoring', title: 'Monitoring', category: 'peripherals' },
   { id: 'mcp', title: 'MCP', category: 'peripherals' },
   { id: 'session', title: 'Session', category: 'account' },
@@ -43,7 +44,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'server', title: 'Server Flags', category: 'server', server: true },
 ];
 
-// type: 'boolean' | 'select' | 'color' | 'readonly' | 'text' (server-editable)
+// type: 'boolean' | 'select' | 'color' | 'readonly' | 'text' | 'number' (server-editable)
 // `server: true` marks values that come from settings.json and cannot be changed here.
 export const SETTINGS_SCHEMA = [
   // ---- General / Appearance ----
@@ -244,6 +245,15 @@ export const SETTINGS_SCHEMA = [
     section: 'popup',
     type: 'boolean',
     default: true,
+  },
+  // ---- Notifications / Job Follow-ups (MOD-2) ----
+  {
+    key: 'followUpLookaheadDays',
+    label: 'Follow-up lookahead (days)',
+    description: 'How many days ahead job-application follow-ups appear in the dashboard sidebar. Overdue items are always shown.',
+    section: 'followups',
+    type: 'number',
+    default: 7,
   },
   // ---- Peripherals / Monitoring ----
   {

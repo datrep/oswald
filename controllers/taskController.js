@@ -25,6 +25,9 @@ async function getTaskById(req, res, next) {
 
   try {
     const task = await modelGetTaskById(id);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
     res.json(task);
   } catch (err) {
     next(err);
@@ -62,34 +65,21 @@ async function createTask(req, res, next) {
   }
 }
 
-// UPDATE task
+// UPDATE task — partial: only fields present in the body are changed.
 async function updateTask(req, res, next) {
   const id = req.params.id;
+  const body = req.body || {};
 
-  const {
-    //NO ACTIVE, IT IS A COMPUTED FIELD BASED ON PLANNED START AND PLANNED END
-    name,
-    plannedStart,
-    plannedEnd,
-    info,
-    priority,
-    state,
-    assignedToUserId,
-    edictId,
-  } = req.body;
+  // Partial update: only fields present in the body are changed.
+  // (Active is a computed field from plannedStart/plannedEnd — not updatable.)
+  const updatable = ['name', 'plannedStart', 'plannedEnd', 'info', 'priority', 'state', 'assignedToUserId', 'edictId'];
+  const fields = {};
+  for (const key of updatable) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) fields[key] = body[key];
+  }
 
   try {
-    await modelUpdateTask(
-      id,
-      name,
-      plannedStart,
-      plannedEnd,
-      info,
-      priority,
-      state,
-      assignedToUserId,
-      edictId
-    );
+    await modelUpdateTask(id, fields);
     res.json({ message: 'Task updated successfully' });
   } catch (err) {
     next(err);

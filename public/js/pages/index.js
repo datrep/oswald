@@ -63,7 +63,7 @@ function initCollapsibleSection(toggleId, bodyId, defaultCollapsed = false) {
 initCollapsibleSection('services-toggle', 'services-menu', true);
 initCollapsibleSection('mcp-toggle', 'mcp-body', false);
 initCollapsibleSection('monitor-toggle', 'monitor-body', false);
-initCollapsibleSection('links-toggle', 'links-body', false);
+initCollapsibleSection('experiments-toggle', 'experiments-body', false);
 
 let sortKey = 'createdAt';
 let sortDir = 'desc'; // "asc" | "desc"
@@ -222,8 +222,7 @@ function setupSortHeader() {
 }
 
 // Render all policies (already enriched with counts)
-function renderPolicyRows(edicts) {
-  policyListEl.innerHTML = '';
+function renderPolicyRows(edicts) {  policyListEl.innerHTML = '';
   policyCountEl.textContent = `Showing ${edicts.length} polic${edicts.length === 1 ? 'y' : 'ies'}`;
 
   if (edicts.length === 0) {
@@ -264,6 +263,7 @@ function renderPolicyRows(edicts) {
                 }</span>
                 <span class="col-state">${stateChip}</span>
                 <span class="col-info">${edict.info || 'No description available.'}</span>
+                ${hasJobsModule(edict) ? `<span class="jobs-chip">${jobsChipText()}</span>` : ''}
                 <span class="policy-id">#${edict.id}</span>
         `;
 
@@ -396,6 +396,99 @@ function closeAllPopups() {
 
 // ===========================
 // END POPUP MANAGEMENT SYSTEM
+// ===========================
+
+// ===========================
+// JOB FOLLOW-UPS (MOD-2) — dashboard sidebar reminders for application follow-ups
+// ===========================
+let jobFollowUps = [];
+let jobStats = null; // { total, active, offers, ... } from /api/applications/stats
+
+// A policy is "job-linked" when it has the jobs module attached (comma-joined
+// `modules` field from GET /api/edicts).
+function hasJobsModule(edict) {
+  return String(edict.modules || '').split(',').includes('jobs');
+}
+
+function jobsChipText() {
+  if (!jobStats) return '💼 …';
+  return `💼 ${jobStats.active} active · ${jobStats.offers} offers`;
+}
+
+async function loadJobStats() {
+  try {
+    jobStats = await apiGet('/api/applications/stats');
+  } catch {
+    jobStats = null;
+  }
+  // Fill in any already-rendered chips without a full re-render.
+  document.querySelectorAll('.policy-row .jobs-chip').forEach((chip) => {
+    chip.textContent = jobsChipText();
+  });
+}
+
+// Follow-up tone: overdue (red), due today (yellow), else upcoming.
+function followUpTone(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const now = Date.now();
+  const day = 86400000;
+  if (t < now) return 'is-overdue';
+  if (t - now <= day) return 'is-today';
+  return 'is-soon';
+}
+
+function followUpLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const base = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const tone = followUpTone(iso);
+  if (tone === 'is-overdue') return `${base} · overdue`;
+  if (tone === 'is-today') return `${base} · today`;
+  return base;
+}
+
+function renderFollowUpSidebar() {
+  const badge = document.getElementById('followup-badge');
+  const list = document.getElementById('sidebar-followup-list');
+  if (!badge || !list) return;
+  badge.textContent = jobFollowUps.length;
+  if (jobFollowUps.length === 0) {
+    badge.classList.add('none');
+    list.innerHTML = `<div style="color:#aaa;font-size:0.8rem;padding:10px;text-align:center;">No follow-ups due</div>`;
+    return;
+  }
+  badge.classList.remove('none');
+  list.innerHTML = '';
+  jobFollowUps.slice(0, 5).forEach((app, i) => {
+    const item = document.createElement('div');
+    item.className = 'notification-item anim-enter';
+    item.style.animationDelay = `${i * 0.05}s`;
+    const tone = followUpTone(app.followUpAt);
+    item.innerHTML = `
+            <div class="notification-item-name">${app.company}${app.role ? ` — ${app.role}` : ''}</div>
+            <div class="followup-due ${tone}">${followUpLabel(app.followUpAt)}</div>
+        `;
+    item.addEventListener('click', () => {
+      window.location.href = '/pages/jobs.html';
+    });
+    list.appendChild(item);
+  });
+}
+
+async function loadJobFollowUps() {
+  try {
+    const days = Number(getSetting('followUpLookaheadDays')) || 7;
+    jobFollowUps = await apiGet(`/api/applications/follow-ups?days=${days}`);
+    renderFollowUpSidebar();
+  } catch (err) {
+    console.error('[Follow-ups] Failed to load', err);
+  }
+}
+
+// ===========================
+// END JOB FOLLOW-UPS
 // ===========================
 
 // ===========================
@@ -786,6 +879,15 @@ registerUnfinishedPoliciesPopup();
 
 // Load unfinished policies and show notifications
 loadUnfinishedPolicies();
+
+// MOD-2: job follow-up reminders + live jobs-module chips on policy rows.
+loadJobFollowUps();
+loadJobStats();
+// Refresh both when the tab regains focus (e.g. after editing on the jobs page).
+window.addEventListener('focus', () => {
+  loadJobFollowUps();
+  loadJobStats();
+});
 
 initPolicies();
 

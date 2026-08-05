@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <title>API Logs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/main.css" />
+    <style>
+      .log-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0 16px; }
+      .log-toolbar select,
+      .log-toolbar button {
+        background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+        border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer;
+      }
+      .log-toolbar button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+      .log-toolbar button:hover { border-color: var(--accent); }
+      .log-table-wrap { max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+      .log-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+      .log-table thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+      .log-table th, .log-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+      .log-table th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .log-table td.time { color: var(--muted); font-family: var(--mono, monospace); font-size: 0.75rem; }
+      .log-table td.path { max-width: 420px; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono, monospace); }
+      .src-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; }
+      .src-badge.dashboard { background: var(--accent-soft); color: var(--accent); }
+      .src-badge.fileserver { background: rgba(52, 211, 153, 0.14); color: #6ee7b7; }
+      .lbl { color: var(--muted); }
+      .status { font-weight: 700; }
+      .status.s2xx { color: #6ee7b7; }
+      .status.s4xx { color: #fcd34d; }
+      .status.s5xx { color: #f87171; }
+      .log-empty, .log-error { padding: 24px; text-align: center; color: var(--muted); }
+      .stat-line { font-size: 0.8rem; color: var(--muted); }
+      .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #6ee7b7; display: inline-block; margin-right: 6px; }
+      .live-dot.paused { background: var(--muted); }
+      .back-link { color: var(--accent); text-decoration: none; font-size: 0.85rem; background: none; border: none; cursor: pointer; padding: 0; }
+      .back-link:hover { text-decoration: underline; }
+      #log-status { min-height: 18px; font-size: 0.8rem; color: #f87171; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="sidebar-block" id="nav-section">
+            <h3 class="sidebar-section">Navigation</h3>
+            <div class="sidebar-panel sidebar-links" id="logs-nav">
+              <a href="/index.html">Dashboard</a>
+              <a href="/pages/policy.html">Policy workspace</a>
+              <a href="https://172.22.160.3:8090" target="_blank" rel="noopener">Fileserver</a>
+            </div>
+          </section>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div style="color: #7279db">API Logs</div>
+            <div class="topbar-right"><div id="auth-control"></div></div>
+          </div>
+
+          <div class="content">
+            <div style="margin: 10px 0 4px">
+              <button type="button" class="back-link" id="btn-back">← Back to dashboard</button>
+            </div>
+
+            <div id="logs-gate" class="hidden">
+              <h2>Access restricted</h2>
+              <p class="muted">
+                Sign in with an account that has the <code>users.manage</code> permission (e.g.
+                <code>oswald_admin</code>).
+              </p>
+            </div>
+
+            <div id="logs-app" class="hidden">
+              <div class="log-toolbar">
+                <label class="muted" for="log-source">Source</label>
+                <select id="log-source">
+                  <option value="">All</option>
+                  <option value="dashboard">dashboard</option>
+                  <option value="fileserver">fileserver</option>
+                </select>
+                <label class="muted" for="log-limit">Limit</label>
+                <select id="log-limit">
+                  <option value="100">100</option>
+                  <option value="200" selected>200</option>
+                  <option value="500">500</option>
+                </select>
+                <button type="button" id="log-refresh" class="primary">Refresh</button>
+                <button type="button" id="log-auto"><span class="live-dot" id="log-live-dot"></span>Auto-refresh</button>
+                <span class="stat-line" id="log-stats"></span>
+              </div>
+
+              <div class="log-table-wrap">
+                <table class="log-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Source</th>
+                      <th>Label</th>
+                      <th>Method</th>
+                      <th>Path</th>
+                      <th>Status</th>
+                      <th>ms</th>
+                      <th>User</th>
+                    </tr>
+                  </thead>
+                  <tbody id="log-body"></tbody>
+                </table>
+              </div>
+              <div id="log-status"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </header>
+    <script type="module" src="/js/pages/logs.js"></script>
+    <script type="module" src="/js/components/auth.js"></script>
+  </body>
+</html>

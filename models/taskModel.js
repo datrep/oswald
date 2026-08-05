@@ -53,42 +53,32 @@ async function createTask(
         `);
 }
 
-async function updateTask(
-  id,
-  name,
-  plannedStart,
-  plannedEnd,
-  info,
-  priority,
-  state,
-  assignedToUserId,
-  edictId
-) {
+// Update ONLY the fields provided (partial update). `state` also drives
+// completedAt (state 3 sets it once; any other state clears it).
+const TASK_UPDATABLE = ['name', 'plannedStart', 'plannedEnd', 'info', 'priority', 'state', 'assignedToUserId', 'edictId'];
+
+async function updateTask(id, fields) {
   const pool = await getPool();
-  await pool
-    .request()
-    .input('id', sql.Int, id)
-    .input('name', sql.NVarChar, name)
-    .input('plannedStart', sql.DateTime, plannedStart)
-    .input('plannedEnd', sql.DateTime, plannedEnd)
-    .input('info', sql.NVarChar, info)
-    .input('priority', sql.Int, priority)
-    .input('state', sql.Int, state)
-    .input('assignedToUserId', sql.Int, assignedToUserId)
-    .input('edictId', sql.Int, edictId).query(`
-            UPDATE Tasks
-            SET
-                name = @name,
-                plannedStart = @plannedStart,
-                plannedEnd = @plannedEnd,
-                info = @info,
-                priority = @priority,
-                state = @state,
-                assignedToUserId = @assignedToUserId,
-                edictId = @edictId,
-                completedAt = CASE WHEN @state = 3 THEN COALESCE(completedAt, GETDATE()) ELSE NULL END
-            WHERE id = @id
-        `);
+  const req = pool.request().input('id', sql.Int, id);
+  const sets = [];
+  for (const key of TASK_UPDATABLE) {
+    if (!Object.prototype.hasOwnProperty.call(fields, key)) continue;
+    const val = fields[key];
+    if (val === undefined || val === null) {
+      sets.push(`${key} = NULL`);
+      continue;
+    }
+    const param = 'p_' + key;
+    if (key === 'priority' || key === 'state' || key === 'assignedToUserId' || key === 'edictId') req.input(param, sql.Int, val);
+    else if (key === 'plannedStart' || key === 'plannedEnd') req.input(param, sql.DateTime, val);
+    else req.input(param, sql.NVarChar, val);
+    sets.push(`${key} = @${param}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'state')) {
+    sets.push(fields.state === 3 ? 'completedAt = COALESCE(completedAt, GETDATE())' : 'completedAt = NULL');
+  }
+  if (!sets.length) return;
+  await req.query(`UPDATE Tasks SET ${sets.join(', ')} WHERE id = @id`);
 }
 
 async function deleteTask(id) {

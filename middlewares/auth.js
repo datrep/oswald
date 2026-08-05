@@ -1,29 +1,11 @@
-const jwt = require('jsonwebtoken');
+// middlewares/auth.js — thin re-export of the shared JWT auth (#70).
+//
+// Keeps the dashboard's existing contract: missing token -> 401, present-but-
+// invalid/expired token -> 403 (the UI treats 403 as "logged out"). All logic
+// now lives in ../shared/auth.js so the dashboard and fileserver share it.
+const { makeAuthenticateToken, requirePermission } = require('../shared/auth');
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
-
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403); // Forbidden
-    req.user = user;
-    next();
-  });
-};
-
-// Must run AFTER authenticateToken (which sets req.user with JWT claims).
-// Checks that the token carries the required permission code.
-function requirePermission(code) {
-  return (req, res, next) => {
-    const perms = req.user?.permissions || [];
-    if (!perms.includes(code)) {
-      return res.status(403).json({ error: `Missing permission: ${code}` });
-    }
-    next();
-  };
-}
+const authenticateToken = makeAuthenticateToken({ invalidStatus: 403 });
 
 module.exports = authenticateToken;
 module.exports.requirePermission = requirePermission;

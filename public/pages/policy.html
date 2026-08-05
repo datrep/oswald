@@ -131,7 +131,28 @@
             </div>
           </div>
 
+          <div id="module-picker" style="display: none">
+            <div class="modal-resource-content">
+              <h3>Add a module</h3>
+              <p class="muted" style="font-size: 12px; margin-bottom: 10px">Attach a tool to this policy — each module renders its own panel here.</p>
+              <div id="module-picker-list" class="resource-picker-list"></div>
+              <p id="module-picker-status" class="picker-status muted"></p>
+              <div class="modal-actions">
+                <button id="module-picker-close">Close</button>
+              </div>
+            </div>
+          </div>
+
           <div id="resource-preview-list"></div>
+        </div>
+
+        <!-- MODULES (module-attachment framework) -->
+        <div class="policy-section">
+          <div class="section-header">
+            <h2>Modules</h2>
+            <button type="button" id="action-add-module" class="module-add-btn" title="Attach a module to this policy">+ Add module</button>
+          </div>
+          <div id="policy-modules"></div>
         </div>
         </div>
 

@@ -84,6 +84,20 @@
             </div>
           </section>
 
+          <!-- Job follow-ups (MOD-2) -->
+          <section class="sidebar-block" id="followups-section">
+            <h3 class="sidebar-section">
+              <span>Job follow-ups</span>
+              <span class="notification-badge" id="followup-badge">0</span>
+            </h3>
+            <div class="sidebar-panel">
+              <div class="sidebar-notifications-list" id="sidebar-followup-list">
+                <!-- Follow-up items populated by index.js -->
+              </div>
+              <a class="followups-foot" href="/pages/jobs.html">Open tracker →</a>
+            </div>
+          </section>
+
           <!-- Services -->
           <section class="sidebar-block" id="services-section">
             <h3
@@ -166,20 +180,19 @@
             </div>
           </section>
 
-          <!-- Links -->
-          <section class="sidebar-block" id="links-section">
+          <!-- Experiments -->
+          <section class="sidebar-block" id="experiments-section">
             <h3
               class="sidebar-section sidebar-collapsible"
-              id="links-toggle"
+              id="experiments-toggle"
               role="button"
               aria-expanded="true"
               tabindex="0"
             >
-              <span>Links</span>
+              <span>Experiments</span>
               <span class="sidebar-chevron">▾</span>
             </h3>
-            <div class="sidebar-panel sidebar-links sidebar-collapse-body anim-stagger" id="links-body">
-              <a href="pages/users.html" target="_blank" rel="noopener">users &amp; permissions</a>
+            <div class="sidebar-panel sidebar-links sidebar-collapse-body anim-stagger" id="experiments-body">
               <a href="experiments/seter.html" target="_blank" rel="noopener">Seter</a>
               <a href="experiments/mirrored-fileserver.html" target="_blank" rel="noopener">
                 mirrored fileserver
@@ -196,6 +209,12 @@
             </div>
 
             <div class="topbar-right">
+              <!-- Internal dashboard admin pages (like Settings) live in the
+                   topbar — NOT the sidebar Links section, which is for other
+                   repo features/experiments. They open in the same tab so the
+                   browser Back button returns to the dashboard. -->
+              <a class="topbar-link" href="pages/logs.html" title="API logs (dashboard + fileserver)">Logs</a>
+              <a class="topbar-link" href="pages/users.html" title="Users &amp; permissions">Users &amp; Permissions</a>
               <div id="settings-control"></div>
               <div id="auth-control"></div>
             </div>

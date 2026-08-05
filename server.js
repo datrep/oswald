@@ -1,12 +1,10 @@
 const express = require('express');
 const sql = require('mssql');
-const dotenv = require('dotenv');
 const cors = require('cors');
 const https = require('https');
-const fs = require('fs');
 const path = require('path');
 
-const logger = require('./utils/logger');
+const logger = require('./utils/logger'); // legacy request logger — superseded by apiLogger (#58)
 
 const dbRoutes = require('./routes/dbRoutes');
 
@@ -24,6 +22,12 @@ const mcpRoutes = require('./routes/mcpRoutes');
 
 const serverRoutes = require('./routes/serverRoutes');
 
+const logRoutes = require('./routes/logRoutes');
+const careerFileRoutes = require('./routes/careerFileRoutes');
+const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
+const { apiLogger, archivePreviousSession } = require('./utils/apiLogger');
+const { createApiLog } = require('./models/apiLogModel');
+
 const authenticateToken = require('./middlewares/auth');
 const { requirePermission } = require('./middlewares/auth');
 
@@ -33,26 +37,16 @@ const {
   unhandledRejectionHandler,
 } = require('./middlewares/errorHandler');
 const mcpServer = require('./utils/mcpServer');
-dotenv.config();
+const { loadEnv, readDashboardSettings, writeDashboardSettings } = require('./shared/config');
+const { loadOrCreateCert } = require('./shared/tls');
+loadEnv();
 const { getPool } = require('./config/db');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Server settings live in a small JSON file (served read-only via GET /api/settings,
-// persisted via PUT /api/settings by admins). Kept out of require() so edits are
-// picked up without a restart.
-const SETTINGS_FILE = path.join(__dirname, 'public', 'js', 'api', 'settings.json');
-function readSettingsFile() {
-  try {
-    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-app.use(logger); //logger before all app.use
-
+// NOTE: the legacy utils/logger was replaced by apiLogger (#58) below, which logs
+// /api + /edicts requests to console, the active session file, and ApiLogs.
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow non-browser requests (no Origin header), localhost, and the LAN subnet
@@ -80,25 +74,25 @@ app.use(express.static('public/pages'));
 app.use('/edicts', edictRoutes);
 
 app.get('/api/settings', (req, res) => {
-  res.json(readSettingsFile());
+  res.json(readDashboardSettings());
 });
 
 // Admin-only: persist server settings (e.g. the resources storage directory).
 app.put('/api/settings', authenticateToken, requirePermission('users.manage'), (req, res) => {
   const body = req.body || {};
-  const settings = readSettingsFile();
+  const settings = readDashboardSettings();
   if (typeof body.resourcesDir === 'string' && body.resourcesDir.trim()) {
     settings.resourcesDir = body.resourcesDir.trim();
   }
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');
-  res.json(readSettingsFile());
+  writeDashboardSettings(settings);
+  res.json(readDashboardSettings());
 });
 
 // Serve stored resources from the configured directory (default public/resources).
 // Re-resolves the path on every request so a settings change takes effect without
 // a restart — and /resources/... URLs keep working if storage moves outside public/.
 app.use('/resources', (req, res, next) => {
-  const dir = path.resolve(readSettingsFile().resourcesDir || 'public/resources');
+  const dir = path.resolve(readDashboardSettings().resourcesDir || 'public/resources');
   express.static(dir)(req, res, next);
 });
 
@@ -106,6 +100,17 @@ app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   next();
 });
+
+// Internal API request log (#58): every /api and /edicts request is written to
+// ApiLogs (keep-all) + the active session file, mirrored to console. The label
+// [policy:services] distinguishes dashboard traffic from fileserver traffic.
+app.use(
+  apiLogger({
+    source: 'dashboard',
+    labelFor: () => 'policy:services',
+    writeLog: createApiLog,
+  })
+);
 
 // GET /api/health — lightweight, public status for the dashboard status strip.
 // Returns server uptime, DB connectivity, MCP state, and host counts without
@@ -155,6 +160,9 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/mcp', mcpRoutes);
 app.use('/api/servers', serverRoutes);
+app.use('/api/logs', logRoutes);
+app.use('/api/career-files', careerFileRoutes);
+app.use('/api/applications', jobApplicationRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
@@ -182,6 +190,11 @@ console.info('if this was too fast, the DB server not found or shut down.');
 
 async function startServer() {
   const serverHost = process.env.SERVER_HOST || '0.0.0.0';
+
+  // Internal logging (#58): zip the previous session's active log file (dated)
+  // and start a fresh one for this run. Best-effort, non-blocking.
+  archivePreviousSession('dashboard');
+
   const server = app.listen(port, serverHost, () => {
     console.log(`Server running on http://${serverHost}:${port}`);
   });
@@ -200,17 +213,15 @@ async function startServer() {
     }
   });
 
-  // HTTPS (task #60): serve the same app over TLS on HTTPS_PORT (default 8443),
-  // reusing the fileserver's self-signed cert (already added to the Root store;
-  // its SANs cover 172.22.160.3 / localhost / 127.0.0.1). If the cert is missing
-  // we just stay HTTP-only and log a warning.
+  // HTTPS (task #60; refactored onto shared/tls #70): load the trusted
+  // fileserver/certs pair, or generate a self-signed one if missing — the same
+  // util the fileserver uses, so both services serve the one trusted cert.
   const httpsPort = Number(process.env.HTTPS_PORT || 8443);
   const certDir = path.join(__dirname, 'fileserver', 'certs');
-  const keyPath = path.join(certDir, 'key.pem');
-  const certPath = path.join(certDir, 'cert.pem');
-  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  try {
+    const creds = await loadOrCreateCert({ certDir, host: serverHost });
     const httpsServer = https
-      .createServer({ key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }, app)
+      .createServer(creds, app)
       .listen(httpsPort, serverHost, () => {
         console.log(`HTTPS running on https://${serverHost}:${httpsPort}`);
       });
@@ -221,10 +232,8 @@ async function startServer() {
         console.error('HTTPS server error:', err);
       }
     });
-  } else {
-    console.warn(
-      `No TLS credentials found at ${certDir}; HTTPS disabled (install the fileserver cert to enable).`
-    );
+  } catch (err) {
+    console.warn(`HTTPS disabled (${err.message})`);
   }
 
 

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <title>Job Applications</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/main.css" />
+    <style>
+      .jb-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 8px; }
+      .jb-toolbar select, .jb-toolbar input, .jb-toolbar button {
+        background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+        border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; cursor: pointer;
+      }
+      .jb-toolbar button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+      .jb-site { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; color: var(--text); text-decoration: none; }
+      .jb-site:hover { border-color: var(--accent); color: var(--accent); }
+      .jb-view-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      .jb-view-toggle button { background: var(--panel-2); border: none; color: var(--muted); padding: 6px 10px; cursor: pointer; }
+      .jb-view-toggle button.active { background: var(--accent-soft); color: var(--accent); }
+      .jb-stats { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px; }
+      .jb-stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 0.78rem; color: var(--muted); }
+      .jb-stat strong { color: var(--text); font-size: 1rem; margin-right: 4px; }
+      .jb-board { display: grid; grid-template-columns: repeat(6, minmax(180px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+      .jb-col { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px; min-height: 120px; }
+      .jb-col.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+      .jb-col-head { padding: 8px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+      .jb-col-count { color: var(--accent); }
+      .jb-col-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+      .jb-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: grab; }
+      .jb-card:hover { border-color: var(--accent); }
+      .jb-card.dragging { opacity: 0.45; }
+      .jb-company { font-weight: 700; font-size: 0.85rem; }
+      .jb-role { color: var(--muted); font-size: 0.78rem; }
+      .jb-card-meta { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+      .jb-src { font-size: 0.62rem; font-weight: 700; border-radius: 999px; padding: 1px 7px; text-transform: uppercase; }
+      .jb-src.mycareersfuture { background: rgba(168,85,247,0.16); color: #d8b4fe; }
+      .jb-src.jobstreet { background: rgba(59,130,246,0.16); color: #93c5fd; }
+      .jb-src.internsg { background: rgba(52,211,153,0.14); color: #6ee7b7; }
+      .jb-src.other { background: var(--panel-3); color: var(--muted); }
+      .jb-salary { color: var(--muted); font-size: 0.74rem; }
+      .jb-due { font-size: 0.72rem; font-weight: 600; }
+      .jb-due.is-overdue { color: #f87171; }
+      .jb-due.is-today { color: #fcd34d; }
+      .jb-card-actions { display: flex; gap: 4px; margin-top: 6px; }
+      .jb-card-actions button { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 2px 8px; font-size: 0.72rem; cursor: pointer; }
+      .jb-card-actions button.danger:hover { border-color: #f87171; color: #f87171; }
+      .jb-list { display: flex; flex-direction: column; gap: 8px; }
+      .jb-list-row { display: grid; grid-template-columns: 1.4fr 1fr 90px 90px 90px auto; gap: 10px; align-items: center; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 0.8rem; }
+      .jb-list-row .jb-company { font-weight: 700; }
+      .jb-list-row .jb-role { color: var(--muted); }
+      .jb-status-chip { font-size: 0.66rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; text-transform: uppercase; }
+      .jb-empty { padding: 30px; text-align: center; color: var(--muted); }
+      #jb-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(6,9,14,0.75); backdrop-filter: blur(4px); z-index: 1001; }
+      #jb-modal[style*="flex"] .modal-resource-content { animation: fadeInScale 0.25s ease both; }
+      .jb-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+      .jb-form .full { grid-column: 1 / -1; }
+      .jb-form label { font-size: 0.74rem; color: var(--muted); display: block; margin-bottom: 3px; }
+      .jb-form input, .jb-form select, .jb-form textarea { width: 100%; background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 0.8rem; }
+      .jb-form textarea { resize: vertical; min-height: 60px; }
+      .back-link { color: var(--accent); text-decoration: none; font-size: 0.85rem; background: none; border: none; cursor: pointer; padding: 0; }
+      .back-link:hover { text-decoration: underline; }
+      #jb-status { min-height: 18px; font-size: 0.8rem; color: #f87171; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Navigation</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/index.html">Dashboard</a>
+              <a href="/pages/policy.html">Policy workspace</a>
+              <a href="https://172.22.160.3:8090" target="_blank" rel="noopener">Fileserver</a>
+            </div>
+          </section>
+        </aside>
+        <main class="main">
+          <div class="topbar">
+            <div style="color: #7279db">Job Applications</div>
+            <div class="topbar-right"><div id="auth-control"></div></div>
+          </div>
+          <div class="content">
+            <div style="margin: 10px 0 4px">
+              <button type="button" class="back-link" id="jb-back">← Back</button>
+            </div>
+            <div id="jb-gate" class="hidden">
+              <h2>Sign in required</h2>
+              <p class="muted">Sign in to view and manage your job applications.</p>
+            </div>
+            <div id="jb-app" class="hidden">
+              <div class="jb-toolbar">
+                <a class="jb-site" href="https://www.mycareersfuture.gov.sg/" target="_blank" rel="noopener">MyCareersFuture</a>
+                <a class="jb-site" href="https://sg.jobstreet.com/" target="_blank" rel="noopener">JobStreet SG</a>
+                <a class="jb-site" href="https://www.internsg.com/" target="_blank" rel="noopener">InternSG</a>
+                <select id="jb-source">
+                  <option value="">All sources</option>
+                  <option value="mycareersfuture">MyCareersFuture</option>
+                  <option value="jobstreet">JobStreet</option>
+                  <option value="internsg">InternSG</option>
+                  <option value="other">Other</option>
+                </select>
+                <input type="search" id="jb-search" placeholder="Search company / role…" autocomplete="off" style="flex:1;min-width:150px" />
+                <select id="jb-sort" title="Sort">
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="company">Company A–Z</option>
+                  <option value="company_desc">Company Z–A</option>
+                  <option value="salary">Salary high → low</option>
+                  <option value="due">Follow-up soonest</option>
+                </select>
+                <div class="jb-view-toggle">
+                  <button id="jb-view-kanban" class="active" title="Kanban">Kanban</button>
+                  <button id="jb-view-list" title="List">List</button>
+                </div>
+                <button type="button" id="jb-add" class="primary">+ Add application</button>
+              </div>
+
+              <div class="jb-stats" id="jb-stats"></div>
+              <div id="jb-board" class="jb-board"></div>
+              <div id="jb-list" class="jb-list hidden"></div>
+              <div id="jb-status"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </header>
+
+    <div id="jb-modal">
+      <div class="modal-resource-content">
+        <h3 id="jb-modal-title">Add application</h3>
+        <div class="jb-form">
+          <div><label>Company *</label><input id="f-company" /></div>
+          <div><label>Role *</label><input id="f-role" /></div>
+          <div>
+            <label>Source</label>
+            <select id="f-source">
+              <option value="mycareersfuture">MyCareersFuture</option>
+              <option value="jobstreet">JobStreet</option>
+              <option value="internsg">InternSG</option>
+              <option value="other" selected>Other</option>
+            </select>
+          </div>
+          <div>
+            <label>Status</label>
+            <select id="f-status">
+              <option value="applied" selected>Applied</option>
+              <option value="screening">Screening</option>
+              <option value="assessment">Assessment</option>
+              <option value="interview">Interview</option>
+              <option value="offer">Offer</option>
+              <option value="hired">Hired</option>
+              <option value="rejected">Rejected</option>
+              <option value="withdrawn">Withdrawn</option>
+            </select>
+          </div>
+          <div class="full"><label>Job URL</label><input id="f-joburl" /></div>
+          <div><label>Applied date</label><input type="datetime-local" id="f-applied" /></div>
+          <div><label>Follow-up date</label><input type="datetime-local" id="f-followup" /></div>
+          <div><label>Salary</label><input id="f-salary" /></div>
+          <div><label>Location</label><input id="f-location" /></div>
+          <div><label>Contact</label><input id="f-contact" /></div>
+          <div>
+            <label>Resume / cover letter</label>
+            <select id="f-resume"><option value="">None</option></select>
+          </div>
+          <div class="full"><label>Tags (comma separated)</label><input id="f-tags" /></div>
+          <div class="full"><label>Notes</label><textarea id="f-notes"></textarea></div>
+        </div>
+        <div class="modal-actions" style="margin-top:14px">
+          <button id="f-save" class="primary">Save</button>
+          <button id="f-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/js/pages/jobs.js"></script>
+    <script type="module" src="/js/components/auth.js"></script>
+  </body>
+</html>

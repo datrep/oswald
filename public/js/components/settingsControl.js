@@ -104,6 +104,16 @@ function controlHtml(setting, value) {
       </div>`;
   }
 
+  if (setting.type === 'number') {
+    return `
+      <div class="settings-row">
+        ${label}
+        <div class="settings-control">
+          <input type="number" min="1" max="365" step="1" data-key="${setting.key}" value="${escAttr(value ?? setting.default ?? '')}" />
+        </div>
+      </div>`;
+  }
+
   return '';
 }
 

@@ -7,7 +7,9 @@ const fsp = require('fs/promises');
 const https = require('https');
 const multer = require('multer');
 const archiver = require('archiver');
-const selfsigned = require('selfsigned');
+
+// Shared TLS util (#70) — same load-or-generate cert logic as the dashboard.
+const { loadOrCreateCert } = require('../shared/tls');
 
 const { authenticateToken } = require('./auth');
 const access = require('./access');
@@ -15,6 +17,20 @@ const meta = require('./fsMeta');
 const syncEngine = require('./sync');
 const core = require('./fsCore');
 const { HttpError, getConfig, getRoots, getRoot, assertInside, listDir, search, streamThumbnail, getMime, isDangerous } = core;
+
+// Internal API request log (#58): fileserver traffic is written to the same
+// ApiLogs table as the dashboard, tagged [fileserver:<operation>] so the two
+// services are distinguishable in the shared log.
+const { apiLogger, archivePreviousSession } = require('../utils/apiLogger');
+const { createApiLog } = require('../models/apiLogModel');
+
+// Label a request by its fileserver operation, e.g. [fileserver:list],
+// [fileserver:upload], [fileserver:rename] — matches the CRUD_* style tag.
+function fsLabel(req) {
+  const url = (req.originalUrl || req.url).split('?')[0];
+  const m = /^\/api\/fs\/([^/]+)/.exec(url);
+  return `fileserver:${m ? m[1] : 'other'}`;
+}
 
 const app = express();
 app.disable('x-powered-by');
@@ -27,6 +43,15 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
 });
+
+// --- internal API logging (#58) ----------------------------------------------
+app.use(
+  apiLogger({
+    source: 'fileserver',
+    labelFor: fsLabel,
+    writeLog: createApiLog,
+  })
+);
 
 // --- helpers -----------------------------------------------------------------
 
@@ -522,42 +547,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal error' });
 });
 
-async function getOrCreateCert() {
-  const certDir = path.join(__dirname, 'certs');
-  const keyPath = path.join(certDir, 'key.pem');
-  const certPath = path.join(certDir, 'cert.pem');
-  fs.mkdirSync(certDir, { recursive: true });
-  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-    return { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
-  }
-  const host = getConfig().tls?.host || '172.22.160.3';
-  // selfsigned 5.x is async — returns a promise. Include DNS + IP SANs so
-  // browsers accept the cert for both hostname and IP access (Chrome requires
-  // an IP SAN, not just a DNS SAN, when connecting to an IP).
-  const pems = await selfsigned.generate(
-    [{ name: 'commonName', value: host }, { name: 'organizationName', value: 'Oswald Fileserver' }],
-    {
-      days: 3650,
-      keySize: 2048,
-      algorithm: 'sha256',
-      extensions: [{
-        name: 'subjectAltName',
-        altNames: [
-          { type: 2, value: host },
-          { type: 2, value: 'localhost' },
-          { type: 7, value: host },
-          { type: 7, value: '127.0.0.1' },
-        ],
-      }],
-    }
-  );
-  fs.writeFileSync(keyPath, pems.private);
-  fs.writeFileSync(certPath, pems.cert);
-  return { key: pems.private, cert: pems.cert };
-}
-
 const port = getConfig().port || 8090;
 const host = getConfig().host || '0.0.0.0';
+
+// Internal logging (#58): archive the previous session's active log file (dated)
+// and start a fresh one for this run. Best-effort, non-blocking.
+archivePreviousSession('fileserver');
 
 // Optional scheduled sync (FS-3): intervalMinutes > 0.
 const syncMins = getConfig().sync?.intervalMinutes || 0;
@@ -576,8 +571,8 @@ if (syncMins > 0) {
 }
 
 if (getConfig().tls?.enabled) {
-  // Public HTTPS interface.
-  getOrCreateCert()
+  // Public HTTPS interface — shared cert load-or-generate util (#70).
+  loadOrCreateCert({ certDir: path.join(__dirname, 'certs'), host: getConfig().tls?.host || '172.22.160.3' })
     .then((creds) => {
       https.createServer(creds, app).listen(port, host, () => {
         console.log(`[fileserver] Oswald Fileserver (FS-1/FS-2) listening on https://${host}:${port}`);

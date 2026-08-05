@@ -299,6 +299,21 @@ body > .content {
   right: 12px;
   bottom: 4px;
 }
+/* MOD-2: live jobs-module status chip on a policy row (bottom-left, mirrors #id) */
+.policy-row .jobs-chip {
+  position: absolute;
+  left: 12px;
+  bottom: 3px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(124, 140, 248, 0.35);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .policy-actions {
   display: flex;
   align-items: center;
@@ -453,6 +468,23 @@ main .status-strip {
 .auth-toggle:hover {
   background: var(--panel-2);
   border-color: var(--accent);
+}
+/* Topbar internal-page links (e.g. Logs, Users & Permissions) — match the auth/settings buttons. */
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.topbar-link:hover {
+  background: var(--panel-2);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .auth-panel {
   position: absolute;
@@ -720,6 +752,30 @@ main .status-strip {
   border-radius: 3px;
   font-size: 0.7rem;
   color: var(--muted);
+}
+/* MOD-2: Job follow-ups sidebar section */
+.followup-due {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.followup-due.is-overdue {
+  color: var(--danger);
+}
+.followup-due.is-today {
+  color: var(--warning);
+}
+.followups-foot {
+  display: block;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 5px;
+  font-weight: 600;
+}
+.followups-foot:hover {
+  text-decoration: underline;
 }
 
 /* ---------- Services tray ---------- */
@@ -3430,6 +3486,97 @@ select {
   font-size: 0.72rem;
   color: var(--muted);
 }
+
+/* ---- Policy modules (module-attachment framework, PREREQ) ---- */
+.module-add-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.module-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#policy-modules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.module-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+.module-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.module-panel-icon { font-size: 20px; flex: none; }
+.module-panel-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.module-panel-title strong { font-size: 14px; }
+.module-panel-title .muted { font-size: 12px; }
+.module-detach {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 12px;
+  flex: none;
+}
+.module-detach:hover {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+.module-open {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 10px;
+  flex: none;
+  white-space: nowrap;
+}
+.module-open:hover {
+  border-color: var(--accent);
+}
+.module-panel-body { padding: 14px 12px; min-height: 60px; }
+.module-placeholder { font-size: 13px; }
+#module-picker {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 9, 14, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1001;
+}
+#module-picker[style*="flex"] .modal-resource-content {
+  animation: fadeInScale 0.25s ease both;
+}
+.module-picker-icon { font-size: 20px; }
 
 /* Policy edit modal */
 #policy-modal[style*="flex"] .modal-content {
