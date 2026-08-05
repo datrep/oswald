@@ -16,7 +16,7 @@
   },
   "sync": {
     "source": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources",
-    "destination": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-backup",
+    "destination": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror",
     "deleteExtraneous": true,
     "intervalMinutes": 0
   },

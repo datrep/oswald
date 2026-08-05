@@ -3,7 +3,8 @@
 // Resets the password for an existing web account (e.g. oswald_admin).
 //
 // Usage (from the project root):
-//   node scripts/reset-password.js
+//   node scripts/reset-password.js          interactive reset (hidden password)
+//   node scripts/reset-password.js --list   list existing usernames, then exit
 //
 // The new password is typed interactively and HIDDEN — it is never echoed to
 // the terminal, never written to shell history, and never passed through any
@@ -14,6 +15,11 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/userModel');
 
 const MIN_LENGTH = 8;
+
+// --list prints the existing usernames (so you know what accounts exist) and
+// exits without prompting.
+const args = process.argv.slice(2);
+const listMode = args.includes('--list') || args.includes('--list-usernames') || args.includes('-l');
 
 // Simple raw-mode prompt. When `hidden` is true, every keystroke prints '*' so
 // the value (e.g. a password) is not echoed. Supports backspace and Ctrl+C.
@@ -54,6 +60,33 @@ function ask(query, hidden = false) {
 }
 
 (async () => {
+  if (listMode) {
+    try {
+      const users = await User.getAllUsersWithRoles();
+      if (!users.length) {
+        console.log('No accounts found.');
+      } else {
+        console.log(`${users.length} account(s):`);
+        for (const u of users) {
+          const roles = u.roles.length ? u.roles.join(', ') : '(no roles)';
+          console.log(`  ${String(u.username).padEnd(24)} [${roles}]`);
+        }
+      }
+    } catch (err) {
+      console.error('✖ Failed to list users:', err.message);
+      process.exit(1);
+    } finally {
+      // Close the SQL pool so the process can exit cleanly.
+      try {
+        const sql = require('mssql');
+        await sql.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    return;
+  }
+
   console.log('Password reset for an existing Oswald web account.');
   console.log('The password is typed hidden and is never echoed.\n');
 
@@ -74,7 +107,8 @@ function ask(query, hidden = false) {
     const user = await User.findUserByUsername(username);
     if (!user) {
       console.error(`✖ No user named "${username}" exists — nothing was changed.`);
-      console.error('  (Use the register endpoint to create a new account instead.)');
+      console.error('  (Use the register endpoint to create a new account instead, or run');
+      console.error('   `node scripts/reset-password.js --list` to see existing usernames.)');
       process.exit(1);
     }
 

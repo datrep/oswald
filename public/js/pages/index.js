@@ -15,6 +15,9 @@ const policyListEl = document.getElementById('policy-list');
 let edictsCache = [];
 
 // Collapsible sidebar sections (services, server, monitoring, links) — same pattern as trends.
+// The CSS collapses to max-height:0, but the fixed 480px cap makes the transition
+// overshoot for short panels (choppy). We measure the real content height and
+// animate to/from it instead, so expand/collapse is 1:1 and smooth.
 function initCollapsibleSection(toggleId, bodyId, defaultCollapsed = false) {
   const toggle = document.getElementById(toggleId);
   const body = document.getElementById(bodyId);
@@ -22,9 +25,24 @@ function initCollapsibleSection(toggleId, bodyId, defaultCollapsed = false) {
   const chevron = toggle.querySelector('.sidebar-chevron');
 
   const setCollapsed = (collapsed) => {
-    body.classList.toggle('collapsed', collapsed);
     toggle.setAttribute('aria-expanded', String(!collapsed));
     if (chevron) chevron.textContent = collapsed ? '▸' : '▾';
+    if (collapsed) {
+      body.style.maxHeight = body.scrollHeight + 'px'; // start from the real height
+      body.classList.add('collapsed');
+      void body.offsetHeight; // synchronous reflow — browser records the start height
+      body.style.maxHeight = '0px'; // then animate down
+    } else {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = body.scrollHeight + 'px'; // animate to the real height
+      const onEnd = (e) => {
+        if (e.propertyName !== 'max-height') return;
+        body.style.maxHeight = '';
+        body.removeEventListener('transitionend', onEnd);
+      };
+      body.addEventListener('transitionend', onEnd);
+      setTimeout(onEnd, 350); // safety net (reduced-motion / no transition)
+    }
   };
 
   toggle.addEventListener('click', () => setCollapsed(!body.classList.contains('collapsed')));
@@ -35,7 +53,11 @@ function initCollapsibleSection(toggleId, bodyId, defaultCollapsed = false) {
     }
   });
 
-  setCollapsed(defaultCollapsed);
+  // Apply the initial state without animating.
+  body.classList.toggle('collapsed', defaultCollapsed);
+  if (defaultCollapsed) body.style.maxHeight = '0px';
+  toggle.setAttribute('aria-expanded', String(!defaultCollapsed));
+  if (chevron) chevron.textContent = defaultCollapsed ? '▸' : '▾';
 }
 
 initCollapsibleSection('services-toggle', 'services-menu', true);

@@ -528,7 +528,7 @@ main .status-strip {
   overflow-y: auto;
   max-height: 480px;
   opacity: 1;
-  transition: max-height 0.25s ease, opacity 0.25s ease;
+  transition: max-height 0.25s ease, opacity 0.25s ease, padding-top 0.25s ease, padding-bottom 0.25s ease, border-width 0.25s ease;
 }
 .sidebar-collapse-body.collapsed {
   max-height: 0;
@@ -805,6 +805,17 @@ main .status-strip {
   color: var(--danger);
   margin: 6px 0 0;
   min-height: 1rem;
+}
+.server-status.running {
+  color: var(--success);
+  font-weight: 600;
+}
+.server-status.stopped {
+  color: var(--muted);
+}
+.server-note {
+  color: var(--warning);
+  font-size: 0.72rem;
 }
 
 /* ---------- Monitoring panel ---------- */
@@ -1308,6 +1319,20 @@ main .status-strip {
 .section-header h2 {
   margin: 0;
 }
+.archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.archive-toggle input {
+  width: auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 
 /* Policy + Tasks side by side */
 .policy-columns {
@@ -1514,6 +1539,21 @@ main .status-strip {
   border-color: var(--accent);
   background: var(--panel-2);
 }
+.task-card.draggable {
+  cursor: grab;
+}
+.task-card.draggable:active {
+  cursor: grabbing;
+}
+.task-card.dragging {
+  opacity: 0.45;
+  border-style: dashed;
+}
+.task-card.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  transform: translateY(2px);
+}
 .task-card-head {
   display: flex;
   align-items: center;
@@ -1534,6 +1574,12 @@ main .status-strip {
   color: var(--text);
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+.task-card-id {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--faint);
 }
 .task-card-chips {
   display: flex;
@@ -1773,6 +1819,21 @@ main .status-strip {
   padding: 14px;
   min-height: 340px;
   width: 220px;
+}
+.resource-preview-row.draggable {
+  cursor: grab;
+}
+.resource-preview-row.draggable:active {
+  cursor: grabbing;
+}
+.resource-preview-row.dragging {
+  opacity: 0.45;
+  border-style: dashed;
+}
+.resource-preview-row.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  transform: translateY(2px);
 }
 .resource-preview-row > .thumbnail-preview {
   width: 100%;
@@ -3059,6 +3120,11 @@ select {
 
 /* Monitor rows */
 .monitor-row.anim-enter {
+  animation: slideInRight 0.25s ease both;
+}
+
+/* Server control cards (match Services entry) */
+.mcp-control.anim-enter {
   animation: slideInRight 0.25s ease both;
 }
 

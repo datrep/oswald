@@ -58,6 +58,14 @@ async function request(method, url, data = null) {
     window.dispatchEvent(new CustomEvent('auth:logout'));
   }
 
+  // The signed-in user no longer exists (deleted while a token was live) ->
+  // /api/users/me 404s. Treat it like an invalid session so pages flip back to
+  // the login/gate instead of showing a stuck "Failed to load" error.
+  if (response.status === 404 && url.endsWith('/users/me')) {
+    clearToken();
+    window.dispatchEvent(new CustomEvent('auth:logout'));
+  }
+
   if (!response.ok) {
     const text = await response.text();
 

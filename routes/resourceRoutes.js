@@ -54,6 +54,7 @@ function uploadSingle(req, res, next) {
 router.get('/', resourceController.getAllResources);
 router.post('/', authenticateToken, requirePermission('resources.manage'), uploadSingle, resourceController.createResource);
 router.post('/attach', authenticateToken, requirePermission('resources.manage'), resourceController.attachResource);
+router.put('/reorder', authenticateToken, requirePermission('resources.manage'), resourceController.reorderResources);
 router.delete('/:id', authenticateToken, requirePermission('resources.manage'), resourceController.deleteResourceById);
 router.get('/edict/:edictId', resourceController.getResourcesByEdict);
 

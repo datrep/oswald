@@ -34,6 +34,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'rails', title: 'Side Rails', category: 'workspace' },
   { id: 'forms', title: 'Form Defaults', category: 'workspace' },
   { id: 'resources', title: 'Resources', category: 'workspace' },
+  { id: 'tasks', title: 'Tasks', category: 'workspace' },
   { id: 'popup', title: 'Unfinished Popup', category: 'notifications' },
   { id: 'monitoring', title: 'Monitoring', category: 'peripherals' },
   { id: 'mcp', title: 'MCP', category: 'peripherals' },
@@ -179,6 +180,15 @@ export const SETTINGS_SCHEMA = [
     section: 'resources',
     type: 'boolean',
     default: true,
+  },
+  // ---- Policy Workspace / Tasks ----
+  {
+    key: 'showArchivedTasks',
+    label: 'Show archived tasks',
+    description: 'Show tasks in the Archived (state 3) state; off by default to keep the list focused.',
+    section: 'tasks',
+    type: 'boolean',
+    default: false,
   },
   // ---- Notifications / Unfinished Popup ----
   {

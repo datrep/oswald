@@ -27,6 +27,10 @@
         <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         New folder
       </button>
+      <button id="btn-newfile" class="btn" title="Create a new empty file">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        New file
+      </button>
       <div class="fs-view-toggle" role="group">
         <button id="view-list" class="active" title="List view">
           <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -53,6 +57,10 @@
           <select id="tag-filter" title="Filter by tag"><option value="">All tags</option></select>
           <button id="btn-share" class="btn ghost hidden" title="Share / folder permissions">Share</button>
           <button id="btn-sync" class="btn ghost hidden" title="Run one-way mirror sync (FS-3)">Sync</button>
+          <select id="mode-select" class="hidden" title="Switch mode: Server (drop/upload) or Mirror (sync, read-only)">
+            <option value="fileserver">Mode: Server (drop)</option>
+            <option value="mirror">Mode: Mirror (sync)</option>
+          </select>
           <select id="filter-select" title="Filter by type">
             <option value="all">All types</option>
             <option value="image">Images</option>
@@ -74,9 +82,15 @@
         </div>
       </div>
       <div id="file-list" class="fs-list" tabindex="0"></div>
-      <div id="drop-hint" class="drop-hint">Drop files anywhere to upload — ZIP archives are extracted</div>
+      <div id="drop-hint" class="drop-hint">Drop files anywhere to upload — files up to 1&nbsp;GB, ZIPs stored as-is (no extract)</div>
     </section>
   </main>
+
+  <!-- Upload progress meter -->
+  <div id="upload-progress" class="upload-progress hidden" role="status" aria-live="polite">
+    <div class="upload-progress-track"><div id="upload-progress-fill" class="upload-progress-fill"></div></div>
+    <span id="upload-progress-text" class="upload-progress-text"></span>
+  </div>
 
   <!-- Login -->
   <div id="modal-login" class="modal show">
@@ -132,6 +146,32 @@
       <div class="row">
         <button id="nf-ok" class="primary">Create</button>
         <button id="nf-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New file (type-selectable) -->
+  <div id="modal-newfile" class="modal">
+    <div class="modal-card small">
+      <div class="modal-head"><h2>New file</h2></div>
+      <input id="nfile-input" placeholder="File name (without extension)" autocomplete="off" />
+      <label class="muted tiny" for="nfile-type">Type</label>
+      <select id="nfile-type" title="File type / extension">
+        <option value=".txt">Text (.txt)</option>
+        <option value=".md">Markdown (.md)</option>
+        <option value=".json">JSON (.json)</option>
+        <option value=".csv">CSV (.csv)</option>
+        <option value=".html">HTML (.html)</option>
+        <option value=".css">CSS (.css)</option>
+        <option value=".js">JavaScript (.js)</option>
+        <option value=".py">Python (.py)</option>
+        <option value=".sh">Shell (.sh)</option>
+        <option value="custom">Other…</option>
+      </select>
+      <input id="nfile-custom-ext" placeholder="Custom extension (e.g. .log)" class="hidden" autocomplete="off" />
+      <div class="row">
+        <button id="nfile-ok" class="primary">Create</button>
+        <button id="nfile-cancel">Cancel</button>
       </div>
     </div>
   </div>

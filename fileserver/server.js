@@ -7,7 +7,6 @@ const fsp = require('fs/promises');
 const https = require('https');
 const multer = require('multer');
 const archiver = require('archiver');
-const AdmZip = require('adm-zip');
 const selfsigned = require('selfsigned');
 
 const { authenticateToken } = require('./auth');
@@ -56,18 +55,6 @@ async function cleanupTemp(files) {
   }
 }
 
-// Extract a zip into dirAbs with zip-slip protection.
-function extractZip(zipPath, dirAbs) {
-  const zip = new AdmZip(zipPath);
-  for (const entry of zip.getEntries()) {
-    if (entry.isDirectory) continue;
-    const rel = entry.entryName.split('\\').join('/');
-    const target = core.safeJoin(dirAbs, rel);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, entry.getData());
-  }
-}
-
 function streamFile(res, abs, rel, forceDownload) {
   const name = path.basename(abs);
   const dl = forceDownload || isDangerous(name) || !!parseInt(process.env.DL, 10);
@@ -96,6 +83,30 @@ app.get('/api/fs/config', (req, res, next) => {
   try {
     const c = getConfig();
     ok(res, { allowSignup: !!c.allowSignup, mode: c.mode });
+  } catch (e) { next(e); }
+});
+
+// Admin: switch the runtime MODE live — 'fileserver' (drop/upload server) vs
+// 'mirror' (read-only replica). config.json is re-read on every request, so the
+// flip takes effect immediately, no restart (ARCH task 50).
+app.put('/api/fs/config', authenticateToken, access.requireAdmin, (req, res, next) => {
+  try {
+    const mode = req.body?.mode;
+    if (mode !== 'fileserver' && mode !== 'mirror') {
+      return res.status(400).json({ error: "mode must be 'fileserver' or 'mirror'" });
+    }
+    const cfgPath = path.join(__dirname, 'config.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    cfg.mode = mode;
+    // Mirror mode serves a read-only copy of what the one-way Sync populates.
+    // If no explicit mirror path is set, derive it from the sync destination so
+    // the mode switch and the Sync button always stay in sync.
+    if (mode === 'mirror' && (!cfg.mirror || !cfg.mirror.mirrorPath)) {
+      cfg.mirror = { ...(cfg.mirror || {}), mirrorPath: cfg.sync && cfg.sync.destination };
+    }
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+    const c = getConfig();
+    ok(res, { mode: c.mode, roots: getRoots() });
   } catch (e) { next(e); }
 });
 
@@ -219,7 +230,10 @@ app.put('/api/fs/content', authenticateToken, access.requireWrite, (req, res, ne
   } catch (e) { next(e); }
 });
 
-// Upload: any type/size; .zip uploads are extracted into the target folder.
+// Upload: ZIPs are stored AS-IS (no auto-extract) and are size-unlimited; every
+// other file type must be under 1 GB per file (checked after streaming).
+const MAX_NON_ZIP_BYTES = 1024 * 1024 * 1024; // 1 GB
+
 app.post('/api/fs/upload', authenticateToken, access.requireWrite, upload.array('files'), async (req, res, next) => {
   const root = req.query.root;
   const rel = parseRel(req);
@@ -230,15 +244,15 @@ app.post('/api/fs/upload', authenticateToken, access.requireWrite, upload.array(
     const added = [];
     for (const f of files) {
       const low = f.originalname.toLowerCase();
+      const dest = path.join(abs, f.originalname.replace(/[\\/]/g, '_'));
       if (low.endsWith('.zip')) {
-        try {
-          extractZip(f.path, abs);
-          added.push({ name: f.originalname, kind: 'archive-extracted' });
-        } catch (e) {
-          throw new HttpError(400, `Failed to extract ${f.originalname}: ${e.message}`);
-        }
+        // ZIP: unlimited size, stored as-is.
+        fs.copyFileSync(f.path, dest);
+        added.push({ name: f.originalname, kind: 'archive' });
       } else {
-        const dest = path.join(abs, f.originalname.replace(/[\\/]/g, '_'));
+        if (f.size > MAX_NON_ZIP_BYTES) {
+          throw new HttpError(413, `${f.originalname} is too large (non-archive files are limited to 1 GB)`);
+        }
         fs.copyFileSync(f.path, dest);
         added.push({ name: f.originalname, kind: 'file' });
       }
@@ -260,6 +274,23 @@ app.post('/api/fs/dir', authenticateToken, access.requireWrite, (req, res, next)
     if (fs.existsSync(target)) throw new HttpError(409, 'Already exists');
     fs.mkdirSync(target);
     ok(res, { message: 'Folder created', name });
+  } catch (e) { next(e); }
+});
+
+// Create a new EMPTY file (type-selectable on creation). The "type" is chosen
+// client-side as the extension — the server just validates + creates the file.
+app.post('/api/fs/file', authenticateToken, access.requireWrite, (req, res, next) => {
+  try {
+    const { abs } = assertInside(req.body.root, req.body.path || '');
+    const name = String(req.body.name || '').trim();
+    if (!name || name.includes('/') || name.includes('\\') || name === '..' || name === '.') {
+      throw new HttpError(400, 'Invalid file name');
+    }
+    if (!path.extname(name)) throw new HttpError(400, 'File name must include an extension');
+    const target = path.join(abs, name);
+    if (fs.existsSync(target)) throw new HttpError(409, 'Already exists');
+    fs.writeFileSync(target, '');
+    ok(res, { message: 'File created', name });
   } catch (e) { next(e); }
 });
 

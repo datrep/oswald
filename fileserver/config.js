@@ -61,12 +61,16 @@ function getConfig() {
 }
 
 // Mode-aware roots: in 'mirror' mode the service presents a single read-only
-// mirror root (the mirroring ENGINE is FS-3 — deferred). In 'fileserver' mode
-// the configured roots are served as-is.
+// mirror root (the mirroring ENGINE is FS-3). To keep mirror mode coherent, the
+// served root defaults to the sync destination when mirror.mirrorPath is unset
+// — i.e. what the one-way Sync populates IS what mirror mode shows.
 function getRoots() {
   const c = getConfig();
-  if (c.mode === 'mirror' && c.mirror && c.mirror.mirrorPath) {
-    return [{ id: 'mirror', name: 'Mirror (read-only)', path: c.mirror.mirrorPath }];
+  if (c.mode === 'mirror') {
+    const mirrorPath = (c.mirror && c.mirror.mirrorPath) || (c.sync && c.sync.destination);
+    if (mirrorPath) {
+      return [{ id: 'mirror', name: 'Mirror (read-only)', path: mirrorPath }];
+    }
   }
   return (c.roots || []).map((r) => ({ id: r.id, name: r.name, path: r.path }));
 }

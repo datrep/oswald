@@ -127,7 +127,7 @@ async function getRoles(req, res, next) {
   }
 }
 
-// PUT /api/users/:userId/role — grant a role to a user (admin only).
+// PUT /api/users/:userId/role — set a user's role to exactly one role (admin only).
 async function assignUserRole(req, res, next) {
   const { userId } = req.params;
   const { role } = req.body;
@@ -139,10 +139,23 @@ async function assignUserRole(req, res, next) {
   if (!role || typeof role !== 'string') {
     return res.status(400).json({ error: 'role is required' });
   }
+  if (parsedId === req.user.userID) {
+    return res.status(400).json({ error: 'You cannot change your own role' });
+  }
 
   try {
-    await Role.assignRole(parsedId, role);
-    res.json({ message: `Role "${role}" assigned` });
+    // Last-admin guard: never demote the final admin.
+    if (role !== 'admin') {
+      const roles = await Role.getRolesForUser(parsedId);
+      if (roles.includes('admin')) {
+        const adminCount = await Role.countUsersWithRole('admin');
+        if (adminCount <= 1) {
+          return res.status(400).json({ error: 'Cannot demote the last admin' });
+        }
+      }
+    }
+    await Role.setRole(parsedId, role);
+    res.json({ message: `Role set to "${role}"` });
   } catch (err) {
     next(err);
   }

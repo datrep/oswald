@@ -1,7 +1,7 @@
 // responsibility: standard api helpers
-import { apiGet, apiPost, apiPut, apiDelete } from '../api/api.js';
+import { apiGet, apiPost, apiPut, apiDelete, isLoggedIn, getToken } from '../api/api.js';
 // settings
-import { getSetting, loadSettings, applyGlobalSettings, initSessionTimeout } from '../utils/settingsStore.js';
+import { getSetting, setSetting, loadSettings, applyGlobalSettings, initSessionTimeout } from '../utils/settingsStore.js';
 
 // responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
@@ -52,10 +52,8 @@ const resourcePreviewListEl = document.getElementById('resource-preview-list');
 // responsibility: task modal elements
 const cancelTaskBtn = document.getElementById('cancel-task');
 const createTaskBtn = document.getElementById('create-task');
-const addTaskBtn = document.getElementById('add-task');
 
 // responsibility: resource modal elements
-const addResourceBtn = document.getElementById('add-resource');
 const cancelResourceBtn = document.getElementById('cancel-resource');
 
 // responsibility: misc constants
@@ -65,6 +63,156 @@ const STATE_LABELS = { 1: 'Draft', 2: 'Published', 3: 'Archived' };
 const bind = (el, evt, fn) => {
   if (el && fn) el.addEventListener(evt, fn);
 };
+
+// responsibility: pick a user-facing error message, calling out 401s explicitly
+// (a missing/expired session needs a clear "sign in" prompt, not a generic failure)
+function actionErrorMessage(err, action, fallback) {
+  return /401|Unauthorized/i.test(String((err && err.message) || err))
+    ? `You must be signed in (session expired) to ${action}. Sign in and try again.`
+    : fallback;
+}
+
+// responsibility: check a permission claim from the JWT payload
+function hasPerm(code) {
+  try {
+    const t = getToken();
+    if (!t) return false;
+    const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return Array.isArray(payload.permissions) && payload.permissions.includes(code);
+  } catch {
+    return false;
+  }
+}
+
+// --- drag-to-reorder tasks (task #26) ---
+let draggedTaskId = null;
+
+function onTaskDragStart(e) {
+  draggedTaskId = e.currentTarget.dataset.taskId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedTaskId);
+  e.currentTarget.classList.add('dragging');
+}
+
+function onTaskDragOver(e) {
+  e.preventDefault(); // allow drop
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.currentTarget;
+  if (draggedTaskId && row.dataset.taskId !== draggedTaskId) row.classList.add('drag-over');
+}
+
+function onTaskDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function onTaskDrop(e) {
+  e.preventDefault();
+  const target = e.currentTarget;
+  target.classList.remove('drag-over');
+  if (!draggedTaskId || target.dataset.taskId === draggedTaskId) return;
+  await saveTaskOrder(draggedTaskId, target.dataset.taskId);
+}
+
+function onTaskDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  taskListEl.querySelectorAll('.drag-over').forEach((c) => c.classList.remove('drag-over'));
+  draggedTaskId = null;
+}
+
+// Persist a drag: reorder in the DOM, then PUT the numeric task ids in order.
+async function saveTaskOrder(draggedId, targetId) {
+  const rows = Array.from(taskListEl.querySelectorAll('.task-card'));
+  const from = rows.findIndex((r) => r.dataset.taskId === draggedId);
+  const to = rows.findIndex((r) => r.dataset.taskId === targetId);
+  if (from === -1 || to === -1 || from === to) return;
+
+  const [moved] = rows.splice(from, 1);
+  rows.splice(to, 0, moved);
+
+  const visibleIds = rows.map((r) => r.dataset.taskId).filter((id) => /^\d+$/.test(id));
+  // Hidden (archived) tasks aren't in the DOM — keep them after the visible
+  // ones in their current relative order so a filtered reorder doesn't clobber
+  // their sortOrder.
+  const hiddenIds = currentTasks.map((t) => String(t.id)).filter((id) => !visibleIds.includes(id));
+  const orderedIds = [...visibleIds, ...hiddenIds];
+  if (!policyId || !orderedIds.length) {
+    // No persisted policy yet (or nothing server-backed): just re-render local order
+    taskListEl.innerHTML = '';
+    rows.forEach((r) => taskListEl.appendChild(r));
+    return;
+  }
+
+  try {
+    await apiPut('/api/tasks/reorder', { edictId: policyId, orderedIds });
+    await loadTasks();
+  } catch (err) {
+    console.error('[Task] Reorder failed', err);
+    alert(actionErrorMessage(err, 'reorder tasks', 'Failed to reorder tasks.'));
+    await loadTasks(); // revert to server order
+  }
+}
+
+// --- drag-to-reorder resources (task #26, other data tables) ---
+let draggedResourceId = null;
+
+function onResourceDragStart(e) {
+  draggedResourceId = e.currentTarget.dataset.resourceId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedResourceId);
+  e.currentTarget.classList.add('dragging');
+}
+
+function onResourceDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.currentTarget;
+  if (draggedResourceId && row.dataset.resourceId !== draggedResourceId) row.classList.add('drag-over');
+}
+
+function onResourceDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function onResourceDrop(e) {
+  e.preventDefault();
+  const target = e.currentTarget;
+  target.classList.remove('drag-over');
+  if (!draggedResourceId || target.dataset.resourceId === draggedResourceId) return;
+  await saveResourceOrder(draggedResourceId, target.dataset.resourceId);
+}
+
+function onResourceDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  resourcePreviewListEl.querySelectorAll('.drag-over').forEach((c) => c.classList.remove('drag-over'));
+  draggedResourceId = null;
+}
+
+// Persist a drag: reorder in the DOM, then PUT the numeric resource ids in order.
+async function saveResourceOrder(draggedId, targetId) {
+  const rows = Array.from(resourcePreviewListEl.querySelectorAll('.resource-preview-row'));
+  const from = rows.findIndex((r) => r.dataset.resourceId === draggedId);
+  const to = rows.findIndex((r) => r.dataset.resourceId === targetId);
+  if (from === -1 || to === -1 || from === to) return;
+
+  const [moved] = rows.splice(from, 1);
+  rows.splice(to, 0, moved);
+
+  const orderedIds = rows.map((r) => r.dataset.resourceId).filter((id) => /^\d+$/.test(id));
+  if (!policyId || !orderedIds.length) {
+    resourcePreviewListEl.innerHTML = '';
+    rows.forEach((r) => resourcePreviewListEl.appendChild(r));
+    return;
+  }
+
+  try {
+    await apiPut('/api/resources/reorder', { edictId: policyId, orderedIds });
+    await loadResources();
+  } catch (err) {
+    console.error('[Resource] Reorder failed', err);
+    alert(actionErrorMessage(err, 'reorder resources', 'Failed to reorder resources.'));
+    await loadResources();
+  }
+}
 
 // responsibility: page mode (which actions are available)
 function configurePageMode() {
@@ -288,6 +436,7 @@ function renderTaskRow(task, index) {
     row.style.animationDelay = `${index * 0.04}s`;
   }
   const id = task.id ?? task._tempId ?? '';
+  row.dataset.taskId = id;
   const priorityChip =
     task.priority != null && task.priority !== ''
       ? `<span class="task-chip task-chip-priority">P${task.priority}</span>`
@@ -305,6 +454,7 @@ function renderTaskRow(task, index) {
         <div class="task-card-head">
             <input type="checkbox" class="task-select" data-id="${id}" title="Select task">
             <span class="task-card-name" title="${task.name || ''}">${task.name || '-'}</span>
+            <span class="task-card-id" title="Task ID">#${id}</span>
             <span class="task-card-chips">
                 ${priorityChip}${stateChip}${activeChip}
             </span>
@@ -340,6 +490,17 @@ function renderTaskRow(task, index) {
     });
   }
 
+  // Drag-to-reorder only for users who can manage tasks
+  if (isLoggedIn() && hasPerm('tasks.manage')) {
+    row.draggable = true;
+    row.classList.add('draggable');
+    row.addEventListener('dragstart', onTaskDragStart);
+    row.addEventListener('dragover', onTaskDragOver);
+    row.addEventListener('dragleave', onTaskDragLeave);
+    row.addEventListener('drop', onTaskDrop);
+    row.addEventListener('dragend', onTaskDragEnd);
+  }
+
   return row;
 }
 
@@ -353,6 +514,7 @@ function renderResourcePreview(resource, index) {
   const id = resource.id ?? resource._tempId ?? '';
   const row = document.createElement('div');
   row.className = 'resource-preview-row anim-enter';
+  row.dataset.resourceId = id;
   if (index !== undefined && index !== null) {
     row.style.animationDelay = `${index * 0.06}s`;
   }
@@ -415,6 +577,17 @@ function renderResourcePreview(resource, index) {
     row.classList.add('resource-clickable');
     row.addEventListener('click', () => openResourceViewer(resource));
   }
+
+  // Drag-to-reorder only for users who can manage resources
+  if (isLoggedIn() && hasPerm('resources.manage')) {
+    row.draggable = true;
+    row.classList.add('draggable');
+    row.addEventListener('dragstart', onResourceDragStart);
+    row.addEventListener('dragover', onResourceDragOver);
+    row.addEventListener('dragleave', onResourceDragLeave);
+    row.addEventListener('drop', onResourceDrop);
+    row.addEventListener('dragend', onResourceDragEnd);
+  }
   return row;
 }
 
@@ -472,8 +645,13 @@ async function loadTasks() {
   try {
     const tasks = await apiGet(`/api/tasks/edict/${policyId}`);
     currentTasks = tasks;
+    // Archived (state 3) tasks are hidden by default; the toggle reveals them.
+    // currentTasks keeps ALL tasks so the policy card counter + rail progress
+    // still reflect the whole policy.
+    const showArchived = !!getSetting('showArchivedTasks');
+    const visible = showArchived ? tasks : tasks.filter((t) => Number(t.state) !== 3);
     taskListEl.innerHTML = '';
-    tasks.forEach((task, i) => taskListEl.appendChild(renderTaskRow(task, i)));
+    visible.forEach((task, i) => taskListEl.appendChild(renderTaskRow(task, i)));
     renderPolicyRows(currentPolicy);
     renderRailProgress();
   } catch (err) {
@@ -599,6 +777,7 @@ async function flushPendingSubmissions(createdPolicyId) {
   if (!createdPolicyId) return;
 
   let flushed = 0;
+  let unauthorized = false;
 
   // Submit tasks first
   if (pendingTasks.length) {
@@ -607,16 +786,22 @@ async function flushPendingSubmissions(createdPolicyId) {
       try {
         const payload = Object.assign({}, t, { edictId: createdPolicyId });
         await apiPost('/api/tasks', payload);
+        flushed += 1;
       } catch (err) {
         console.error('[Policy] Failed to flush pending task', err, t);
+        // 401 = session missing/expired: every remaining item fails the same way,
+        // so stop and tell the user instead of silently dropping their data.
+        if (/401|Unauthorized/i.test(String((err && err.message) || err))) {
+          unauthorized = true;
+          break;
+        }
       }
     }
-    flushed += pendingTasks.length;
-    pendingTasks = [];
+    if (!unauthorized) pendingTasks = [];
   }
 
   // Then submit resources (uploads or queued attach-existing entries)
-  if (pendingResources.length) {
+  if (pendingResources.length && !unauthorized) {
     console.log(`[Policy] Flushing ${pendingResources.length} pending resource(s)`);
     for (const r of pendingResources) {
       try {
@@ -635,15 +820,23 @@ async function flushPendingSubmissions(createdPolicyId) {
           form.append('description', r.description || '');
           await apiPost('/api/resources', form);
         }
+        flushed += 1;
       } catch (err) {
         console.error('[Policy] Failed to flush pending resource', err, r);
+        if (/401|Unauthorized/i.test(String((err && err.message) || err))) {
+          unauthorized = true;
+          break;
+        }
       }
     }
-    flushed += pendingResources.length;
-    pendingResources = [];
+    if (!unauthorized) pendingResources = [];
   }
 
-  if (flushed > 0) {
+  if (unauthorized) {
+    alert(
+      'Your session expired while saving — pending tasks/resources were NOT saved. Sign in and try again.'
+    );
+  } else if (flushed > 0) {
     alert('Pending tasks and resources have been saved.');
   }
 }
@@ -705,7 +898,7 @@ async function handleSave() {
     showFormFeedback(
       document.getElementById('policy-form-feedback'),
       'error',
-      'Failed to save policy.'
+      actionErrorMessage(err, 'save policies', 'Failed to save policy.')
     );
   } finally {
     setSaveState(modalSaveBtn, false);
@@ -772,6 +965,12 @@ async function handleCreateTask() {
   showFieldError(document.getElementById('task-start'), '');
   showFieldError(document.getElementById('task-name'), '');
 
+  // Writes need an authenticated session — fail loudly instead of queueing silently
+  if (!isLoggedIn()) {
+    alert('You must be signed in to add tasks. Sign in and try again.');
+    return;
+  }
+
   if (!document.getElementById('task-start').value) {
     showFieldError(document.getElementById('task-start'), 'Planned start date is required.');
     return;
@@ -825,7 +1024,7 @@ async function handleCreateTask() {
     await loadTasks();
   } catch (err) {
     console.error('[Task] Save failed', err);
-    alert('Failed to save task: ' + (err.message || 'Unknown error'));
+    alert(actionErrorMessage(err, 'add tasks', 'Failed to save task: ' + (err.message || 'Unknown error')));
   } finally {
     setSaveState(createTaskBtn, false);
   }
@@ -845,9 +1044,9 @@ async function handleRemoveTasks() {
       if (String(id).startsWith('temp-')) {
         const idx = pendingTasks.findIndex((t) => t._tempId === id);
         if (idx !== -1) pendingTasks.splice(idx, 1);
-        // remove DOM row
+        // remove DOM row (rows are rendered as .task-card, not .task-row)
         const cb = document.querySelector(`.task-select[data-id="${id}"]`);
-        const row = cb ? cb.closest('.task-row') : null;
+        const row = cb ? cb.closest('.task-card') : null;
         if (row) row.remove();
       } else {
         await apiDelete(`/api/tasks/${id}`);
@@ -858,7 +1057,7 @@ async function handleRemoveTasks() {
     updateTaskContextToolbar();
   } catch (err) {
     console.error('[Task] Delete failed', err);
-    alert('Failed to delete selected tasks');
+    alert(actionErrorMessage(err, 'delete tasks', 'Failed to delete selected tasks'));
   }
 }
 
@@ -1401,9 +1600,20 @@ async function init() {
     handleSave();
   });
 
-  // Clicking the backdrop closes the form modals (policy / task / resource)
+  // Clicking the backdrop closes the form modals (policy / task / resource).
+  // Suppress it right after a native text drag: dragging selected text out of a
+  // field fires a click on the shared ancestor (the modal), which used to close
+  // the modal unexpectedly (task #64). dragend clears the flag on the next tick
+  // so a later genuine click still closes the modal.
+  let modalTextDrag = false;
+  const clearModalDrag = () => { setTimeout(() => { modalTextDrag = false; }, 0); };
+  document.addEventListener('dragstart', () => { modalTextDrag = true; });
+  document.addEventListener('dragend', clearModalDrag);
+  document.addEventListener('drop', clearModalDrag);
   const closeOnBackdrop = (el, closeFn) => {
-    if (el) el.addEventListener('click', (e) => { if (e.target === el) closeFn(); });
+    if (el) el.addEventListener('click', (e) => {
+      if (e.target === el && !modalTextDrag) closeFn();
+    });
   };
   closeOnBackdrop(policyModalEl, closePolicyModal);
   closeOnBackdrop(document.getElementById('task-modal'), closeTaskModal);
@@ -1423,7 +1633,6 @@ async function init() {
     e.preventDefault();
     handleCreateTask();
   });
-  bind(addTaskBtn, 'click', () => openTaskModal(null));
 
   // Advanced fields toggle in task modal
   bind(document.getElementById('task-advanced-toggle'), 'click', () => {
@@ -1439,7 +1648,6 @@ async function init() {
   bind(document.getElementById('edit-task'), 'click', handleEditContextTask);
   bind(document.getElementById('delete-task'), 'click', handleDeleteContextTask);
 
-  bind(addResourceBtn, 'click', openResourceModal);
   bind(cancelResourceBtn, 'click', closeResourceModal);
   bind(saveResourceBtn, 'click', saveResource);
 
@@ -1472,6 +1680,22 @@ async function init() {
   bind(document.getElementById('action-edit-policy'), 'click', () => openPolicyModal());
   bind(document.getElementById('action-add-task'), 'click', () => openTaskModal(null));
   bind(document.getElementById('action-add-resource'), 'click', () => openResourceModal());
+
+  // Show-archived toggle (archived/state-3 tasks are hidden by default)
+  const archiveToggle = document.getElementById('toggle-archived');
+  if (archiveToggle) {
+    archiveToggle.checked = !!getSetting('showArchivedTasks');
+    archiveToggle.addEventListener('change', () => {
+      setSetting('showArchivedTasks', archiveToggle.checked);
+      loadTasks();
+    });
+  }
+  window.addEventListener('settings:changed', (e) => {
+    if (e.detail && e.detail.key === 'showArchivedTasks') {
+      if (archiveToggle) archiveToggle.checked = !!e.detail.value;
+      loadTasks();
+    }
+  });
 
   if (isCreateMode) {
     // Creating: open the edit modal, auto-fill start date
@@ -1529,7 +1753,7 @@ function renderPolicyRows(policy) {
             <div class="policy-cell"><span class="policy-cell-label">End</span><span class="policy-cell-value">${formatDate(policy.plannedEnd)}</span></div>
             <div class="policy-cell"><span class="policy-cell-label">Created</span><span class="policy-cell-value">${formatDate(policy.createdAt)}</span></div>
             <div class="policy-cell"><span class="policy-cell-label">Due</span><span class="policy-cell-value${dueClass}">${due.text}</span></div>
-            <div class="policy-cell"><span class="policy-cell-label">Tasks</span><span class="policy-cell-value">${policy.taskCount ?? 0} / ${policy.resourceCount ?? 0}</span></div>
+            <div class="policy-cell"><span class="policy-cell-label">Tasks</span><span class="policy-cell-value">${currentTasks.length} / ${resourcesCache.length}</span></div>
             <div class="policy-cell"><span class="policy-cell-label">Completed</span><span class="policy-cell-value">${formatDate(policy.completedAt)}</span></div>
         </div>
         <div class="policy-card-info${infoClass}">${info || 'No description'}</div>

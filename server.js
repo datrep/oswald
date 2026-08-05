@@ -2,6 +2,9 @@ const express = require('express');
 const sql = require('mssql');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 const logger = require('./utils/logger');
 
@@ -19,6 +22,8 @@ const userRoutes = require('./routes/userRoutes');
 
 const mcpRoutes = require('./routes/mcpRoutes');
 
+const serverRoutes = require('./routes/serverRoutes');
+
 const {
   globalErrorHandler,
   notFoundHandler,
@@ -35,11 +40,12 @@ app.use(logger); //logger before all app.use
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow non-browser requests (no Origin header), localhost, and the LAN subnet.
+    // Allow non-browser requests (no Origin header), localhost, and the LAN subnet
+    // over both HTTP and HTTPS (the HTTPS listener is task #60).
     if (
       !origin ||
       origin === 'http://localhost:8080' ||
-      /^http:\/\/172\.22\.160\.\d+/.test(origin)
+      /^https?:\/\/172\.22\.160\.\d+/.test(origin)
     ) {
       callback(null, true);
     } else {
@@ -115,6 +121,7 @@ app.use('/api/ips', ipRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/mcp', mcpRoutes);
+app.use('/api/servers', serverRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
@@ -159,6 +166,34 @@ async function startServer() {
       console.error('Server error:', err);
     }
   });
+
+  // HTTPS (task #60): serve the same app over TLS on HTTPS_PORT (default 8443),
+  // reusing the fileserver's self-signed cert (already added to the Root store;
+  // its SANs cover 172.22.160.3 / localhost / 127.0.0.1). If the cert is missing
+  // we just stay HTTP-only and log a warning.
+  const httpsPort = Number(process.env.HTTPS_PORT || 8443);
+  const certDir = path.join(__dirname, 'fileserver', 'certs');
+  const keyPath = path.join(certDir, 'key.pem');
+  const certPath = path.join(certDir, 'cert.pem');
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    const httpsServer = https
+      .createServer({ key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }, app)
+      .listen(httpsPort, serverHost, () => {
+        console.log(`HTTPS running on https://${serverHost}:${httpsPort}`);
+      });
+    httpsServer.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`WARNING: HTTPS port ${httpsPort} is already in use; HTTPS disabled.`);
+      } else {
+        console.error('HTTPS server error:', err);
+      }
+    });
+  } else {
+    console.warn(
+      `No TLS credentials found at ${certDir}; HTTPS disabled (install the fileserver cert to enable).`
+    );
+  }
+
 
   // Warm up the DB pool in the background (non-fatal): the server still serves
   // the frontend and /api/settings even if the database is unavailable.

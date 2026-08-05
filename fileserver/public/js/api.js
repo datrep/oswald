@@ -94,6 +94,9 @@ export const FS = {
   makeDir(root, path, name) {
     return this.json('/api/fs/dir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ root, path, name }) });
   },
+  makeFile(root, path, name) {
+    return this.json('/api/fs/file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ root, path, name }) });
+  },
   rename(root, path, newName) {
     return this.json('/api/fs/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ root, path, newName }) });
   },
@@ -111,13 +114,34 @@ export const FS = {
   saveContent(root, path, text) {
     return this.json(`/api/fs/content?root=${enc(root)}&path=${enc(path || '')}`, { method: 'PUT', headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: text });
   },
-  async upload(root, path, files) {
-    const fd = new FormData();
-    for (const f of files) fd.append('files', f);
-    const r = await this.request(`/api/fs/upload?root=${enc(root)}&path=${enc(path || '')}`, { method: 'POST', body: fd });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(body.error || 'Upload failed');
-    return body;
+  // Upload with a progress callback (0-100). Uses XHR so we can report transfer
+  // progress; a 401 clears the session exactly like the fetch wrapper does.
+  upload(root, path, files, onProgress) {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/fs/upload?root=${enc(root)}&path=${enc(path || '')}`);
+      const token = this.getToken();
+      if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+      };
+      xhr.onload = () => {
+        if (xhr.status === 401) {
+          this.clearToken();
+          window.dispatchEvent(new CustomEvent('fs:unauthorized'));
+          reject(new Error('Session expired — please sign in again'));
+          return;
+        }
+        let body = {};
+        try { body = JSON.parse(xhr.responseText || '{}'); } catch { /* keep {} */ }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+        else reject(new Error(body.error || `Upload failed (${xhr.status})`));
+      };
+      xhr.onerror = () => reject(new Error('Upload failed (network error)'));
+      xhr.send(fd);
+    });
   },
 
   // ---- favorites (FS-2) ----
@@ -165,6 +189,11 @@ export const FS = {
   },
   syncStatus() {
     return this.json('/api/fs/sync/status');
+  },
+
+  // Runtime mode switch (files.admin): 'fileserver' (drop/upload) vs 'mirror' (sync, read-only).
+  setMode(mode) {
+    return this.json('/api/fs/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
   },
 
   // URL helpers

@@ -6,6 +6,7 @@ const {
   deleteTask: modelDeleteTask,
   getTasksByEdict: modelGetTasksByEdict,
   getCompletionTrends: modelGetCompletionTrends,
+  reorderTasks: modelReorderTasks,
 } = require('../models/taskModel');
 
 // GET all tasks
@@ -107,6 +108,29 @@ async function deleteTask(req, res, next) {
   }
 }
 
+// REORDER tasks within an edict (drag-to-reorder, task #26)
+async function reorderTasks(req, res, next) {
+  const { edictId, orderedIds } = req.body || {};
+  const edict = Number.parseInt(edictId, 10);
+  if (!Number.isFinite(edict)) {
+    return res.status(400).json({ error: 'edictId must be a valid id' });
+  }
+  if (!Array.isArray(orderedIds) || !orderedIds.length) {
+    return res.status(400).json({ error: 'orderedIds must be a non-empty array' });
+  }
+  const ids = orderedIds.map((x) => Number.parseInt(x, 10));
+  if (ids.some((x) => !Number.isFinite(x))) {
+    return res.status(400).json({ error: 'orderedIds must contain only numeric ids' });
+  }
+
+  try {
+    await modelReorderTasks(edict, ids);
+    res.json({ message: 'Task order updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // GET /api/tasks/edict/:edictId
 async function getTasksByEdict(req, res, next) {
   try {
@@ -142,4 +166,5 @@ module.exports = {
   deleteTask,
   getTasksByEdict,
   getCompletionTrends,
+  reorderTasks,
 };

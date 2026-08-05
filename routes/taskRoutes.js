@@ -9,6 +9,7 @@ router.get('/', taskController.getAllTasks);
 router.get('/trends', taskController.getCompletionTrends);
 router.get('/:id', taskController.getTaskById);
 router.post('/', authenticateToken, requirePermission('tasks.manage'), taskController.createTask);
+router.put('/reorder', authenticateToken, requirePermission('tasks.manage'), taskController.reorderTasks);
 router.put('/:id', authenticateToken, requirePermission('tasks.manage'), taskController.updateTask);
 router.delete('/:id', authenticateToken, requirePermission('tasks.manage'), taskController.deleteTask);
 router.get('/edict/:edictId', taskController.getTasksByEdict);

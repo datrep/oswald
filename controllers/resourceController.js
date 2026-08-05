@@ -5,6 +5,7 @@ const {
   getAllResources: modelGetAllResources,
   attachResource: modelAttachResource,
   deleteResourceById: modelDeleteResourceById,
+  reorderResources: modelReorderResources,
 } = require('../models/resourceModel');
 const path = require('path');
 const fs = require('fs');
@@ -119,10 +120,33 @@ async function deleteResourceById(req, res, next) {
   }
 }
 
+// PUT /api/resources/reorder — persist a manual ordering within a policy
+async function reorderResources(req, res, next) {
+  const { edictId, orderedIds } = req.body || {};
+  const edict = Number.parseInt(edictId, 10);
+  if (!Number.isFinite(edict)) {
+    return res.status(400).json({ error: 'edictId must be a valid id' });
+  }
+  if (!Array.isArray(orderedIds) || !orderedIds.length) {
+    return res.status(400).json({ error: 'orderedIds must be a non-empty array' });
+  }
+  const ids = orderedIds.map((x) => Number.parseInt(x, 10));
+  if (ids.some((x) => !Number.isFinite(x))) {
+    return res.status(400).json({ error: 'orderedIds must contain only numeric ids' });
+  }
+  try {
+    await modelReorderResources(edict, ids);
+    res.json({ message: 'Resource order updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createResource,
   getResourcesByEdict,
   getAllResources,
   attachResource,
   deleteResourceById,
+  reorderResources,
 };

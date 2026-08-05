@@ -20,6 +20,7 @@ const state = {
   tagsByPath: new Map(), // "root|path" -> [tags]
   tagsAll: [],
   nodeMap: new Map(),  // tree rel -> {expanded}
+  mode: 'fileserver',  // ARCH: 'fileserver' (drop/upload) | 'mirror' (sync, read-only)
 };
 
 const KIND_ICON = {
@@ -61,6 +62,32 @@ function toast(msg) {
   t.classList.add('show');
   clearTimeout(t._to);
   t._to = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ---------- cached UI state (sort, list/grid) ----------
+const FS_STATE_KEY = 'oswald_fs_state';
+
+function saveFsState() {
+  try {
+    localStorage.setItem(FS_STATE_KEY, JSON.stringify({ view: state.view, sortBy: state.sortBy, sortDir: state.sortDir }));
+  } catch { /* ignore */ }
+}
+
+function loadFsState() {
+  try {
+    const raw = localStorage.getItem(FS_STATE_KEY);
+    const s = raw ? JSON.parse(raw) : {};
+    if (s.view === 'list' || s.view === 'grid') state.view = s.view;
+    if (['name', 'size', 'mtime'].includes(s.sortBy)) state.sortBy = s.sortBy;
+    if (s.sortDir === 1 || s.sortDir === -1) state.sortDir = s.sortDir;
+  } catch { /* ignore */ }
+}
+
+function syncViewControls() {
+  $('view-list').classList.toggle('active', state.view === 'list');
+  $('view-grid').classList.toggle('active', state.view === 'grid');
+  $('sort-select').value = state.sortBy;
+  $('sort-dir').textContent = state.sortDir === 1 ? '↑' : '↓';
 }
 
 // ---------- FS-2: favorites + tags ----------
@@ -356,6 +383,7 @@ async function loadDir() {
     state.access = data.access || null;
     $('btn-upload').classList.toggle('hidden', !data.access?.write);
     $('btn-newfolder').classList.toggle('hidden', !data.access?.write);
+    $('btn-newfile').classList.toggle('hidden', !data.access?.write);
     let entries = sortEntries(data.entries).filter(matchesFilter);
     if (state.favOnly) entries = entries.filter((e) => isFav(state.root, joinRel(state.path, e.name)));
     if (state.tagFilter) entries = entries.filter((e) => e.isDir || tagsFor(state.root, joinRel(state.path, e.name)).includes(state.tagFilter));
@@ -632,15 +660,33 @@ async function saveEditor(root, rel) {
   }
 }
 
-// ---------- upload ----------
+// ---------- upload (with progress meter) ----------
+function showUploadProgress(pct, label) {
+  const bar = $('upload-progress');
+  if (!bar) return;
+  bar.classList.remove('hidden');
+  const fill = $('upload-progress-fill');
+  if (fill) fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  const text = $('upload-progress-text');
+  if (text) text.textContent = label || (pct > 0 ? `Uploading… ${Math.round(pct)}%` : 'Starting upload…');
+}
+
+function hideUploadProgress() {
+  const bar = $('upload-progress');
+  if (bar) bar.classList.add('hidden');
+}
+
 async function uploadFiles(files) {
   if (!files || !files.length) return;
+  showUploadProgress(0, 'Starting upload…');
   try {
-    const body = await FS.upload(state.root, state.path, files);
+    const body = await FS.upload(state.root, state.path, files, (pct) => showUploadProgress(pct));
+    hideUploadProgress();
     const n = body.added.length;
-    toast(`Uploaded ${n} item${n === 1 ? '' : 's'} (ZIPs extracted)`);
+    toast(`Uploaded ${n} item${n === 1 ? '' : 's'} (ZIPs stored as-is, no extract)`);
     await reload();
   } catch (err) {
+    hideUploadProgress();
     toast(err.message);
   }
 }
@@ -674,6 +720,7 @@ function initUpload() {
 function bindModals() {
   const closers = [
     ['modal-newfolder', 'nf-cancel'],
+    ['modal-newfile', 'nfile-cancel'],
     ['modal-rename', 'rn-cancel'],
     ['modal-move', 'move-cancel'],
     ['modal-confirm', 'confirm-cancel'],
@@ -714,6 +761,27 @@ function bindModals() {
   $('rn-input').onkeydown = (e) => { if (e.key === 'Enter') $('rn-input')._onOk?.(); };
 
   $('btn-newfolder').onclick = () => { $('modal-newfolder').classList.add('show'); $('nf-input').focus(); };
+
+  // New file (type-selectable on creation)
+  $('nfile-type').onchange = () => {
+    $('nfile-custom-ext').classList.toggle('hidden', $('nfile-type').value !== 'custom');
+  };
+  $('nfile-ok').onclick = async () => {
+    const base = $('nfile-input').value.trim();
+    if (!base) return;
+    let ext = $('nfile-type').value;
+    if (ext === 'custom') ext = ($('nfile-custom-ext').value.trim() || '.txt').replace(/^\.?/, '.');
+    try {
+      await FS.makeFile(state.root, state.path, base + ext);
+      $('modal-newfile').classList.remove('show');
+      $('nfile-input').value = '';
+      $('nfile-custom-ext').value = '';
+      toast('File created');
+      await reload();
+    } catch (err) { toast(err.message); }
+  };
+  $('nfile-input').onkeydown = (e) => { if (e.key === 'Enter') $('nfile-ok').click(); };
+  $('btn-newfile').onclick = () => { $('modal-newfile').classList.add('show'); $('nfile-input').focus(); };
 
   $('viewer-edit').onclick = () => {
     const b = $('viewer-edit');
@@ -816,6 +884,9 @@ function bindStatic() {
 }
 
 async function boot() {
+  // Restore cached view/sort state (per-browser), then keep controls in sync.
+  loadFsState();
+  syncViewControls();
   await loadRoots();
   renderBreadcrumb();
   await loadDir();
@@ -827,11 +898,11 @@ async function boot() {
     await reload();
   };
 
-  $('view-list').onclick = () => { state.view = 'list'; $('view-list').classList.add('active'); $('view-grid').classList.remove('active'); reload(); };
-  $('view-grid').onclick = () => { state.view = 'grid'; $('view-grid').classList.add('active'); $('view-list').classList.remove('active'); reload(); };
+  $('view-list').onclick = () => { state.view = 'list'; syncViewControls(); saveFsState(); reload(); };
+  $('view-grid').onclick = () => { state.view = 'grid'; syncViewControls(); saveFsState(); reload(); };
 
-  $('sort-select').onchange = () => { state.sortBy = $('sort-select').value; reload(); };
-  $('sort-dir').onclick = () => { state.sortDir *= -1; $('sort-dir').textContent = state.sortDir === 1 ? '↑' : '↓'; reload(); };
+  $('sort-select').onchange = () => { state.sortBy = $('sort-select').value; saveFsState(); reload(); };
+  $('sort-dir').onclick = () => { state.sortDir *= -1; syncViewControls(); saveFsState(); reload(); };
   $('filter-select').onchange = () => { state.filter = $('filter-select').value; reload(); };
 
   let debounce;
@@ -847,6 +918,29 @@ async function boot() {
   // FS-3: one-way mirror sync
   $('btn-sync').classList.toggle('hidden', !FS.can('files.admin'));
   $('btn-sync').onclick = runSync;
+
+  // ARCH: runtime mode switch (drop/upload server <-> read-only sync mirror)
+  const modeSel = $('mode-select');
+  modeSel.classList.toggle('hidden', !FS.can('files.admin'));
+  FS.config().then((c) => { state.mode = c.mode || 'fileserver'; modeSel.value = state.mode; }).catch(() => {});
+  modeSel.onchange = async () => {
+    const target = modeSel.value;
+    const label = target === 'mirror' ? 'Mirror (sync, read-only)' : 'Server (drop/upload)';
+    if (!confirm(`Switch the fileserver to ${label} mode?`)) { modeSel.value = state.mode; return; }
+    try {
+      await FS.setMode(target);
+      state.mode = target;
+      state.root = null;
+      state.path = '';
+      state.nodeMap.clear();
+      toast(`Mode: ${label}`);
+      await loadRoots();
+      await reload();
+    } catch (err) {
+      toast(err.message);
+      modeSel.value = state.mode;
+    }
+  };
   $('fav-toggle').onclick = () => {
     state.favOnly = !state.favOnly;
     $('fav-toggle').classList.toggle('active', state.favOnly);

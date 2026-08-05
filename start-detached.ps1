@@ -22,6 +22,7 @@ if (Test-Path $envFile) {
 
 $hostAddr = if ($env:LOCAL_SERVER_HOST) { $env:LOCAL_SERVER_HOST } else { '0.0.0.0' }
 $port = if ($env:PORT) { $env:PORT } else { '3000' }
+$httpsPort = if ($env:HTTPS_PORT) { $env:HTTPS_PORT } else { '8443' }
 
 $node = (Get-Command node -ErrorAction SilentlyContinue).Source
 if (-not $node) { $node = 'node' }
@@ -30,7 +31,7 @@ $logErr = Join-Path $root 'server.err.log'
 
 # WMI-spawned processes inherit the SYSTEM default environment, not this shell's,
 # so pass SERVER_HOST and PORT explicitly through cmd's `set`.
-$cmd = "cmd.exe /c `"set SERVER_HOST=$hostAddr&& set PORT=$port&& `"$node`" .\server.js > `"$logOut`" 2> `"$logErr`"`""
+$cmd = "cmd.exe /c `"set SERVER_HOST=$hostAddr&& set PORT=$port&& set HTTPS_PORT=$httpsPort&& `"$node`" .\server.js > `"$logOut`" 2> `"$logErr`"`""
 $res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
     CommandLine      = $cmd
     CurrentDirectory = $root
