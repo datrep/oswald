@@ -2,7 +2,7 @@
 // index.js purpose to display all policies, and links to their individual pages
 
 // api/api.js
-import { apiGet, isLoggedIn } from '../api/api.js'; // generic API wrapper functions for calling backend routes. all fetch calls should be made through these functions for better error handling and consistency. do not use fetch() directly in other files, use these apiGet/apiPost/etc functions instead.
+import { apiGet, isLoggedIn, clearToken } from '../api/api.js'; // generic API wrapper functions for calling backend routes. all fetch calls should be made through these functions for better error handling and consistency. do not use fetch() directly in other files, use these apiGet/apiPost/etc functions instead.
 // settings
 import { getSetting, setSetting, loadSettings } from '../utils/settingsStore.js';
 // components
@@ -263,7 +263,7 @@ function renderPolicyRows(edicts) {  policyListEl.innerHTML = '';
                 }</span>
                 <span class="col-state">${stateChip}</span>
                 <span class="col-info">${edict.info || 'No description available.'}</span>
-                ${hasJobsModule(edict) ? `<span class="jobs-chip">${jobsChipText()}</span>` : ''}
+                <span class="policy-chips">${moduleChipsHtml(edict)}</span>
                 <span class="policy-id">#${edict.id}</span>
         `;
 
@@ -409,16 +409,34 @@ let jobStats = null; // { total, active, offers, ... } from /api/applications/st
 function hasJobsModule(edict) {
   return String(edict.modules || '').split(',').includes('jobs');
 }
+function hasCertsModule(edict) {
+  return String(edict.modules || '').split(',').includes('certificates');
+}
 
 function jobsChipText() {
   if (!jobStats) return '💼 …';
   return `💼 ${jobStats.active} active · ${jobStats.offers} offers`;
 }
+function certChipText() {
+  if (!certStats) return '🎓 …';
+  return `🎓 ${certStats.obtained} obtained`;
+}
+
+// Live module-status chips for a policy row (bottom-left, mirrors #id).
+function moduleChipsHtml(edict) {
+  const chips = [];
+  if (hasJobsModule(edict)) chips.push(`<span class="jobs-chip">${jobsChipText()}</span>`);
+  if (hasCertsModule(edict)) chips.push(`<span class="cert-chip">${certChipText()}</span>`);
+  return chips.join('');
+}
 
 async function loadJobStats() {
   try {
     jobStats = await apiGet('/api/applications/stats');
-  } catch {
+  } catch (err) {
+    // 403 = invalid/expired token on these owner-scoped routes — drop it so
+    // the personal widgets don't silently stay empty on a stale session.
+    if (String((err && err.message) || err).includes('403')) clearToken();
     jobStats = null;
   }
   // Fill in any already-rendered chips without a full re-render.
@@ -483,12 +501,83 @@ async function loadJobFollowUps() {
     jobFollowUps = await apiGet(`/api/applications/follow-ups?days=${days}`);
     renderFollowUpSidebar();
   } catch (err) {
+    // 403 = invalid/expired token on these owner-scoped routes — drop it so
+    // the follow-ups section doesn't silently stay empty on a stale session.
+    if (String((err && err.message) || err).includes('403')) clearToken();
     console.error('[Follow-ups] Failed to load', err);
   }
 }
 
 // ===========================
-// END JOB FOLLOW-UPS
+// CERT EXPIRIES (Certificate Dashboard) — sidebar renewal reminders
+// ===========================
+let certExpiries = [];
+let certStats = null; // from /api/certifications/stats
+
+function certExpiryTone(expiryAt, status) {
+  if (status === 'expired') return 'is-overdue';
+  if (!expiryAt) return '';
+  const t = new Date(expiryAt).getTime();
+  if (Number.isNaN(t)) return '';
+  return t < Date.now() ? 'is-overdue' : 'is-soon';
+}
+
+function renderCertExpirySidebar() {
+  const badge = document.getElementById('certexpiry-badge');
+  const list = document.getElementById('sidebar-certexpiry-list');
+  if (!badge || !list) return;
+  badge.textContent = certExpiries.length;
+  if (certExpiries.length === 0) {
+    badge.classList.add('none');
+    list.innerHTML = `<div style="color:#aaa;font-size:0.8rem;padding:10px;text-align:center;">No certs expiring</div>`;
+    return;
+  }
+  badge.classList.remove('none');
+  list.innerHTML = '';
+  certExpiries.slice(0, 5).forEach((cert, i) => {
+    const item = document.createElement('div');
+    item.className = 'notification-item anim-enter';
+    item.style.animationDelay = `${i * 0.05}s`;
+    const tone = certExpiryTone(cert.expiryAt, cert.status);
+    const label = cert.status === 'expired' || (cert.expiryAt && new Date(cert.expiryAt).getTime() < Date.now())
+      ? 'expired'
+      : 'expires';
+    item.innerHTML = `
+            <div class="notification-item-name">${cert.name}${cert.issuer ? ` — ${cert.issuer}` : ''}</div>
+            <div class="followup-due ${tone}">${label} ${formatDate(cert.expiryAt)}</div>
+        `;
+    item.addEventListener('click', () => {
+      window.location.href = '/pages/certs.html';
+    });
+    list.appendChild(item);
+  });
+}
+
+async function loadCertExpiries() {
+  try {
+    const days = Number(getSetting('certExpiryLookaheadDays')) || 90;
+    certExpiries = await apiGet(`/api/certifications/expiries?days=${days}`);
+    renderCertExpirySidebar();
+  } catch (err) {
+    if (String((err && err.message) || err).includes('403')) clearToken();
+    console.error('[Cert expiries] Failed to load', err);
+  }
+}
+
+async function loadCertStats() {
+  try {
+    certStats = await apiGet('/api/certifications/stats');
+  } catch (err) {
+    if (String((err && err.message) || err).includes('403')) clearToken();
+    certStats = null;
+  }
+  document.querySelectorAll('.policy-row .cert-chip').forEach((chip) => {
+    chip.textContent = certChipText();
+  });
+}
+
+// ===========================
+// END JOB FOLLOW-UPS / CERT EXPIRIES
 // ===========================
 
 // ===========================
@@ -883,10 +972,15 @@ loadUnfinishedPolicies();
 // MOD-2: job follow-up reminders + live jobs-module chips on policy rows.
 loadJobFollowUps();
 loadJobStats();
+// Certificate Dashboard: cert expiry reminders + cert chips.
+loadCertExpiries();
+loadCertStats();
 // Refresh both when the tab regains focus (e.g. after editing on the jobs page).
 window.addEventListener('focus', () => {
   loadJobFollowUps();
   loadJobStats();
+  loadCertExpiries();
+  loadCertStats();
 });
 
 initPolicies();

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <title>Certificates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/main.css" />
+    <style>
+      /* Page-scoped styles use only existing theme tokens (see main.css :root). */
+      /* Cert-specific styles only — generic components (btn/toolbar/stats/card/chip/empty/form-grid/modal-overlay/feedback) come from main.css. */
+      .ct-status-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      .ct-status-tabs button { background: var(--panel-2); border: none; color: var(--muted); padding: 6px 11px; cursor: pointer; }
+      .ct-status-tabs button.active { background: var(--accent-soft); color: var(--accent); }
+      .ct-credential { font-size: 0.74rem; }
+      .ct-credential a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+      .ct-credential a:hover { text-decoration: underline; }
+      .ct-links { display: flex; flex-wrap: wrap; gap: 4px; }
+      .ct-link { font-size: 0.7rem; color: var(--accent); text-decoration: none; background: var(--accent-soft); border: 1px solid rgba(124,140,248,0.25); border-radius: 6px; padding: 1px 7px; overflow-wrap: anywhere; }
+      .ct-link:hover { border-color: var(--accent); }
+      .ct-file { font-size: 0.72rem; }
+      .ct-file a { color: var(--accent); text-decoration: none; }
+      .ct-file a:hover { text-decoration: underline; }
+      .ct-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+      .ct-tag { font-size: 0.66rem; background: var(--panel-3); color: var(--muted); border-radius: 4px; padding: 1px 6px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Navigation</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/index.html">Dashboard</a>
+              <a href="/pages/policy.html">Policy workspace</a>
+              <a href="https://172.22.160.3:8090" target="_blank" rel="noopener">Fileserver</a>
+            </div>
+          </section>
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Career</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/pages/jobs.html">Job Applications</a>
+              <a href="/pages/career-files.html">Career Files</a>
+              <a href="/pages/certs.html">Certificates</a>
+            </div>
+          </section>
+        </aside>
+        <main class="main">
+          <div class="topbar">
+            <div style="color: #7279db">Certificates</div>
+            <div class="topbar-right"><div id="auth-control"></div></div>
+          </div>
+          <div class="content">
+            <div id="module-tabs"></div>
+            <div style="margin: 10px 0 4px">
+              <button type="button" class="back-link" id="ct-back">← Back</button>
+            </div>
+            <div id="ct-gate" class="hidden">
+              <h2>Sign in required</h2>
+              <p class="muted">Sign in to view and manage your certifications.</p>
+            </div>
+            <div id="ct-app" class="hidden">
+              <div class="toolbar">
+                <div class="ct-status-tabs" id="ct-status-tabs">
+                  <button type="button" data-status="" class="active">All</button>
+                  <button type="button" data-status="planned">Planned</button>
+                  <button type="button" data-status="in_progress">In progress</button>
+                  <button type="button" data-status="obtained">Obtained</button>
+                  <button type="button" data-status="expired">Expired</button>
+                </div>
+                <input type="search" id="ct-search" placeholder="Search name / issuer…" autocomplete="off" style="flex:1;min-width:150px" />
+                <select id="ct-sort" title="Sort">
+                  <option value="expiry">Expiry soonest</option>
+                  <option value="obtained">Recently obtained</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="name_desc">Name Z–A</option>
+                  <option value="newest">Newest first</option>
+                </select>
+                <button type="button" id="ct-add" class="btn btn--primary">+ Add certification</button>
+              </div>
+
+              <div class="stats" id="ct-stats"></div>
+              <div id="ct-grid" class="card-grid"></div>
+              <div class="feedback" id="ct-status"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </header>
+
+    <div id="ct-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 id="ct-modal-title" class="modal__head">Add certification</h3>
+        <div class="form-grid">
+          <div class="field"><label>Name *</label><input id="f-name" /></div>
+          <div class="field"><label>Issuer</label><input id="f-issuer" /></div>
+          <div class="field">
+            <label>Status</label>
+            <select id="f-status">
+              <option value="planned">Planned</option>
+              <option value="in_progress">In progress</option>
+              <option value="obtained" selected>Obtained</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+          <div class="field"><label>Start date</label><input type="datetime-local" id="f-start" /></div>
+          <div class="field"><label>Obtained date</label><input type="datetime-local" id="f-obtained" /></div>
+          <div class="field"><label>Expiry date</label><input type="datetime-local" id="f-expiry" /></div>
+          <div class="field field--full"><label>Credential ID / verification URL</label><input id="f-credential" /></div>
+          <div class="field field--full">
+            <label>Cert document (from Career Files)</label>
+            <select id="f-careerfile"><option value="">None</option></select>
+          </div>
+          <div class="field field--full"><label>Study-material links (one per line)</label><textarea id="f-studylinks" placeholder="https://…"></textarea></div>
+          <div class="field"><label>Tags (comma separated)</label><input id="f-tags" /></div>
+          <div class="field field--full"><label>Notes</label><textarea id="f-notes"></textarea></div>
+        </div>
+        <div class="modal__actions">
+          <button id="f-save" class="btn btn--primary">Save</button>
+          <button id="f-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/js/pages/certs.js"></script>
+    <script type="module" src="/js/components/auth.js"></script>
+  </body>
+</html>

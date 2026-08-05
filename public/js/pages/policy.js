@@ -1332,6 +1332,7 @@ async function attachExistingResource(resource) {
 const POLICY_MODULES = [
   { type: 'jobs', label: 'Job Applications', icon: '💼', description: 'Track job applications — pipeline, follow-ups, stats.' },
   { type: 'career_files', label: 'Career Files', icon: '📁', description: 'Resume, certs and career documents.' },
+  { type: 'certificates', label: 'Certificates', icon: '🎓', description: 'Certifications, expiry tracking and study links.' },
 ];
 const modulesEl = document.getElementById('policy-modules');
 
@@ -1360,7 +1361,7 @@ function renderModules(modules) {
 }
 
 function modulePage(type) {
-  return { jobs: '/pages/jobs.html', career_files: '/pages/career-files.html' }[type] || null;
+  return { jobs: '/pages/jobs.html', career_files: '/pages/career-files.html', certificates: '/pages/certs.html' }[type] || null;
 }
 
 function renderModulePanel(m) {
@@ -1400,6 +1401,9 @@ async function fillModuleSummary(type, el) {
     } else if (type === 'career_files') {
       const files = await apiGet('/api/career-files');
       el.textContent = `${files.length} file${files.length === 1 ? '' : 's'}`;
+    } else if (type === 'certificates') {
+      const s = await apiGet('/api/certifications/stats');
+      el.textContent = `${s.total} certs · ${s.obtained} obtained · ${s.expiringWithin90} expiring`;
     }
   } catch {
     el.textContent = '';

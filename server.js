@@ -25,6 +25,7 @@ const serverRoutes = require('./routes/serverRoutes');
 const logRoutes = require('./routes/logRoutes');
 const careerFileRoutes = require('./routes/careerFileRoutes');
 const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
+const certificationRoutes = require('./routes/certificationRoutes');
 const { apiLogger, archivePreviousSession } = require('./utils/apiLogger');
 const { createApiLog } = require('./models/apiLogModel');
 
@@ -163,6 +164,7 @@ app.use('/api/servers', serverRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/career-files', careerFileRoutes);
 app.use('/api/applications', jobApplicationRoutes);
+app.use('/api/certifications', certificationRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

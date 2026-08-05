@@ -6,7 +6,9 @@
 // would extend this page (see the policy-20 roadmap).
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/api.js';
-import { getToken } from '../api/api.js';
+import { getToken, clearToken } from '../api/api.js';
+import { initModuleTabs } from '../components/moduleTabs.js';
+import { initNotepad, appendNotepad } from '../components/notepad.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -88,10 +90,20 @@ async function load() {
     showApp();
   } catch (err) {
     const msg = String((err && err.message) || err);
-    if (msg.includes('401')) showGate();
-    else $('jb-status').textContent = 'Load failed: ' + msg;
+    // 401 = no token, 403 = invalid/expired token (dashboard authenticateToken
+    // uses invalidStatus:403). These personal routes have no permission tiers,
+    // so either means "sign in again" — drop the stale token + show the gate.
+    if (msg.includes('401') || msg.includes('403')) {
+      clearToken();
+      showGate();
+    } else {
+      $('jb-status').textContent = 'Load failed: ' + msg;
+    }
   }
 }
+
+// Map job statuses to the ONE semantic chip color map (main.css .chip--*).
+const STATUS_TONE = { applied: 'neutral', screening: 'info', assessment: 'warn', interview: 'info', offer: 'success', hired: 'success', rejected: 'danger', withdrawn: 'danger' };
 
 async function loadStats() {
   try {
@@ -103,7 +115,7 @@ async function loadStats() {
       ['Interviews', s.interviews],
       ['Offers', s.offers],
       ['Hired', s.hired],
-    ].map(([l, v]) => `<span class="jb-stat"><strong>${v}</strong>${l}</span>`).join('');
+    ].map(([l, v]) => `<span class="stat"><span class="stat__value">${v}</span>${l}</span>`).join('');
   } catch { /* stats are non-critical */ }
 }
 
@@ -131,14 +143,24 @@ function cardInner(a) {
       ${dueTxt}
     </div>
     <div class="jb-card-actions">
-      <button type="button" class="edit" data-id="${a.id}">Edit</button>
-      <button type="button" class="danger" data-id="${a.id}">Delete</button>
+      <button type="button" class="btn btn--sm edit" data-id="${a.id}">Edit</button>
+      <button type="button" class="btn btn--sm np-add" data-id="${a.id}" title="Copy to notepad">✎</button>
+      <button type="button" class="btn btn--sm btn--danger danger" data-id="${a.id}">Delete</button>
     </div>
   `;
 }
 
+// Snippet to copy into the persistent notepad when the ✎ action is clicked.
+function notepadSnippet(a) {
+  const lines = [a.company + (a.role ? ` — ${a.role}` : '')];
+  if (a.jobUrl) lines.push(a.jobUrl);
+  if (a.notes) lines.push(a.notes);
+  return lines.join('\n');
+}
+
 function attachCardActions(card, a) {
   card.querySelector('.edit')?.addEventListener('click', (e) => { e.stopPropagation(); openForm(a); });
+  card.querySelector('.np-add')?.addEventListener('click', (e) => { e.stopPropagation(); appendNotepad(notepadSnippet(a)); });
   card.querySelector('.danger')?.addEventListener('click', (e) => { e.stopPropagation(); remove(a); });
 }
 
@@ -166,7 +188,7 @@ function renderKanban() {
       attachCardActions(card, a);
       body.appendChild(card);
     }
-    if (!inCol.length) body.innerHTML = '<div class="jb-empty" style="padding:8px;font-size:0.74rem">Empty</div>';
+    if (!inCol.length) body.innerHTML = '<div class="empty" style="padding:8px;font-size:0.74rem">Empty</div>';
     // Drop target for active pipeline columns only.
     if (!col.terminal) {
       colEl.addEventListener('dragover', (e) => { e.preventDefault(); colEl.classList.add('drag-over'); });
@@ -180,7 +202,7 @@ function renderKanban() {
 function renderList() {
   const list = $('jb-list');
   if (!state.apps.length) {
-    list.innerHTML = '<div class="jb-empty">No applications yet — add one.</div>';
+    list.innerHTML = '<div class="empty">No applications yet — add one.</div>';
     return;
   }
   list.innerHTML = state.apps.map((a) => {
@@ -190,16 +212,18 @@ function renderList() {
       <div class="jb-list-row">
         <div><div class="jb-company">${esc(a.company)}</div><div class="jb-role">${esc(a.role || '')}</div></div>
         <div class="jb-src ${esc(a.source || 'other')}" style="justify-self:start">${esc(src.label)}</div>
-        <div><span class="jb-status-chip">${STATUS_LABEL[a.status] || esc(a.status)}</span></div>
+        <div><span class="chip chip--${STATUS_TONE[a.status] || 'neutral'}">${STATUS_LABEL[a.status] || esc(a.status)}</span></div>
         <div class="jb-salary">${fmtDate(a.followUpAt)}${due ? `<span class="jb-due ${due}"> • ${due === 'is-overdue' ? 'overdue' : 'due'}</span>` : ''}</div>
         <div class="jb-salary">${esc(a.salary || '')}</div>
         <div class="jb-card-actions">
-          <button type="button" class="edit" data-id="${a.id}">Edit</button>
-          <button type="button" class="danger" data-id="${a.id}">Delete</button>
+          <button type="button" class="btn btn--sm edit" data-id="${a.id}">Edit</button>
+          <button type="button" class="btn btn--sm np-add" data-id="${a.id}" title="Copy to notepad">✎</button>
+          <button type="button" class="btn btn--sm btn--danger danger" data-id="${a.id}">Delete</button>
         </div>
       </div>`;
   }).join('');
   list.querySelectorAll('.edit').forEach((b) => b.addEventListener('click', () => openForm(state.apps.find((x) => x.id === Number(b.dataset.id)))));
+  list.querySelectorAll('.np-add').forEach((b) => b.addEventListener('click', () => appendNotepad(notepadSnippet(state.apps.find((x) => x.id === Number(b.dataset.id))))));
   list.querySelectorAll('.danger').forEach((b) => b.addEventListener('click', () => remove(state.apps.find((x) => x.id === Number(b.dataset.id)))));
 }
 
@@ -242,11 +266,11 @@ async function openForm(app) {
   $('f-resume').value = app?.resumePath ?? '';
   $('f-tags').value = app?.tags ?? '';
   $('f-notes').value = app?.notes ?? '';
-  $('jb-modal').style.display = 'flex';
+  $('jb-modal').classList.add('show');
   $('f-company').focus();
 }
 
-function closeForm() { $('jb-modal').style.display = 'none'; }
+function closeForm() { $('jb-modal').classList.remove('show'); }
 
 function collect() {
   const dt = (v) => (v ? new Date(v).toISOString() : null);
@@ -296,6 +320,8 @@ async function remove(app) {
 
 // ---------- init ----------
 function init() {
+  initModuleTabs();
+  initNotepad();
   $('jb-back')?.addEventListener('click', () => {
     if (window.history.length > 1) window.history.back();
     else window.location.href = '/index.html';

@@ -8,38 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/main.css" />
     <style>
-      .cf-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0 16px; }
-      .cf-toolbar select, .cf-toolbar input, .cf-toolbar button {
-        background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-        border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; cursor: pointer;
+      /* Career-Files-specific styles only — generic components (btn/toolbar/card/chip/empty/feedback) come from main.css. */
+      .cf-file {
+        color: var(--muted);
       }
-      .cf-toolbar input[type="file"] { max-width: 260px; }
-      .cf-toolbar button.primary { background: var(--accent); border-color: transparent; color: #fff; }
-      .cf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-      .cf-card {
-        border: 1px solid var(--border); border-radius: 12px; background: var(--bg-soft);
-        padding: 12px; display: flex; flex-direction: column; gap: 8px;
-      }
-      .cf-card-head { display: flex; align-items: center; gap: 8px; }
-      .cf-kind { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; border-radius: 999px; padding: 2px 8px; text-transform: uppercase; }
-      .cf-kind.resume { background: var(--accent-soft); color: var(--accent); }
-      .cf-kind.cert { background: rgba(52, 211, 153, 0.14); color: #6ee7b7; }
-      .cf-kind.other { background: var(--panel-3); color: var(--muted); }
-      .cf-name { font-weight: 600; font-size: 0.85rem; overflow-wrap: anywhere; }
-      .cf-desc { color: var(--muted); font-size: 0.78rem; }
-      .cf-time { color: var(--muted); font-size: 0.72rem; }
-      .cf-actions { display: flex; gap: 6px; margin-top: auto; }
-      .cf-actions a, .cf-actions button {
-        background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-        border-radius: 7px; padding: 4px 10px; font-size: 0.78rem; text-decoration: none; cursor: pointer;
-      }
-      .cf-actions a:hover { border-color: var(--accent); color: var(--accent); }
-      .cf-actions button.danger:hover { border-color: #f87171; color: #f87171; }
-      .cf-empty, .cf-error { padding: 30px; text-align: center; color: var(--muted); }
-      .back-link { color: var(--accent); text-decoration: none; font-size: 0.85rem; background: none; border: none; cursor: pointer; padding: 0; }
-      .back-link:hover { text-decoration: underline; }
-      #cf-status { min-height: 18px; font-size: 0.8rem; color: #f87171; margin-top: 8px; }
-      .stat-line { font-size: 0.8rem; color: var(--muted); }
     </style>
   </head>
   <body>
@@ -54,6 +26,14 @@
               <a href="https://172.22.160.3:8090" target="_blank" rel="noopener">Fileserver</a>
             </div>
           </section>
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Career</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/pages/jobs.html">Job Applications</a>
+              <a href="/pages/career-files.html">Career Files</a>
+              <a href="/pages/certs.html">Certificates</a>
+            </div>
+          </section>
         </aside>
         <main class="main">
           <div class="topbar">
@@ -61,6 +41,7 @@
             <div class="topbar-right"><div id="auth-control"></div></div>
           </div>
           <div class="content">
+            <div id="module-tabs"></div>
             <div style="margin: 10px 0 4px">
               <button type="button" class="back-link" id="cf-back">← Back</button>
             </div>
@@ -69,19 +50,19 @@
               <p class="muted">Sign in to view and manage your career documents.</p>
             </div>
             <div id="cf-app" class="hidden">
-              <div class="cf-toolbar">
-                <input type="file" id="cf-file" />
+              <div class="toolbar">
+                <input type="file" id="cf-file" class="cf-file" />
                 <select id="cf-kind">
                   <option value="resume">Resume</option>
                   <option value="cert">Cert / Credential</option>
                   <option value="other">Other</option>
                 </select>
                 <input type="text" id="cf-desc" placeholder="Description (optional)" style="flex:1;min-width:160px" />
-                <button type="button" id="cf-upload" class="primary">Upload</button>
-                <span class="stat-line" id="cf-count"></span>
+                <button type="button" id="cf-upload" class="btn btn--primary">Upload</button>
+                <span class="muted" id="cf-count"></span>
               </div>
-              <div id="cf-list" class="cf-grid"></div>
-              <div id="cf-status"></div>
+              <div id="cf-list" class="card-grid"></div>
+              <div class="feedback" id="cf-status"></div>
             </div>
           </div>
         </main>

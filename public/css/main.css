@@ -299,20 +299,33 @@ body > .content {
   right: 12px;
   bottom: 4px;
 }
-/* MOD-2: live jobs-module status chip on a policy row (bottom-left, mirrors #id) */
-.policy-row .jobs-chip {
+/* MOD-2 / Cert-Dashboard: live module-status chips on a policy row (bottom-left, mirrors #id) */
+.policy-row .policy-chips {
   position: absolute;
   left: 12px;
   bottom: 3px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.policy-row .jobs-chip,
+.policy-row .cert-chip {
   font-size: 0.64rem;
   font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid rgba(124, 140, 248, 0.35);
   border-radius: 999px;
   padding: 1px 8px;
   white-space: nowrap;
-  pointer-events: none;
+}
+.policy-row .jobs-chip {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(124, 140, 248, 0.35);
+}
+.policy-row .cert-chip {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
 }
 .policy-actions {
   display: flex;
@@ -776,6 +789,90 @@ main .status-strip {
 }
 .followups-foot:hover {
   text-decoration: underline;
+}
+/* Module page tabs (MOD): switch between module pages from either page */
+.module-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 2px 0 8px;
+}
+.module-tab {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.module-tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.module-tab.active {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+/* Persistent notepad (jobs page) */
+#np-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+.np-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+.np-count {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-right: auto;
+}
+.np-copied {
+  color: var(--success, #4ade80);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.np-head button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.np-head button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#np-text {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-family: var(--font);
+  line-height: 1.5;
+}
+#np-text:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* ---------- Services tray ---------- */
@@ -3652,4 +3749,301 @@ select {
   background-size: 200px 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 4px;
+}
+
+/* PLACEHOLDER-END */
+
+/* ============================================================
+   UI COMPONENT LIBRARY (consistency pass 2026-08-05)
+   Shared semantic component classes for the module/admin pages.
+   Uses ONLY existing theme tokens — no new colors or spacing.
+   ============================================================ */
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+.btn--primary:hover {
+  color: #fff;
+  filter: brightness(1.08);
+}
+.btn--danger:hover {
+  border-color: #f87171;
+  color: #f87171;
+}
+.btn--ghost {
+  background: transparent;
+}
+.btn--sm {
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  border-radius: 6px;
+}
+
+/* ---- Command bar (toolbar) ---- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 8px;
+}
+.toolbar select,
+.toolbar input[type='search'],
+.toolbar input[type='text'],
+.toolbar input[type='file'] {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.toolbar input[type='file'] {
+  max-width: 260px;
+}
+.toolbar .spacer {
+  flex: 1;
+}
+/* Non-wrapping group inside a toolbar — keeps e.g. filter + search + sort on one line. */
+.toolbar-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.toolbar-cluster input[type='search'] {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* ---- Card + responsive grid ---- */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease;
+}
+.card:hover {
+  border-color: var(--accent);
+}
+.card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card__title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.card__sub {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.card__meta b {
+  color: var(--text);
+  font-weight: 600;
+}
+.card__meta .is-overdue {
+  color: var(--danger);
+  font-weight: 700;
+}
+.card__meta .is-soon {
+  color: var(--warning);
+  font-weight: 700;
+}
+.card__body {
+  color: var(--muted);
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+.card__actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.card__empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ---- Status chips — ONE semantic color map (all pages) ---- */
+.chip {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+  display: inline-block;
+}
+.chip--success {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+.chip--info {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+.chip--warn {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+}
+.chip--danger {
+  background: rgba(248, 113, 113, 0.14);
+  color: #f87171;
+}
+.chip--neutral {
+  background: var(--panel-3);
+  color: var(--muted);
+}
+
+/* ---- Stats strip ---- */
+.stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 14px;
+}
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.stat__value {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+/* ---- Empty state ---- */
+.empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ---- Forms ---- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.field--full {
+  grid-column: 1 / -1;
+}
+.field label {
+  font-size: 0.74rem;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 3px;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 9, 14, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1001;
+}
+.modal-overlay.show {
+  display: flex;
+}
+.modal-overlay.show .modal-card {
+  animation: fadeInScale 0.25s ease both;
+}
+.modal-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  width: min(620px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modal__head {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.modal__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+/* ---- Inline feedback ---- */
+.feedback {
+  min-height: 18px;
+  font-size: 0.8rem;
+  color: #f87171;
+  margin-top: 8px;
 }

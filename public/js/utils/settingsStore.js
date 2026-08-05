@@ -37,6 +37,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'tasks', title: 'Tasks', category: 'workspace' },
   { id: 'popup', title: 'Unfinished Popup', category: 'notifications' },
   { id: 'followups', title: 'Job Follow-ups', category: 'notifications' },
+  { id: 'certexpiries', title: 'Cert Expiries', category: 'notifications' },
   { id: 'monitoring', title: 'Monitoring', category: 'peripherals' },
   { id: 'mcp', title: 'MCP', category: 'peripherals' },
   { id: 'session', title: 'Session', category: 'account' },
@@ -254,6 +255,15 @@ export const SETTINGS_SCHEMA = [
     section: 'followups',
     type: 'number',
     default: 7,
+  },
+  // ---- Notifications / Cert Expiries (Certificate Dashboard) ----
+  {
+    key: 'certExpiryLookaheadDays',
+    label: 'Expiry lookahead (days)',
+    description: 'How many days ahead certifications are flagged for renewal in the dashboard sidebar. Expired items are always shown.',
+    section: 'certexpiries',
+    type: 'number',
+    default: 90,
   },
   // ---- Peripherals / Monitoring ----
   {

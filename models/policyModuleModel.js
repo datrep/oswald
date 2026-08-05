@@ -9,7 +9,7 @@ const { getPool } = require('../config/db');
 const sql = require('mssql');
 
 // Backend allowlist — the API rejects anything not listed here.
-const MODULE_TYPES = ['jobs', 'career_files'];
+const MODULE_TYPES = ['jobs', 'career_files', 'certificates'];
 
 async function getModulesByEdict(edictId) {
   const pool = await getPool();
