@@ -40,10 +40,18 @@ Schema changes are applied incrementally under `sql/migrations/` (after the init
 
 | # | File | Change |
 |---|------|--------|
+| 001 | `001_relax_plannedend_and_add_completedat.sql` | Relax `Edicts.plannedEnd` NOT NULL + add `completedAt` |
+| 002 | `002_fix_plannedend_null.sql` | Fix the plannedEnd relaxation (failed on the `active` computed column) |
+| 003 | `003_network_hosts.sql` | `NetworkHosts` table for configurable monitoring (replaces `config/ips.txt`) |
 | 004 | `004_user_access_control.sql` | UAC — `Users`/`Roles`/`Permissions`/`UserRoles`/`RolePermissions` tables |
 | 005 | `005_fileserver_metadata.sql` | Fileserver metadata — `FileServerACLs`/`FileFavorites`/`FileTags` |
 | 006 | `006_task_reorder.sql` | `Tasks.sortOrder` (drag-to-reorder) |
 | 007 | `007_resource_reorder.sql` | `EdictResources.sortOrder` (drag-to-reorder) |
+| 008 | `008_api_logs.sql` | `ApiLogs` table (internal API logging — dashboard + fileserver) |
+| 009 | `009_api_logs_utc.sql` | `ApiLogs.createdAt` → `GETUTCDATE()` + backfill (fixes the +8 h display bug) |
+| 010 | `010_job_dashboard_prereq.sql` | `JobApplications` + `PolicyModules` (job tracker + “+ Add module” framework) |
+| 011 | `011_career_files.sql` | `CareerFiles` (resume/cert docs under `resources/career`) |
+| 012 | `012_certifications.sql` | `Certifications` (certificate dashboard) |
 
 Apply with `sqlcmd` (see the migration files for the exact command).
 
@@ -171,5 +179,74 @@ The fileserver is fully standalone (its own `fileserver/db.js` — no dependency
 - `mirror.mirrorPath` defaults to `sync.destination`, so the read-only mirror root is the synced copy.
 - Admin API: `POST /api/fs/sync` (run now, async) · `GET /api/fs/sync/status` (running + last report).
 - UI: **Sync** button in the toolbar (files.admin) triggers a run and toasts the delta (`+added ~updated -deleted`).
+
+---
+
+## Upgrading from an old version (commit `1f108cc8`)
+
+This brings a checkout at the early commit `1f108cc8` (2026-07-12, message "aa" — pre-refactor) up to the current code (HEAD `a1aeea9`). Since then the repo gained: the **big refactor/standardisation** (`28dc0e6`), the **Fileserver** service (FS-1/2/3 + ARCH + containerization), **RBAC/UAC**, **internal API logging**, the **`shared/`** config + auth + TLS modules, and the **Career modules** (Job Applications, Career Files, Certificates). The old commit had no `sql/migrations/`, no `shared/`, no `fileserver/`, and used `app.env` instead of `.env`.
+
+> Two paths: **A — fresh** (no data to keep) and **B — in-place upgrade** (keep the existing DB). Choose B unless you want to wipe everything.
+
+### 1. Get the current code
+```powershell
+git fetch --all
+git checkout a1aeea9        # current HEAD — or pull latest main
+```
+
+### 2. Environment — `.env` (was `app.env`)
+The old repo only needed `SHOW_NETWORK_INFO=false`. The app now reads a repo-root **`.env`** (gitignored). Create/rename it with the keys the app + launchers read:
+
+```ini
+DB_SERVER=.\SQLEXPRESS
+DB_INSTANCE=SQLEXPRESS
+DB_PORT=1433
+DB_DATABASE=DB_Oswald
+DB_USER=sa
+DB_PASSWORD=********
+JWT_SECRET=<long random string>   # required — dashboard + fileserver share this
+PORT=8080
+HTTPS_PORT=8443
+LOCAL_SERVER_HOST=172.22.160.3    # ZeroTier IP — where it is served
+REMOTE_SERVER_HOST=<optional>
+```
+
+### 3. Dependencies
+```powershell
+npm install                          # root — now needs selfsigned + archiver; bcrypt dropped for bcryptjs
+Push-Location fileserver; npm install; Pop-Location   # fileserver has its own package.json
+```
+
+### 4. Database
+- **Path A (fresh):** `.\setup.ps1` — installs deps and **destructively** re-initialises the DB from `sql\schema\DB_init_table.sql` (it asks for confirmation). Then apply the migrations below.
+- **Path B (keep data):** skip `setup.ps1`’s destructive step; just apply the migrations below to the existing DB.
+- **Apply all migrations in order (001 → 012)** with `sqlcmd` — the full table is in the *Database migrations* section above. `sql/schema/DB_init_table.sql` only describes the original core tables; **migrations are the source of truth** for everything added later (UAC, fileserver metadata, `ApiLogs`, `PolicyModules`, the Career tables).
+
+### 5. TLS certificate (`fileserver/certs`)
+A self-signed cert is **auto-generated on first start** (`shared/tls.js` → `fileserver/certs/cert.pem` + `key.pem`). Trust it once so the browser stops warning:
+```powershell
+certutil -addstore -user Root fileserver\certs\cert.pem
+```
+
+### 6. Launch
+```powershell
+.\start-detached.ps1     # dashboard  -> http://172.22.160.3:8080 + https://172.22.160.3:8443
+.\start-fileserver.ps1   # fileserver -> https://172.22.160.3:8090
+```
+(Or manage both from the dashboard **Server ▾** tray, or `docker compose up -d fileserver`.)
+
+### 7. Accounts (RBAC is new)
+The old version had no users/permissions. The current app requires an authenticated user with roles — create the first admin:
+```powershell
+node scripts/create-account.js --admin
+```
+Then hand out read-only accounts via `node scripts/create-account.js`, the fileserver’s **Sign up** link, or the dashboard’s **Users & Permissions** page.
+
+### 8. Verify
+```powershell
+node scripts/smoke-test.js        # 96 regression checks
+# GET https://172.22.160.3:8443/api/health  ->  {"status":"ok", ...}
+```
+Sign in at `https://172.22.160.3:8443` — Dashboard, Policy workspace, and the **Career** module pages (Job Applications / Career Files / Certificates) are in the sidebar; the fileserver runs at `:8090`.
 
 
