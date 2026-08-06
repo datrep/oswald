@@ -49,6 +49,9 @@
 #   -SkipSmokeTest     do not run the regression suite at the end
 # ============================================================================
 
+# The DB password is auto-generated and written to .env (never typed interactively),
+# so the plain-String parameter is intentional.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Auto-generated secret persisted to .env')]
 [CmdletBinding()]
 param(
     [string]$Instance   = 'SQLEXPRESS',
@@ -115,7 +118,7 @@ Write-Host "==============================================================" -For
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-function Refresh-Path {
+function Update-Path {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                 [Environment]::GetEnvironmentVariable('Path', 'User')
 }
@@ -229,7 +232,7 @@ if (Confirm-Present 'node') {
         Write-Fail "winget node install failed (exit $LASTEXITCODE)."
         exit 1
     }
-    Refresh-Path
+    Update-Path
     if (-not (Confirm-Present 'node')) {
         Write-Fail 'node still not on PATH after install — open a new terminal and re-run.'
         exit 1
@@ -350,10 +353,6 @@ Write-Ok "admin connection established"
 $dbCs = $masterCs -replace 'Database=master', "Database=$DbName"
 
 $dbExists = $false
-try {
-    $r = Invoke-SqlBatch -ConnectionString $masterCs -Sql "IF DB_ID('$DbName') IS NOT NULL SELECT 1 ELSE SELECT 0"
-    # (Invoke-SqlBatch discards results; do the check with a scalar query instead)
-} catch { }
 
 # Do a real existence check (result-set aware).
 $conn = New-Object System.Data.SqlClient.SqlConnection $masterCs
@@ -481,7 +480,7 @@ if ($needsRewrite) {
 # Stage 6 — npm dependencies
 # ---------------------------------------------------------------------------
 Write-Step "Stage 6/9  npm dependencies"
-if (-not (Confirm-Present 'npm')) { Refresh-Path }
+if (-not (Confirm-Present 'npm')) { Update-Path }
 Write-Host "  Installing root dependencies..."
 npm install --no-fund --no-audit
 if ($LASTEXITCODE -ne 0) { Write-Fail "root npm install failed ($LASTEXITCODE)"; exit $LASTEXITCODE }
