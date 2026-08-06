@@ -304,6 +304,15 @@ Write-Step "Stage 2/9  SQL Server ($Instance)"
 $instances = Get-SqlInstances
 $inst = $instances | Where-Object { $_.Instance -eq $Instance } | Select-Object -First 1
 
+if (-not $inst -and $instances.Count) {
+    # No instance named $Instance, but at least one exists (e.g. a manual install
+    # under a different name, like a default instance) - use it rather than
+    # installing a second one.
+    $inst = @($instances)[0]
+    Write-Warn "No instance named '$Instance'; using '$($inst.Instance)' instead (found: $($instances.Instance -join ', '))"
+    Write-Host "  Re-run with -Instance <name> to target a specific instance." -ForegroundColor $Warn
+}
+
 if (-not $inst) {
     if ($NoInstallSqlServer) {
         Write-Fail "SQL instance '$Instance' not found and -NoInstallSqlServer was set."
@@ -343,7 +352,7 @@ if (-not $inst) {
 }
 Write-Ok "found instance '$($inst.Instance)' (InstanceID '$($inst.InstanceID)')"
 
-$serviceName = if ($Instance -eq 'MSSQLSERVER') { 'MSSQLSERVER' } else { "MSSQL`$$Instance" }
+$serviceName = if ($inst.Instance -eq 'MSSQLSERVER') { 'MSSQLSERVER' } else { "MSSQL`$$($inst.Instance)" }
 $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if (-not $svc) {
     Write-Fail "Service '$serviceName' not found. Check the instance name."
@@ -487,7 +496,7 @@ SERVER_HOST=$ListenHost
 LOCAL_SERVER_HOST=$ListenHost
 REMOTE_SERVER_HOST=0.0.0.0
 DB_SERVER=localhost
-DB_INSTANCE=$Instance
+DB_INSTANCE=$($inst.Instance)
 DB_PORT=$SqlPort
 DB_DATABASE=$DbName
 DB_USER=$DbUser
