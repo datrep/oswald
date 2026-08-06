@@ -212,6 +212,63 @@ function Confirm-Present([string]$Cmd) {
     return [bool](Get-Command $Cmd -ErrorAction SilentlyContinue)
 }
 
+# Start (or restart) a SQL Server service with retries. A fresh SQL Express
+# install frequently isn't ready until a REBOOT, so on persistent failure we
+# dump the ERRORLOG + event log and tell the user to reboot and re-run (the
+# script is idempotent and resumes from where it left off).
+function Show-SqlStartDiagnostics {
+    param([string]$Name, [string]$InstanceID)
+    Write-Fail "SQL Server service '$Name' did not reach 'Running'."
+    $errLog = "C:\Program Files\Microsoft SQL Server\$InstanceID\MSSQL\Log\ERRORLOG"
+    if (Test-Path $errLog) {
+        Write-Host "  Last lines of ${errLog}:" -ForegroundColor $Warn
+        Get-Content $errLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    $_" -ForegroundColor $Warn }
+    } else {
+        Write-Warn "ERRORLOG not found at '$errLog'"
+    }
+    Write-Host "  Service config:" -ForegroundColor $Warn
+    sc.exe qc $Name 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor $Warn }
+    Write-Host "  Recent Application event log (SQL/$Name):" -ForegroundColor $Warn
+    Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-30) } -MaxEvents 30 -ErrorAction SilentlyContinue |
+        Where-Object { $_.Message -match [regex]::Escape($Name) -or $_.ProviderName -match 'SQL|MSSQL' } |
+        Select-Object -First 6 |
+        ForEach-Object { Write-Host "    [$($_.TimeCreated.ToString('HH:mm:ss'))] $($_.ProviderName): $($_.Message)" -ForegroundColor $Warn }
+    Write-Host ""
+    Write-Host "  Most likely fix after a fresh SQL Express install: REBOOT the machine, then re-run" -ForegroundColor $Info
+    Write-Host "  this script - it resumes (stages already completed are skipped)." -ForegroundColor $Info
+}
+
+function Start-SqlService {
+    param([string]$Name, [string]$InstanceID, [switch]$Restart, [int]$TimeoutSec = 90)
+    try { Set-Service -Name $Name -StartupType Automatic } catch { Write-Warn "could not set '$Name' to Automatic: $($_.Exception.Message)" }
+    $attempts = 3
+    for ($i = 1; $i -le $attempts; $i++) {
+        if (-not $Restart -and (Get-Service -Name $Name).Status -eq 'Running') {
+            Write-Ok "'$Name' already running"
+            return $true
+        }
+        try {
+            if ($Restart) {
+                Write-Host "  restarting '$Name' to apply protocol changes (attempt $i/$attempts)..."
+                Restart-Service -Name $Name -Force -ErrorAction Stop
+            } else {
+                Write-Host "  starting '$Name' (attempt $i/$attempts)..."
+                Start-Service -Name $Name -ErrorAction Stop
+            }
+        } catch { Write-Warn "  attempt $i failed: $($_.Exception.Message)" }
+        Start-Sleep -Seconds 4
+        if ((Get-Service -Name $Name).Status -eq 'Running') { break }
+    }
+    try {
+        (Get-Service -Name $Name).WaitForStatus('Running', [TimeSpan]::FromSeconds($TimeoutSec))
+        Write-Ok "'$Name' is running"
+        return $true
+    } catch {
+        Show-SqlStartDiagnostics -Name $Name -InstanceID $InstanceID
+        return $false
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Stage 1 — Node.js
 # ---------------------------------------------------------------------------
@@ -280,11 +337,8 @@ if (-not $svc) {
     exit 1
 }
 
-# (a) service on + automatic start
-Write-Host "  Setting '$serviceName' to Automatic and starting it..."
-Set-Service -Name $serviceName -StartupType Automatic
-if ($svc.Status -ne 'Running') { Start-Service -Name $serviceName }
-$svc.WaitForStatus('Running', [TimeSpan]::FromSeconds(90))
+# (a) service on + automatic start (retries + diagnostics on failure)
+if (-not (Start-SqlService -Name $serviceName -InstanceID $($inst.InstanceID))) { exit 1 }
 
 # (b)/(c)/(d) TCP/IP + Named Pipes + mixed-mode auth via registry
 $regBase = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$($inst.InstanceID)\MSSQLServer"
@@ -306,10 +360,7 @@ New-Item -Path $np -Force | Out-Null
 Set-ItemProperty -Path $np -Name 'Enabled' -Value 1 -Type DWord
 
 # Registry changes take effect on service restart
-Write-Host "  Restarting '$serviceName' to apply protocol changes..."
-Restart-Service -Name $serviceName -Force
-$svc = Get-Service -Name $serviceName
-$svc.WaitForStatus('Running', [TimeSpan]::FromSeconds(90))
+if (-not (Start-SqlService -Name $serviceName -InstanceID $($inst.InstanceID) -Restart)) { exit 1 }
 
 if (-not (Wait-TcpPort -Port $SqlPort)) {
     Write-Fail "SQL Server is not accepting TCP connections on port $SqlPort yet. Restart the machine and re-run."
