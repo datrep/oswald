@@ -17,6 +17,56 @@ This installs npm dependencies and (re)initializes the SQL database from `sql\sc
 > ⚠️ The DB init **drops and recreates** the database, destroying all data.
 > `setup.ps1` will always ask for explicit confirmation (`yes`) before doing this.
 
+### Fresh machine — one-click bootstrap
+
+If the machine has **nothing** installed (no Node.js, no SQL Server, no `.env`),
+run the bootstrap instead — it provisions everything end to end:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-fresh-machine.ps1
+```
+
+It will (1) request Administrator once, (2) install Node.js LTS and SQL Server
+2022 Express via `winget` if missing, (3) **fix the four classic SQL Server
+reachability problems** — service stopped → start + auto-start, TCP/IP disabled
+→ enable + static port, Named Pipes disabled → enable, Windows-auth only →
+switch to mixed mode — (4) create the database + `api_user` login and apply
+migrations `001`–`014`, (5) generate `.env` with strong random secrets
+(never overwrites an existing one), (6) create gitignored runtime dirs and
+**regenerate `fileserver/config.json` for this machine** (it ships with the old
+machine's absolute paths + dashboard IP), (7) `npm install` (root + fileserver),
+(8) trust the self-signed cert, open inbound firewall ports for remote access
+(app ports only — SQL is never exposed), start both servers detached, then run
+the regression suite. Optionally register logon auto-start tasks.
+
+Useful switches:
+
+| Switch | Meaning |
+| --- | --- |
+| `-Instance SQLEXPRESS` / `-SqlPort 1433` | SQL Server instance + static TCP port |
+| `-DbName` / `-DbUser` / `-DbPassword` | DB name, login, password (default: random strong) |
+| `-SaPassword <pw>` | fallback admin login if Windows auth is unavailable |
+| `-AppPort 8080` / `-HttpsPort 8443` / `-Host 0.0.0.0` | where the dashboard listens |
+| `-NoInstallNode` / `-NoInstallSqlServer` | skip auto-install (prereqs already present) |
+| `-ResetDb` | **destructive** — drop + recreate the database from the schema |
+| `-ResetConfig` | force-regenerate `fileserver/config.json` (auto-detected otherwise) |
+| `-SkipFirewallRules` | don't open inbound ports 8080/8443/8090/8091 |
+| `-RegisterAutoStart` | add "Oswald Dashboard"/"Oswald Fileserver" logon tasks |
+| `-SkipServerStart` / `-SkipSmokeTest` | don't auto-start / don't run the regression suite |
+
+> Notes: Windows-auth SQL connections use `localhost` — `127.0.0.1` trips the
+> NTLM loopback check ("login from an untrusted domain"). The bootstrap tries
+> TCP → instance (shared memory / named pipes) → `sa` in that order. SQL Server
+> Express defaults to Windows auth only; the bootstrap enables mixed mode.
+>
+> Machine-specific values that are rewritten per host: `fileserver/config.json`
+> (dashboardBase, TLS host, root/mirror/sync/thumb paths) and the sidebar
+> "Fileserver" links on the standalone pages — those now derive their host from
+> `location.hostname` at runtime, so they point at whatever machine serves them.
+> CORS accepts any `localhost`/`127.0.0.1` origin plus the `172.22.160.*` ZeroTier
+> subnet. For remote access from another LAN (non-ZeroTier), open the dashboard
+> on `SERVER_HOST` and widen the CORS regex in `server.js` if needed.
+
 ## Run
 
 ```powershell

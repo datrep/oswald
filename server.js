@@ -54,7 +54,7 @@ const corsOptions = {
     // over both HTTP and HTTPS (the HTTPS listener is task #60).
     if (
       !origin ||
-      origin === 'http://localhost:8080' ||
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
       /^https?:\/\/172\.22\.160\.\d+/.test(origin)
     ) {
       callback(null, true);

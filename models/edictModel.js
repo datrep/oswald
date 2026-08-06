@@ -46,7 +46,7 @@ async function createEdict(name, plannedStart, plannedEnd, info, priority, state
             (name, plannedStart, plannedEnd, info, priority, state, completedAt)
             VALUES
             (@name, @plannedStart, @plannedEnd, @info, @priority, @state,
-             CASE WHEN @state = 3 THEN GETDATE() ELSE NULL END);
+             CASE WHEN @state = 3 THEN GETUTCDATE() ELSE NULL END);
             SELECT SCOPE_IDENTITY() AS id;
         `);
 
@@ -73,7 +73,7 @@ async function updateEdict(id, name, plannedStart, plannedEnd, info, priority, s
                 info = @info,
                 priority = @priority,
                 state = @state,
-                completedAt = CASE WHEN @state = 3 THEN COALESCE(completedAt, GETDATE()) ELSE NULL END
+                completedAt = CASE WHEN @state = 3 THEN COALESCE(completedAt, GETUTCDATE()) ELSE NULL END
             WHERE id = @id
         `);
 }
@@ -94,7 +94,7 @@ async function getUnfinishedEdicts() {
   const result = await pool.request().query(`
             SELECT * FROM Edicts 
             WHERE plannedEnd IS NOT NULL 
-            AND GETDATE() > plannedEnd 
+            AND GETUTCDATE() > plannedEnd 
             AND state != 3
             ORDER BY plannedEnd ASC
         `);

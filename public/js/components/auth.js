@@ -44,6 +44,15 @@ function refreshUI() {
   else setLoggedOutUI();
 }
 
+// The Fileserver runs on the same host, port 8090 — point the sidebar links at
+// wherever this page is served from (fixes the hardcoded old-machine IP).
+function fixFileserverLinks() {
+  const host = location.hostname || 'localhost';
+  document.querySelectorAll('a[data-fileserver]').forEach((a) => {
+    a.href = `https://${host}:8090`;
+  });
+}
+
 function init() {
   const container = document.getElementById('auth-control');
   if (!container) return;
@@ -102,5 +111,6 @@ function init() {
 }
 
 init();
+fixFileserverLinks();
 
 export { getToken, clearToken, isLoggedIn };

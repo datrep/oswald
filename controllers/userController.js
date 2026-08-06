@@ -35,6 +35,9 @@ async function loginUser(req, res, next) {
   try {
     const user = await User.findUserByUsername(username);
     if (!user) return res.status(401).json({ error: 'Invalid username or password' });
+    if (user.isActive === false) {
+      return res.status(403).json({ error: 'Account disabled — contact an administrator' });
+    }
 
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid username or password' });
@@ -44,7 +47,9 @@ async function loginUser(req, res, next) {
       Role.getPermissionsForUser(user.id),
     ]);
 
-    const token = jwt.sign({ userID: user.id, roles, permissions }, process.env.JWT_SECRET, {
+    // `v` = Users.tokenVersion: the auth middleware re-checks it on every request,
+    // so an access-control change (role/password/disable) revokes this token at once.
+    const token = jwt.sign({ userID: user.id, roles, permissions, v: user.tokenVersion }, process.env.JWT_SECRET, {
       expiresIn: '1h',
     });
 
@@ -72,12 +77,20 @@ async function updateUser(req, res, next) {
   }
 }
 
+// DELETE /api/users/:userId — admin-only delete with guards (users.manage).
 async function deleteUser(req, res, next) {
-  const userID = req.user.userID;
+  const targetId = Number.parseInt(req.params.userId, 10);
+  if (!Number.isInteger(targetId)) return res.status(400).json({ error: 'Invalid user id' });
+  if (targetId === req.user.userID) return res.status(400).json({ error: 'You cannot delete your own account' });
 
   try {
-    await User.deleteUser(userID);
-    res.json({ message: 'User deleted successfully' });
+    const roles = await Role.getRolesForUser(targetId);
+    if (roles.includes('admin')) {
+      const adminCount = await Role.countUsersWithRole('admin');
+      if (adminCount <= 1) return res.status(400).json({ error: 'Cannot delete the last admin' });
+    }
+    await User.deleteUser(targetId);
+    res.json({ message: 'User deleted' });
   } catch (err) {
     next(err);
   }
@@ -161,6 +174,116 @@ async function assignUserRole(req, res, next) {
   }
 }
 
+// PUT /api/users/:userId/roles — set a user's roles to exactly this set (multi-role).
+async function setUserRoles(req, res, next) {
+  const userId = Number.parseInt(req.params.userId, 10);
+  const roles = req.body?.roles;
+  if (!Number.isInteger(userId)) return res.status(400).json({ error: 'Invalid user id' });
+  if (!Array.isArray(roles)) return res.status(400).json({ error: 'roles array is required' });
+  if (userId === req.user.userID) return res.status(400).json({ error: 'You cannot change your own roles' });
+
+  try {
+    const valid = (await Role.getAllRoles()).map((r) => r.name);
+    const bad = roles.filter((r) => !valid.includes(r));
+    if (bad.length) return res.status(400).json({ error: 'Unknown role(s): ' + bad.join(', ') });
+    // Last-admin guard when removing 'admin' from the target.
+    if (!roles.includes('admin')) {
+      const current = await Role.getRolesForUser(userId);
+      if (current.includes('admin')) {
+        const adminCount = await Role.countActiveUsersWithRole('admin');
+        if (adminCount <= 1) return res.status(400).json({ error: 'Cannot remove the last active admin' });
+      }
+    }
+    await Role.setRoles(userId, roles);
+    res.json({ message: 'Roles updated — sessions revoked' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PUT /api/users/:userId/active — enable/disable an account (disable revokes sessions).
+async function setUserActive(req, res, next) {
+  const userId = Number.parseInt(req.params.userId, 10);
+  const isActive = req.body?.isActive;
+  if (!Number.isInteger(userId)) return res.status(400).json({ error: 'Invalid user id' });
+  if (typeof isActive !== 'boolean') return res.status(400).json({ error: 'isActive boolean is required' });
+  if (userId === req.user.userID) return res.status(400).json({ error: 'You cannot disable your own account' });
+
+  try {
+    if (!isActive) {
+      const roles = await Role.getRolesForUser(userId);
+      if (roles.includes('admin')) {
+        const activeAdmins = await Role.countActiveUsersWithRole('admin');
+        if (activeAdmins <= 1) return res.status(400).json({ error: 'Cannot disable the last active admin' });
+      }
+    }
+    await User.setIsActive(userId, isActive);
+    res.json({ message: isActive ? 'Account enabled' : 'Account disabled — sessions revoked' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PUT /api/users/:userId/password — admin password reset (revokes all sessions).
+async function resetUserPassword(req, res, next) {
+  const userId = Number.parseInt(req.params.userId, 10);
+  const password = req.body?.password;
+  if (!Number.isInteger(userId)) return res.status(400).json({ error: 'Invalid user id' });
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    await User.resetPassword(userId, hashed);
+    res.json({ message: 'Password reset — all sessions revoked' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/users/roles — create a role (optional permission set).
+async function createRole(req, res, next) {
+  const { name, description, permissions } = req.body || {};
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required' });
+  try {
+    const id = await Role.createRole(name.trim(), description);
+    if (Array.isArray(permissions)) await Role.setRolePermissions(id, permissions);
+    res.status(201).json({ message: 'Role created', id });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PUT /api/users/roles/:roleId — rename/redescribe + replace permission set.
+async function updateRole(req, res, next) {
+  const roleId = Number.parseInt(req.params.roleId, 10);
+  const { name, description, permissions } = req.body || {};
+  if (!Number.isInteger(roleId)) return res.status(400).json({ error: 'Invalid role id' });
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required' });
+  try {
+    await Role.updateRole(roleId, name.trim(), description);
+    if (Array.isArray(permissions)) await Role.setRolePermissions(roleId, permissions);
+    res.json({ message: 'Role updated — holders logged out' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /api/users/roles/:roleId — remove a role (assignments cascade away).
+async function deleteRole(req, res, next) {
+  const roleId = Number.parseInt(req.params.roleId, 10);
+  if (!Number.isInteger(roleId)) return res.status(400).json({ error: 'Invalid role id' });
+  try {
+    const role = (await Role.getAllRoles()).find((r) => r.id === roleId);
+    if (!role) return res.status(404).json({ error: 'Role not found' });
+    if (role.name === 'admin') return res.status(400).json({ error: 'The admin role cannot be deleted' });
+    await Role.deleteRole(roleId);
+    res.json({ message: 'Role deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   registerUser,
   loginUser,
@@ -170,4 +293,10 @@ module.exports = {
   getAllUsers,
   getRoles,
   assignUserRole,
+  setUserRoles,
+  setUserActive,
+  resetUserPassword,
+  createRole,
+  updateRole,
+  deleteRole,
 };

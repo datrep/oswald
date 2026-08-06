@@ -1,5 +1,11 @@
 // pages/users.js — Users & Permissions admin page (requires users.manage).
-import { apiGet, apiPut, isLoggedIn, getToken } from '../api/api.js';
+// Full UAC CRUD: multi-role assignment, enable/disable, password reset, delete,
+// and role CRUD with editable permissions. Backed by session revocation — any
+// access change logs the affected user(s) out immediately (Users.tokenVersion).
+import { apiGet, apiPut, apiPost, apiDelete, isLoggedIn, getToken } from '../api/api.js';
+
+const $ = (id) => document.getElementById(id);
+let STATE = { users: [], roles: [], permissions: [], myId: null, editUserId: null };
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,56 +29,209 @@ function roleChips(roles) {
     .join(' ');
 }
 
-function renderUsers(users, myId) {
+function statusChip(user) {
+  return user.isActive === false
+    ? '<span class="status-chip disabled">Disabled</span>'
+    : '<span class="status-chip active">Active</span>';
+}
+
+function feedback(msg) {
+  $('users-status').textContent = msg;
+}
+
+// ---------- Users table ----------
+function renderUsers() {
   const tbody = document.querySelector('#users-table tbody');
   tbody.innerHTML = '';
-  for (const u of users) {
-    const isAdmin = u.roles.includes('admin');
+  for (const u of STATE.users) {
+    const isSelf = u.id === STATE.myId;
+    const actions = [];
+    if (isSelf) {
+      actions.push('<button class="btn btn--sm" data-act="reset">Reset pw</button>');
+    } else {
+      actions.push('<button class="btn btn--sm" data-act="roles">Roles</button>');
+      actions.push(
+        u.isActive === false
+          ? '<button class="btn btn--sm" data-act="enable">Enable</button>'
+          : '<button class="btn btn--sm btn--danger" data-act="disable">Disable</button>'
+      );
+      actions.push('<button class="btn btn--sm" data-act="reset">Reset pw</button>');
+      actions.push('<button class="btn btn--sm btn--danger" data-act="del">Delete</button>');
+    }
     const tr = document.createElement('tr');
-    const action = u.id === myId
-      ? '<span class="muted">you</span>'
-      : isAdmin
-        ? `<button class="btn-demote" data-id="${u.id}" data-name="${escapeHtml(u.username)}">Make user</button>`
-        : `<button class="btn-promote" data-id="${u.id}" data-name="${escapeHtml(u.username)}">Make admin</button>`;
     tr.innerHTML = `
-      <td>${escapeHtml(u.username)}</td>
+      <td>${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(you)</span>' : ''}</td>
       <td>${roleChips(u.roles)}</td>
-      <td class="actions">${action}</td>
+      <td>${statusChip(u)}</td>
+      <td class="actions">${actions.join(' ')}</td>
     `;
     tbody.appendChild(tr);
   }
-  tbody.querySelectorAll('button[data-id]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const role = btn.classList.contains('btn-promote') ? 'admin' : 'user';
-      if (!confirm(`Change "${btn.dataset.name}" to role "${role}"?`)) return;
-      try {
-        await apiPut(`/api/users/${btn.dataset.id}/role`, { role });
-        await load();
-      } catch (err) {
-        alert('Failed to change role: ' + err.message);
-      }
-    });
+  tbody.querySelectorAll('button[data-act]').forEach((btn) => {
+    btn.addEventListener('click', () => act(btn.dataset.act, btn.closest('tr').rowIndex - 1));
   });
 }
 
-function renderMatrix(roles, permissions) {
-  const el = document.getElementById('permission-matrix');
-  const rows = permissions
-    .map((p) => {
-      const cells = roles
-        .map((r) => (r.permissions.includes(p.code) ? '<td class="yes">✓</td>' : '<td class="no">–</td>'))
-        .join('');
-      return `<tr><td title="${escapeHtml(p.description || '')}">${escapeHtml(p.code)}</td>${cells}</tr>`;
-    })
+async function act(name, rowIndex) {
+  const u = STATE.users[rowIndex];
+  if (!u) return;
+  try {
+    if (name === 'roles') openUserRoles(u);
+    else if (name === 'enable') await setActive(u, true);
+    else if (name === 'disable') await setActive(u, false);
+    else if (name === 'reset') openResetPw(u);
+    else if (name === 'del') await removeUser(u);
+  } catch (err) {
+    feedback('Error: ' + err.message);
+  }
+}
+
+async function setActive(u, isActive) {
+  const verb = isActive ? 'Enable' : 'Disable';
+  if (!confirm(`${verb} "${u.username}"?${isActive ? '' : ' All their sessions will be revoked immediately.'}`)) return;
+  const r = await apiPut(`/api/users/${u.id}/active`, { isActive });
+  feedback(r.message || (isActive ? 'User enabled' : 'User disabled'));
+  await load();
+}
+
+async function removeUser(u) {
+  if (!confirm(`Delete user "${u.username}"? This cannot be undone.`)) return;
+  const r = await apiDelete(`/api/users/${u.id}`);
+  feedback(r.message || 'User deleted');
+  await load();
+}
+
+// ---------- Modals ----------
+function openModal(id) { $(id).classList.add('show'); }
+function closeModal(id) { $(id).classList.remove('show'); }
+
+function openUserRoles(u) {
+  STATE.editUserId = u.id;
+  $('user-roles-title').textContent = 'Set roles — ' + u.username;
+  $('user-roles-body').innerHTML = STATE.roles
+    .map(
+      (r) => `
+        <label class="role-assign" style="grid-column:1/-1">
+          <input type="checkbox" value="${escapeHtml(r.name)}" ${u.roles.includes(r.name) ? 'checked' : ''} />
+          <strong>${escapeHtml(r.name)}</strong>
+          <span class="muted">— ${escapeHtml(r.description || 'no description')}</span>
+        </label>
+      `
+    )
     .join('');
-  const heads = roles.map((r) => `<th>${escapeHtml(r.name)}</th>`).join('');
-  el.innerHTML = `<div class="matrix"><table><thead><tr><th>Permission</th>${heads}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  openModal('user-roles-modal');
+}
+
+async function saveUserRoles() {
+  const roles = [...$('user-roles-body').querySelectorAll('input:checked')].map((i) => i.value);
+  const r = await apiPut(`/api/users/${STATE.editUserId}/roles`, { roles });
+  feedback(r.message || 'Roles updated');
+  closeModal('user-roles-modal');
+  await load();
+}
+
+function openResetPw(u) {
+  STATE.editUserId = u.id;
+  $('reset-pw-title').textContent = 'Reset password — ' + u.username;
+  $('reset-pw-input').value = '';
+  openModal('reset-pw-modal');
+}
+
+async function saveResetPw() {
+  const pw = $('reset-pw-input').value;
+  if (!pw || pw.length < 6) {
+    feedback('Password must be at least 6 characters');
+    return;
+  }
+  const r = await apiPut(`/api/users/${STATE.editUserId}/password`, { password: pw });
+  feedback(r.message || 'Password reset — sessions revoked');
+  closeModal('reset-pw-modal');
+}
+
+// ---------- Roles manager ----------
+function renderRoles() {
+  const el = $('roles-list');
+  el.innerHTML = '';
+  for (const role of STATE.roles) {
+    const card = document.createElement('div');
+    card.className = 'card role-card';
+    card.dataset.roleId = role.id;
+    card.innerHTML = `
+      <div class="role-card__head">
+        <strong>${escapeHtml(role.name)}</strong>
+        <span class="muted" style="font-size:0.72rem">${role.userCount} user(s)</span>
+      </div>
+      <input type="text" class="role-name" value="${escapeHtml(role.name)}" ${role.name === 'admin' ? 'disabled title="The admin role cannot be renamed or deleted"' : ''} />
+      <input type="text" class="role-desc" value="${escapeHtml(role.description || '')}" placeholder="Description" />
+      <div class="perm-grid">
+        ${STATE.permissions
+          .map(
+            (p) => `
+              <label title="${escapeHtml(p.description || '')}">
+                <input type="checkbox" class="perm" value="${escapeHtml(p.code)}" ${role.permissions.includes(p.code) ? 'checked' : ''} />
+                ${escapeHtml(p.code)}
+              </label>
+            `
+          )
+          .join('')}
+      </div>
+      <div class="role-card-actions">
+        <button type="button" class="btn btn--sm btn--primary role-save">Save</button>
+        ${role.name === 'admin' ? '' : '<button type="button" class="btn btn--sm btn--danger role-del">Delete</button>'}
+      </div>
+    `;
+    el.appendChild(card);
+  }
+  el.querySelectorAll('.role-save').forEach((btn) => btn.addEventListener('click', () => saveRole(btn.closest('.role-card'))));
+  el.querySelectorAll('.role-del').forEach((btn) => btn.addEventListener('click', () => deleteRole(btn.closest('.role-card'))));
+}
+
+async function saveRole(card) {
+  const id = Number(card.dataset.roleId);
+  const role = STATE.roles.find((r) => r.id === id);
+  const name = card.querySelector('.role-name').value.trim();
+  const description = card.querySelector('.role-desc').value.trim();
+  const permissions = [...card.querySelectorAll('.perm:checked')].map((i) => i.value);
+  if (!name) {
+    feedback('Role name is required');
+    return;
+  }
+  const r = await apiPut(`/api/users/roles/${id}`, { name, description, permissions });
+  feedback(r.message || `Role "${role.name}" updated — holders logged out`);
+  await load();
+}
+
+async function deleteRole(card) {
+  const id = Number(card.dataset.roleId);
+  const role = STATE.roles.find((r) => r.id === id);
+  if (!confirm(`Delete role "${role.name}"? Users holding it lose it.`)) return;
+  const r = await apiDelete(`/api/users/roles/${id}`);
+  feedback(r.message || 'Role deleted');
+  await load();
+}
+
+function openRoleModal() {
+  $('role-name').value = '';
+  $('role-desc').value = '';
+  openModal('role-modal');
+}
+
+async function saveNewRole() {
+  const name = $('role-name').value.trim();
+  const description = $('role-desc').value.trim();
+  if (!name) {
+    feedback('Role name is required');
+    return;
+  }
+  const r = await apiPost('/api/users/roles', { name, description });
+  feedback(r.message || 'Role created');
+  closeModal('role-modal');
+  await load();
 }
 
 async function load() {
-  const gate = document.getElementById('users-gate');
-  const content = document.getElementById('users-content');
-  const status = document.getElementById('users-status');
+  const gate = $('users-gate');
+  const content = $('users-content');
 
   if (!isLoggedIn() || !hasPerm('users.manage')) {
     content.classList.add('hidden');
@@ -81,7 +240,7 @@ async function load() {
   }
   gate.classList.add('hidden');
   content.classList.remove('hidden');
-  status.textContent = 'Loading…';
+  feedback('Loading…');
 
   try {
     const [{ users }, { roles, permissions }, me] = await Promise.all([
@@ -89,16 +248,33 @@ async function load() {
       apiGet('/api/users/roles'),
       apiGet('/api/users/me'),
     ]);
-    renderUsers(users, me.id);
-    renderMatrix(roles, permissions);
-    status.textContent = `${users.length} user(s) · ${roles.length} role(s) · ${permissions.length} permission(s).`;
+    STATE = { users, roles, permissions, myId: me.id, editUserId: null };
+    renderUsers();
+    renderRoles();
+    feedback(`${users.length} user(s) · ${roles.length} role(s) · ${permissions.length} permission(s).`);
   } catch (err) {
-    status.textContent = 'Failed to load: ' + err.message;
+    feedback('Failed to load: ' + err.message);
   }
 }
 
-// Re-render when auth changes (login/logout via the topbar control or a 401).
-window.addEventListener('auth:login', load);
-window.addEventListener('auth:logout', load);
+function init() {
+  $('user-roles-save').addEventListener('click', saveUserRoles);
+  $('user-roles-cancel').addEventListener('click', () => closeModal('user-roles-modal'));
+  $('user-roles-modal').addEventListener('click', (e) => { if (e.target === $('user-roles-modal')) closeModal('user-roles-modal'); });
 
+  $('reset-pw-save').addEventListener('click', saveResetPw);
+  $('reset-pw-cancel').addEventListener('click', () => closeModal('reset-pw-modal'));
+  $('reset-pw-modal').addEventListener('click', (e) => { if (e.target === $('reset-pw-modal')) closeModal('reset-pw-modal'); });
+
+  $('role-add').addEventListener('click', openRoleModal);
+  $('role-save').addEventListener('click', saveNewRole);
+  $('role-cancel').addEventListener('click', () => closeModal('role-modal'));
+  $('role-modal').addEventListener('click', (e) => { if (e.target === $('role-modal')) closeModal('role-modal'); });
+
+  // Re-render when auth changes (login/logout via the topbar control or a 401).
+  window.addEventListener('auth:login', load);
+  window.addEventListener('auth:logout', load);
+}
+
+init();
 load();

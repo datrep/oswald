@@ -37,11 +37,11 @@ PRINT 'Creating Edicts table...';
 CREATE TABLE Edicts (
     id INT PRIMARY KEY IDENTITY(1,1),
     name NVARCHAR(255) NOT NULL,
-    createdAt DATETIME DEFAULT GETDATE(),
+    createdAt DATETIME DEFAULT GETUTCDATE(),
     plannedStart DATETIME NOT NULL,
     plannedEnd DATETIME NULL,
     completedAt DATETIME NULL,
-    active AS (CASE WHEN GETDATE() >= plannedStart AND (plannedEnd IS NULL OR GETDATE() <= plannedEnd) THEN 1 ELSE 0 END),
+    active AS (CASE WHEN GETUTCDATE() >= plannedStart AND (plannedEnd IS NULL OR GETUTCDATE() <= plannedEnd) THEN 1 ELSE 0 END),
     info NVARCHAR(MAX),
     priority INT NULL,
     state INT NULL,
@@ -54,8 +54,8 @@ CREATE TABLE Users (
     id INT PRIMARY KEY IDENTITY(1,1),
     username NVARCHAR(50) NOT NULL UNIQUE,
     passwordHash NVARCHAR(255) NOT NULL,
-    createdAt DATETIME DEFAULT GETDATE(),
-    updatedAt DATETIME DEFAULT GETDATE()
+    createdAt DATETIME DEFAULT GETUTCDATE(),
+    updatedAt DATETIME DEFAULT GETUTCDATE()
 );
 GO
 
@@ -64,11 +64,11 @@ PRINT 'Creating Tasks table...';
 CREATE TABLE Tasks (
     id INT PRIMARY KEY IDENTITY(1,1),
     name NVARCHAR(255) NOT NULL,
-    createdAt DATETIME DEFAULT GETDATE(),
+    createdAt DATETIME DEFAULT GETUTCDATE(),
     plannedStart DATETIME NOT NULL,
     plannedEnd DATETIME NULL,
     completedAt DATETIME NULL,
-    active AS (CASE WHEN GETDATE() >= plannedStart AND (plannedEnd IS NULL OR GETDATE() <= plannedEnd) THEN 1 ELSE 0 END),
+    active AS (CASE WHEN GETUTCDATE() >= plannedStart AND (plannedEnd IS NULL OR GETUTCDATE() <= plannedEnd) THEN 1 ELSE 0 END),
     info NVARCHAR(MAX),
     priority INT NULL,
     state INT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE AuditLogs (
     taskId INT NULL,
     eventType NVARCHAR(50) NOT NULL,
     notes NVARCHAR(MAX) NULL,
-    createdAt DATETIME DEFAULT GETDATE(),
+    createdAt DATETIME DEFAULT GETUTCDATE(),
     FOREIGN KEY (edictId) REFERENCES Edicts(id) ON DELETE SET NULL,
     FOREIGN KEY (taskId) REFERENCES Tasks(id) ON DELETE SET NULL
 );
@@ -121,14 +121,14 @@ GO
 
 PRINT 'Inserting sample edicts...';
 INSERT INTO Edicts (name, plannedStart, plannedEnd, info, priority, state) VALUES
-('Initial Policy', GETDATE(), DATEADD(day, 7, GETDATE()), 'This is the first edict', 1, 2),
-('Follow-up Policy', DATEADD(day, 1, GETDATE()), DATEADD(day, 14, GETDATE()), 'Second policy for testing', 2, 1);
+('Initial Policy', GETUTCDATE(), DATEADD(day, 7, GETUTCDATE()), 'This is the first edict', 1, 2),
+('Follow-up Policy', DATEADD(day, 1, GETUTCDATE()), DATEADD(day, 14, GETUTCDATE()), 'Second policy for testing', 2, 1);
 GO
 
 PRINT 'Inserting sample tasks...';
 INSERT INTO Tasks (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId,edictId) VALUES
-('Task One', GETDATE(), DATEADD(day, 3, GETDATE()), 'First test task', 1, 2, 1,1),
-('Task Two', DATEADD(day, 2, GETDATE()), DATEADD(day, 5, GETDATE()), 'Second test task', 2, 1, 1,2);
+('Task One', GETUTCDATE(), DATEADD(day, 3, GETUTCDATE()), 'First test task', 1, 2, 1,1),
+('Task Two', DATEADD(day, 2, GETUTCDATE()), DATEADD(day, 5, GETUTCDATE()), 'Second test task', 2, 1, 1,2);
 GO
 
 PRINT 'Inserting sample resources for edicts...';

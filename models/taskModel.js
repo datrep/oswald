@@ -49,7 +49,7 @@ async function createTask(
             (name, plannedStart, plannedEnd, info, priority, state, assignedToUserId, edictId, completedAt, sortOrder)
             VALUES
             (@name, @plannedStart, @plannedEnd, @info, @priority, @state, @assignedToUserId, @edictId,
-             CASE WHEN @state = 3 THEN GETDATE() ELSE NULL END, @sortOrder)
+             CASE WHEN @state = 3 THEN GETUTCDATE() ELSE NULL END, @sortOrder)
         `);
 }
 
@@ -75,7 +75,7 @@ async function updateTask(id, fields) {
     sets.push(`${key} = @${param}`);
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'state')) {
-    sets.push(fields.state === 3 ? 'completedAt = COALESCE(completedAt, GETDATE())' : 'completedAt = NULL');
+    sets.push(fields.state === 3 ? 'completedAt = COALESCE(completedAt, GETUTCDATE())' : 'completedAt = NULL');
   }
   if (!sets.length) return;
   await req.query(`UPDATE Tasks SET ${sets.join(', ')} WHERE id = @id`);

@@ -11,22 +11,26 @@
     />
     <link rel="stylesheet" href="/css/main.css" />
     <style>
-      .admin-table { width: 100%; border-collapse: collapse; margin: 12px 0 28px; }
-      .admin-table th, .admin-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+      .admin-table { width: 100%; border-collapse: collapse; margin: 12px 0 24px; }
+      .admin-table th, .admin-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
       .admin-table th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
       .admin-table td.actions { text-align: right; white-space: nowrap; }
       .role-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); font-size: 0.75rem; margin-right: 4px; }
       .role-chip.admin { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-      .btn-promote, .btn-demote { padding: 4px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 0.8rem; }
-      .btn-promote:hover { border-color: var(--accent); color: var(--accent); }
-      .btn-demote:hover { border-color: var(--danger, #f0757e); color: var(--danger, #f0757e); }
-      .matrix-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-top: 8px; }
-      .matrix table { border-collapse: collapse; font-size: 0.8rem; }
-      .matrix th, .matrix td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
-      .matrix th { color: var(--muted); }
-      .matrix th:first-child, .matrix td:first-child { text-align: left; }
-      .matrix .yes { color: var(--accent); font-weight: 700; }
-      .matrix .no { color: var(--muted); opacity: 0.45; }
+      .status-chip { font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; text-transform: uppercase; }
+      .status-chip.active { background: rgba(52,211,153,0.14); color: #6ee7b7; }
+      .status-chip.disabled { background: var(--panel-3); color: var(--muted); }
+      .roles-head { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; }
+      .roles-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 10px; }
+      .role-card { display: flex; flex-direction: column; gap: 8px; }
+      .role-card__head { display: flex; align-items: center; justify-content: space-between; }
+      .role-card input[type='text'] { width: 100%; background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 0.8rem; }
+      .perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.74rem; }
+      .perm-grid label { display: flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; }
+      .perm-grid input { accent-color: var(--accent); }
+      .role-assign { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; }
+      .role-assign input { accent-color: var(--accent); }
+      .role-card-actions { display: flex; gap: 6px; margin-top: 4px; }
     </style>
   </head>
   <body>
@@ -38,7 +42,7 @@
             <div class="sidebar-panel sidebar-links" id="admin-nav">
               <a href="/index.html">Dashboard</a>
               <a href="/pages/policy.html">Policy workspace</a>
-              <a href="https://172.22.160.3:8090" target="_blank" rel="noopener">Fileserver</a>
+              <a href="https://localhost:8090" data-fileserver target="_blank" rel="noopener">Fileserver</a>
             </div>
           </section>
           <section class="sidebar-block">
@@ -69,21 +73,66 @@
             <div id="users-content">
               <h2>Users &amp; Roles</h2>
               <p class="muted" id="users-status"></p>
+
               <table class="admin-table" id="users-table">
                 <thead>
-                  <tr><th>Username</th><th>Roles</th><th></th></tr>
+                  <tr><th>Username</th><th>Roles</th><th>Status</th><th></th></tr>
                 </thead>
                 <tbody></tbody>
               </table>
 
-              <h3>Permission matrix</h3>
-              <p class="muted">Read-only view of role → permission grants (editing the matrix isn't exposed yet).</p>
-              <div id="permission-matrix" class="matrix-scroll"></div>
+              <div class="roles-head">
+                <h3>Roles</h3>
+                <button type="button" id="role-add" class="btn btn--primary btn--sm">+ New role</button>
+              </div>
+              <p class="muted" style="font-size:0.78rem">Edit a role and save — its holders are logged out so changes apply immediately.</p>
+              <div id="roles-list" class="roles-list"></div>
             </div>
           </div>
         </main>
       </div>
     </header>
+
+    <!-- User roles modal -->
+    <div id="user-roles-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 class="modal__head" id="user-roles-title">Set roles</h3>
+        <div class="form-grid" id="user-roles-body"></div>
+        <div class="modal__actions">
+          <button id="user-roles-save" class="btn btn--primary">Save</button>
+          <button id="user-roles-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset password modal -->
+    <div id="reset-pw-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 class="modal__head" id="reset-pw-title">Reset password</h3>
+        <div class="form-grid">
+          <div class="field field--full"><label>New password</label><input type="password" id="reset-pw-input" autocomplete="new-password" /></div>
+        </div>
+        <div class="modal__actions">
+          <button id="reset-pw-save" class="btn btn--primary">Reset &amp; revoke sessions</button>
+          <button id="reset-pw-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New role modal -->
+    <div id="role-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 class="modal__head">New role</h3>
+        <div class="form-grid">
+          <div class="field"><label>Name</label><input id="role-name" /></div>
+          <div class="field"><label>Description</label><input id="role-desc" /></div>
+        </div>
+        <div class="modal__actions">
+          <button id="role-save" class="btn btn--primary">Create</button>
+          <button id="role-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="/js/pages/users.js"></script>
     <script type="module" src="/js/components/auth.js"></script>

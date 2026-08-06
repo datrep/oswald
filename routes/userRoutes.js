@@ -11,6 +11,12 @@ router.delete('/:userId', authenticateToken, userController.deleteUser);
 router.get('/me', authenticateToken, userController.getUserInfo);
 router.get('/', authenticateToken, requirePermission('users.manage'), userController.getAllUsers);
 router.get('/roles', authenticateToken, requirePermission('users.manage'), userController.getRoles);
+router.post('/roles', authenticateToken, requirePermission('users.manage'), userController.createRole);
+router.put('/roles/:roleId', authenticateToken, requirePermission('users.manage'), userController.updateRole);
+router.delete('/roles/:roleId', authenticateToken, requirePermission('users.manage'), userController.deleteRole);
 router.put('/:userId/role', authenticateToken, requirePermission('users.manage'), userController.assignUserRole);
+router.put('/:userId/roles', authenticateToken, requirePermission('users.manage'), userController.setUserRoles);
+router.put('/:userId/active', authenticateToken, requirePermission('users.manage'), userController.setUserActive);
+router.put('/:userId/password', authenticateToken, requirePermission('users.manage'), userController.resetUserPassword);
 
 module.exports = router;

@@ -38,15 +38,36 @@ function readToken(req, cookieName) {
  * @param {object} [opts]
  * @param {number} [opts.invalidStatus=401] status for a present-but-invalid token.
  * @param {string|null} [opts.cookieName=null] optional cookie name to accept as a fallback.
+ * @param {Function|null} [opts.loadUser=null] async (userId) => ({isActive, tokenVersion}) —
+ *   when provided, the token is ALSO verified against the DB every request:
+ *   missing user, disabled account, or a `v` mismatch (access-control change) -> 401,
+ *   so role/password/disable changes revoke sessions IMMEDIATELY (no stale 1h window).
+ *   A token without a `v` claim is treated as version 0 (legacy / self-minted tokens).
  */
-function makeAuthenticateToken({ invalidStatus = 401, cookieName = null } = {}) {
+function makeAuthenticateToken({ invalidStatus = 401, cookieName = null, loadUser = null } = {}) {
   return function authenticateToken(req, res, next) {
     const token = readToken(req, cookieName);
     if (!token) return res.status(401).json({ error: 'Missing token' });
     jwt.verify(token, SECRET, (err, user) => {
       if (err) return res.status(invalidStatus).json({ error: 'Invalid or expired token' });
-      req.user = user;
-      next();
+      if (!loadUser) {
+        // Stateless fallback (no DB configured) — keeps the contract unchanged.
+        req.user = user;
+        return next();
+      }
+      loadUser(user.userID)
+        .then((state) => {
+          if (!state || !state.isActive) {
+            return res.status(401).json({ error: 'Account disabled or removed' });
+          }
+          const tokenV = user.v ?? 0; // missing v = legacy/self-minted token
+          if (tokenV !== state.tokenVersion) {
+            return res.status(401).json({ error: 'Session revoked — please sign in again' });
+          }
+          req.user = user;
+          next();
+        })
+        .catch(() => res.status(invalidStatus).json({ error: 'Auth lookup failed' }));
     });
   };
 }
