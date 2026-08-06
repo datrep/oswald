@@ -228,13 +228,16 @@ docker compose up -d fileserver     # stop the native process first (both use :8
 
 The fileserver is fully standalone (its own `fileserver/db.js` — no dependency on the dashboard's module tree), and exposes a localhost-only health endpoint at `http://127.0.0.1:8091/healthz` (used by the container healthcheck).
 
-### FS-3: one-way mirror sync (task 48)
-`fileserver/sync.js` mirrors a configured **source → local destination** (source wins), optionally deleting extraneous files (`deleteExtraneous`, rsync `--delete` semantics). Fast size+mtime compare, per-file **temp+rename** writes (no half-written files), mtimes preserved (re-runs report `unchanged`), per-file error collection.
+### FS-3: one-way mirror sync + Sync area (tasks 48 + SYNC-1)
+`fileserver/sync.js` mirrors a configured **source → local destination** (source wins). Fast size+mtime compare, per-file **temp+rename** writes (no half-written files), mtimes preserved (re-runs report `unchanged`), per-file error collection.
 
 - Config (`config.json` → `sync`): `source`, `destination`, `deleteExtraneous`, `intervalMinutes` (`0` = manual only; `>0` = scheduled poll). Env overrides: `FILESERVER_SYNC_SOURCE` / `_DEST` / `_DELETE` / `_INTERVAL`.
-- `mirror.mirrorPath` defaults to `sync.destination`, so the read-only mirror root is the synced copy.
-- Admin API: `POST /api/fs/sync` (run now, async) · `GET /api/fs/sync/status` (running + last report).
-- UI: **Sync** button in the toolbar (files.admin) triggers a run and toasts the delta (`+added ~updated -deleted`).
+- **Direction-aware** (SYNC-1): `POST /api/fs/sync` takes `{direction}` — `push` (resources → sync area, the tester's working copy) or `collect` (sync area → resources, the tester's drops land in Oswald). UI: the **Sync** button + a **Sync direction** dropdown in the toolbar (files.admin). Scheduled runs stay `push`.
+- **Non-destructive by default** — `deleteExtraneous` (config, default `false`) only applies to `push`, never `collect`, so the canonical `resources` are never pruned by a collect.
+- **Sync area root**: `config.json` roots include `sync` → the sync destination folder, so it's browsable over HTTPS. Give a user write via the **Share** modal (or an ACL row) and they can drop files there; admin `Collect` moves them into `resources`.
+- `mirror.mirrorPath` defaults to `sync.destination` (the sync area) — flipping to **Mirror** mode shows that same folder read-only.
+- Admin API: `POST /api/fs/sync` (run now, async) · `GET /api/fs/sync/status` (running + last report incl. `direction`).
+- Onboarding a tester: create an account (`scripts/create-account.js` or self-signup; default `user` role = read-only on `resources`), then grant an ACL write on the `sync` root (`FileServerACLs` row `rootId='sync', folderPath='', canRead=1, canWrite=1`, or the Share modal). The tester reads `Resources` and drops/uploads into `Sync area`; deletes there are their own CRUD. True two-way local-machine sync (client agent) is tracked as **SYNC-2**.
 
 ---
 

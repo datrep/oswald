@@ -12,12 +12,12 @@
   "mirror": {
     "sourceRootId": "resources",
     "mirrorPath": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror",
-    "readOnly": true
+    "readOnly": false
   },
   "sync": {
     "source": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources",
-    "destination": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror",
-    "deleteExtraneous": true,
+    "destination": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area",
+    "deleteExtraneous": false,
     "intervalMinutes": 0
   },
   "roots": [
@@ -25,6 +25,16 @@
       "id": "resources",
       "name": "Resources",
       "path": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources"
+    },
+    {
+      "id": "sync",
+      "name": "Sync area",
+      "path": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area"
+    },
+    {
+      "id": "mirror",
+      "name": "mirror",
+      "path": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror"
     }
   ],
   "search": {

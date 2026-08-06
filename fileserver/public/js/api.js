@@ -195,9 +195,14 @@ export const FS = {
     return this.json('/api/fs/users');
   },
 
-  // FS-3 one-way sync (files.admin).
-  syncNow() {
-    return this.json('/api/fs/sync', { method: 'POST' });
+  // FS-3 one-way sync (files.admin). direction: 'push' (resources -> sync area)
+  // or 'collect' (sync area -> resources).
+  syncNow(direction) {
+    return this.json('/api/fs/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction: direction || 'push' }),
+    });
   },
   syncStatus() {
     return this.json('/api/fs/sync/status');

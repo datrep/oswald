@@ -94,11 +94,13 @@ exports.getAllUsersWithRoles = async () => {
   const pool = await getPool();
   const result = await pool.request().query(`
     SELECT u.id, u.username, u.isActive,
-           COALESCE(STRING_AGG(r.name, ','), '') AS roles
+           COALESCE(STRING_AGG(r.name, ','), '') AS roles,
+           s.loggedInAt AS lastLoginAt, s.userAgent AS lastUserAgent
     FROM Users u
     LEFT JOIN UserRoles ur ON ur.userId = u.id
     LEFT JOIN Roles r ON r.id = ur.roleId
-    GROUP BY u.id, u.username, u.isActive
+    OUTER APPLY (SELECT TOP 1 loggedInAt, userAgent FROM UserSessions WHERE userId = u.id ORDER BY loggedInAt DESC) s
+    GROUP BY u.id, u.username, u.isActive, s.loggedInAt, s.userAgent
     ORDER BY u.username
   `);
   return result.recordset.map((u) => ({
@@ -106,5 +108,29 @@ exports.getAllUsersWithRoles = async () => {
     username: u.username,
     isActive: u.isActive !== false,
     roles: u.roles ? u.roles.split(',').filter(Boolean) : [],
+    lastLoginAt: u.lastLoginAt || null,
+    lastUserAgent: u.lastUserAgent || null,
   }));
+};
+
+// Record a successful login (best-effort, never fails the login itself).
+exports.addSession = async (userId, ip, userAgent) => {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input('userId', sql.Int, userId)
+    .input('ip', sql.NVarChar, ip)
+    .input('userAgent', sql.NVarChar, userAgent)
+    .query('INSERT INTO UserSessions (userId, ip, userAgent) VALUES (@userId, @ip, @userAgent)');
+};
+
+// Recent login sessions for one user (admin-only view).
+exports.getSessionsByUser = async (userId, limit = 10) => {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('userId', sql.Int, userId)
+    .input('limit', sql.Int, limit)
+    .query('SELECT TOP (@limit) id, loggedInAt, ip, userAgent FROM UserSessions WHERE userId = @userId ORDER BY loggedInAt DESC');
+  return result.recordset;
 };

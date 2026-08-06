@@ -81,7 +81,11 @@ body {
 .fs-root-picker { display: flex; align-items: center; gap: 6px; }
 .fs-root-picker label { color: var(--muted); font-size: 12px; }
 
-select, input[type='text'], input:not([type]) {
+select,
+input[type='text'],
+input[type='search'],
+input[type='password'],
+input:not([type]) {
   background: var(--bg-soft);
   color: var(--text);
   border: 1px solid var(--border);
@@ -242,8 +246,9 @@ select:focus, input:focus { border-color: var(--accent); }
 .file-icon.k-archive { background: #7a6f4d; }
 .file-icon.k-other { background: #55607a; }
 
-/* Grid mode */
-.fs-list.grid-mode { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; align-content: start; }
+/* Grid mode — zoomable: ctrl+scrollwheel over #file-list scales --fs-zoom (0.4x-2.5x) */
+#file-list { --fs-zoom: 1; }
+.fs-list.grid-mode { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(120px * var(--fs-zoom)), 1fr)); gap: 12px; align-content: start; }
 .fs-grid-card {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -253,11 +258,30 @@ select:focus, input:focus { border-color: var(--accent); }
   text-align: center;
 }
 .fs-grid-card:hover { border-color: var(--accent); }
-.fs-grid-card .thumb { height: 90px; display: flex; align-items: center; justify-content: center; background: var(--bg-soft); overflow: hidden; }
+.fs-grid-card .thumb { height: calc(90px * var(--fs-zoom)); display: flex; align-items: center; justify-content: center; background: var(--bg-soft); overflow: hidden; }
 .fs-grid-card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.fs-grid-card .thumb .file-icon { width: 36px; height: 36px; font-size: 12px; border-radius: 9px; }
+.fs-grid-card .thumb .file-icon { width: calc(36px * var(--fs-zoom)); height: calc(36px * var(--fs-zoom)); font-size: calc(12px * var(--fs-zoom)); border-radius: 9px; }
 .fs-grid-card .gname { padding: 7px 6px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-grid-card.dir .gname { font-weight: 600; }
+
+/* List-view column header ("titles on top") */
+.fs-list-head {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 90px 150px;
+  gap: 12px;
+  padding: 4px 10px;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-soft);
+}
 
 /* ---------- Drop zone ---------- */
 .drop-hint {

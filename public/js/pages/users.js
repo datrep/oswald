@@ -5,7 +5,7 @@
 import { apiGet, apiPut, apiPost, apiDelete, isLoggedIn, getToken } from '../api/api.js';
 
 const $ = (id) => document.getElementById(id);
-let STATE = { users: [], roles: [], permissions: [], myId: null, editUserId: null };
+let STATE = { users: [], roles: [], permissions: [], myId: null, editUserId: null, search: '' };
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -39,41 +39,95 @@ function feedback(msg) {
   $('users-status').textContent = msg;
 }
 
+function renderStats() {
+  const el = $('uac-stats');
+  if (!el) return;
+  const active = STATE.users.filter((u) => u.isActive !== false).length;
+  el.innerHTML = `
+    <span class="uac-stat users"><b>${STATE.users.length}</b> users</span>
+    <span class="uac-stat active"><b>${active}</b> active</span>
+    <span class="uac-stat disabled"><b>${STATE.users.length - active}</b> disabled</span>
+    <span class="uac-stat roles"><b>${STATE.roles.length}</b> roles</span>
+    <span class="uac-stat perms"><b>${STATE.permissions.length}</b> permissions</span>
+  `;
+}
+
+function fmtLastLogin(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+         d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+// Short device label from a user-agent string (mirrors the login capture).
+function deviceLabel(ua) {
+  if (!ua) return '—';
+  let os = 'OS';
+  if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Macintosh|Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  let browser = 'Browser';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\//.test(ua)) browser = 'Opera';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+  return `${browser} · ${os}`;
+}
+
 // ---------- Users table ----------
 function renderUsers() {
   const tbody = document.querySelector('#users-table tbody');
   tbody.innerHTML = '';
-  for (const u of STATE.users) {
+  const q = (STATE.search || '').toLowerCase();
+  const list = STATE.users.filter((u) => !q || u.username.toLowerCase().includes(q));
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">No matching users.</td></tr>';
+    return;
+  }
+  for (const u of list) {
     const isSelf = u.id === STATE.myId;
     const actions = [];
+    const menuItems = [];
     if (isSelf) {
       actions.push('<button class="btn btn--sm" data-act="reset">Reset pw</button>');
     } else {
+      // Two most-used actions stay visible; the rest live in a "⋯" menu.
       actions.push('<button class="btn btn--sm" data-act="roles">Roles</button>');
-      actions.push(
+      actions.push('<button class="btn btn--sm" data-act="reset">Reset pw</button>');
+      menuItems.push(
         u.isActive === false
           ? '<button class="btn btn--sm" data-act="enable">Enable</button>'
           : '<button class="btn btn--sm btn--danger" data-act="disable">Disable</button>'
       );
-      actions.push('<button class="btn btn--sm" data-act="reset">Reset pw</button>');
-      actions.push('<button class="btn btn--sm btn--danger" data-act="del">Delete</button>');
+      menuItems.push('<button class="btn btn--sm btn--danger" data-act="del">Delete</button>');
+      actions.push(
+        '<span class="row-menu"><button type="button" class="btn btn--sm menu-trigger" title="More actions">⋯</button>' +
+          '<div class="menu-pop hidden">' + menuItems.join('') + '</div></span>'
+      );
     }
     const tr = document.createElement('tr');
+    tr.dataset.id = u.id;
     tr.innerHTML = `
       <td>${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(you)</span>' : ''}</td>
       <td>${roleChips(u.roles)}</td>
       <td>${statusChip(u)}</td>
+      <td class="last">${fmtLastLogin(u.lastLoginAt)}</td>
+      <td class="device" title="${escapeHtml(u.lastUserAgent || '')}">${escapeHtml(deviceLabel(u.lastUserAgent))}</td>
       <td class="actions">${actions.join(' ')}</td>
     `;
     tbody.appendChild(tr);
   }
   tbody.querySelectorAll('button[data-act]').forEach((btn) => {
-    btn.addEventListener('click', () => act(btn.dataset.act, btn.closest('tr').rowIndex - 1));
+    btn.addEventListener('click', () => act(btn.dataset.act, btn.closest('tr').dataset.id));
   });
 }
 
-async function act(name, rowIndex) {
-  const u = STATE.users[rowIndex];
+async function act(name, userId) {
+  const u = STATE.users.find((x) => String(x.id) === String(userId));
   if (!u) return;
   try {
     if (name === 'roles') openUserRoles(u);
@@ -111,10 +165,12 @@ function openUserRoles(u) {
   $('user-roles-body').innerHTML = STATE.roles
     .map(
       (r) => `
-        <label class="role-assign" style="grid-column:1/-1">
+        <label class="role-assign">
           <input type="checkbox" value="${escapeHtml(r.name)}" ${u.roles.includes(r.name) ? 'checked' : ''} />
-          <strong>${escapeHtml(r.name)}</strong>
-          <span class="muted">— ${escapeHtml(r.description || 'no description')}</span>
+          <span class="role-assign__text">
+            <strong>${escapeHtml(r.name)}</strong>
+            <span class="muted role-assign__desc">${escapeHtml(r.description || 'no description')}</span>
+          </span>
         </label>
       `
     )
@@ -169,7 +225,7 @@ function renderRoles() {
             (p) => `
               <label title="${escapeHtml(p.description || '')}">
                 <input type="checkbox" class="perm" value="${escapeHtml(p.code)}" ${role.permissions.includes(p.code) ? 'checked' : ''} />
-                ${escapeHtml(p.code)}
+                <span class="perm-name">${escapeHtml(p.code)}</span>
               </label>
             `
           )
@@ -248,9 +304,11 @@ async function load() {
       apiGet('/api/users/roles'),
       apiGet('/api/users/me'),
     ]);
-    STATE = { users, roles, permissions, myId: me.id, editUserId: null };
+    STATE = { users, roles, permissions, myId: me.id, editUserId: null, search: '' };
+    if ($('user-search')) $('user-search').value = '';
     renderUsers();
     renderRoles();
+    renderStats();
     feedback(`${users.length} user(s) · ${roles.length} role(s) · ${permissions.length} permission(s).`);
   } catch (err) {
     feedback('Failed to load: ' + err.message);
@@ -270,6 +328,25 @@ function init() {
   $('role-save').addEventListener('click', saveNewRole);
   $('role-cancel').addEventListener('click', () => closeModal('role-modal'));
   $('role-modal').addEventListener('click', (e) => { if (e.target === $('role-modal')) closeModal('role-modal'); });
+
+  const search = $('user-search');
+  if (search) {
+    search.addEventListener('input', () => {
+      STATE.search = search.value;
+      renderUsers();
+    });
+  }
+
+  // Row "⋯" menu: clicking the trigger toggles its popover and closes the others;
+  // any outside click closes all open menus.
+  document.addEventListener('click', (e) => {
+    const trig = e.target.closest('.menu-trigger');
+    const pop = trig ? trig.closest('.row-menu').querySelector('.menu-pop') : null;
+    document.querySelectorAll('.menu-pop').forEach((p) => {
+      if (p !== pop) p.classList.add('hidden');
+    });
+    if (pop) pop.classList.toggle('hidden');
+  });
 
   // Re-render when auth changes (login/logout via the topbar control or a 401).
   window.addEventListener('auth:login', load);

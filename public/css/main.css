@@ -2461,7 +2461,10 @@ button:active {
 }
 
 /* ---------- Forms ---------- */
-input,
+/* Checkboxes/radios are excluded from the full-width field styling (a
+   checkbox must keep its intrinsic size — width:100% used to stretch it and
+   push the label text off-screen). Toggle controls set their own width. */
+input:not([type='checkbox']):not([type='radio']),
 select,
 textarea {
   font-family: var(--font);

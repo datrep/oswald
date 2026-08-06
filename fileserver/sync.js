@@ -1,4 +1,4 @@
-// fileserver/sync.js — FS-3: one-way mirror sync engine.
+// fileserver/sync.js — FS-3: one-way mirror sync engine (SYNC-1: direction-aware).
 //
 // Mirrors a configured source folder to a LOCAL destination (source wins),
 // optionally deleting extraneous files (rsync --delete semantics). Fast
@@ -38,19 +38,26 @@ function needsUpdate(srcAbs, dstAbs) {
   return Math.abs(s.mtimeMs - d.mtimeMs) > 1000;
 }
 
-async function runSync() {
+async function runSync(direction = 'push') {
   if (running) {
     return { ...(lastReport || {}), skippedDueToRunning: true };
   }
   running = true;
   const startedAt = new Date();
   const c = getConfig();
-  const source = c.sync?.source;
-  const destination = c.sync?.destination;
-  const deleteExtraneous = c.sync?.deleteExtraneous !== false;
+  const dir = direction === 'collect' ? 'collect' : 'push';
+  // push:    canonical resources -> sync area (the tester's working copy)
+  // collect: sync area -> canonical resources (the tester's drops land in Oswald)
+  // Destructive deletes are Phase B (client-side tombstones); for now BOTH
+  // directions are add/update-only. sync.deleteExtraneous (config) is honored
+  // for push only, never collect (we never delete the canonical side).
+  const source = dir === 'collect' ? c.sync?.destination : c.sync?.source;
+  const destination = dir === 'collect' ? c.sync?.source : c.sync?.destination;
+  const deleteExtraneous = c.sync?.deleteExtraneous === true && dir === 'push';
 
   const report = {
     startedAt: startedAt.toISOString(),
+    direction: dir,
     source,
     destination,
     added: 0,

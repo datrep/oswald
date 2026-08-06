@@ -21,6 +21,7 @@ const state = {
   tagsAll: [],
   nodeMap: new Map(),  // tree rel -> {expanded}
   mode: 'fileserver',  // ARCH: 'fileserver' (drop/upload) | 'mirror' (sync, read-only)
+  zoom: 1,             // grid thumbnail zoom 0.4-2.5x (ctrl+scrollwheel on #file-list)
 };
 
 const KIND_ICON = {
@@ -69,7 +70,7 @@ const FS_STATE_KEY = 'oswald_fs_state';
 
 function saveFsState() {
   try {
-    localStorage.setItem(FS_STATE_KEY, JSON.stringify({ view: state.view, sortBy: state.sortBy, sortDir: state.sortDir }));
+    localStorage.setItem(FS_STATE_KEY, JSON.stringify({ view: state.view, sortBy: state.sortBy, sortDir: state.sortDir, zoom: state.zoom }));
   } catch { /* ignore */ }
 }
 
@@ -80,7 +81,23 @@ function loadFsState() {
     if (s.view === 'list' || s.view === 'grid') state.view = s.view;
     if (['name', 'size', 'mtime'].includes(s.sortBy)) state.sortBy = s.sortBy;
     if (s.sortDir === 1 || s.sortDir === -1) state.sortDir = s.sortDir;
+    if (typeof s.zoom === 'number' && s.zoom >= 0.4 && s.zoom <= 2.5) state.zoom = s.zoom;
   } catch { /* ignore */ }
+}
+
+// Grid zoom (0.4-2.5x): ctrl+scrollwheel over #file-list (the only zoomed element).
+function applyZoom() {
+  $('file-list').style.setProperty('--fs-zoom', state.zoom);
+}
+function zoomBy(factor) {
+  state.zoom = Math.min(2.5, Math.max(0.4, Math.round(state.zoom * factor * 100) / 100));
+  applyZoom();
+  saveFsState();
+}
+
+// List-view column header ("titles on top").
+function listHeader() {
+  return '<div class="fs-list-head"><span>Name</span><span>Size</span><span>Modified</span></div>';
 }
 
 function syncViewControls() {
@@ -422,7 +439,7 @@ function rowActions(entry, canWrite) {
 
 function renderRows(entries) {
   const canWrite = !!state.access?.write;
-  return entries.map((e) => {
+  return listHeader() + entries.map((e) => {
     const rel = joinRel(state.path, e.name);
     const key = favKey(state.root, rel);
     const iconCls = e.isDir ? 'dir' : 'k-' + (e.kind || 'other');
@@ -474,7 +491,7 @@ async function runSearch() {
       list.innerHTML = `<div class="fs-empty">No matches for “${escapeHtml(q)}”.</div>`;
       return;
     }
-    list.innerHTML = results.map((e) => {
+    list.innerHTML = listHeader() + results.map((e) => {
       const iconCls = e.isDir ? 'dir' : 'k-' + (e.kind || 'other');
       return `<div class="fs-row" data-rel="${escapeHtml(e.rel)}" data-name="${escapeHtml(e.name)}" data-kind="${e.isDir ? 'dir' : e.kind}">
         <div class="name"><span class="file-icon ${iconCls}">${KIND_ICON[e.isDir ? 'dir' : e.kind] || 'FILE'}</span><span title="${escapeHtml(e.name)}">${escapeHtml(e.rel)}</span></div>
@@ -840,8 +857,9 @@ async function openShare() {
 // ---------- FS-3: one-way mirror sync (files.admin) ----------
 async function runSync() {
   try {
-    await FS.syncNow();
-    toast('Sync started…');
+    const direction = $('sync-direction').value || 'push';
+    await FS.syncNow(direction);
+    toast(direction === 'collect' ? 'Collect started…' : 'Sync started…');
     const poll = async () => {
       for (let i = 0; i < 120; i++) {
         await new Promise((r) => setTimeout(r, 1500));
@@ -1056,6 +1074,7 @@ async function boot() {
   // Restore cached view/sort state (per-browser), then keep controls in sync.
   loadFsState();
   syncViewControls();
+  applyZoom();
   await loadRoots();
   renderBreadcrumb();
   await loadDir();
@@ -1082,10 +1101,22 @@ async function boot() {
 
   $('file-list').addEventListener('click', handleListClick);
 
+  // Grid zoom: ctrl+scrollwheel over the file list (0.4x - 2.5x).
+  $('file-list').addEventListener(
+    'wheel',
+    (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    },
+    { passive: false }
+  );
+
   // FS-2: favorites + tags + share
   $('btn-share').classList.toggle('hidden', !FS.can('files.admin'));
-  // FS-3: one-way mirror sync
+  // FS-3: one-way mirror sync (push/collect directions)
   $('btn-sync').classList.toggle('hidden', !FS.can('files.admin'));
+  $('sync-direction').classList.toggle('hidden', !FS.can('files.admin'));
   $('btn-sync').onclick = runSync;
 
   // Settings (admin only)

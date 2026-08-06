@@ -53,6 +53,11 @@ async function loginUser(req, res, next) {
       expiresIn: '1h',
     });
 
+    // Record the login session (best-effort — never block login on a log failure).
+    try {
+      await User.addSession(user.id, req.ip || null, (req.headers['user-agent'] || '').slice(0, 500));
+    } catch { /* logging is best-effort */ }
+
     res.status(200).json({ message: 'Login successful', token, roles, permissions });
   } catch (err) {
     next(err);
@@ -135,6 +140,19 @@ async function getRoles(req, res, next) {
       Role.getAllPermissions(),
     ]);
     res.json({ roles, permissions });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/users/:userId/sessions — recent login sessions for one user (admin only).
+async function getUserSessions(req, res, next) {
+  const userId = Number.parseInt(req.params.userId, 10);
+  if (!Number.isInteger(userId)) return res.status(400).json({ error: 'Invalid user id' });
+  try {
+    const limit = Math.min(Number.parseInt(req.query.limit || '10', 10) || 10, 50);
+    const sessions = await User.getSessionsByUser(userId, limit);
+    res.json({ sessions });
   } catch (err) {
     next(err);
   }
@@ -292,6 +310,7 @@ module.exports = {
   getUserInfo,
   getAllUsers,
   getRoles,
+  getUserSessions,
   assignUserRole,
   setUserRoles,
   setUserActive,

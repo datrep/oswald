@@ -18,5 +18,6 @@ router.put('/:userId/role', authenticateToken, requirePermission('users.manage')
 router.put('/:userId/roles', authenticateToken, requirePermission('users.manage'), userController.setUserRoles);
 router.put('/:userId/active', authenticateToken, requirePermission('users.manage'), userController.setUserActive);
 router.put('/:userId/password', authenticateToken, requirePermission('users.manage'), userController.resetUserPassword);
+router.get('/:userId/sessions', authenticateToken, requirePermission('users.manage'), userController.getUserSessions);
 
 module.exports = router;

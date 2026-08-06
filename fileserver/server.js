@@ -526,15 +526,16 @@ app.get('/api/fs/sync/status', authenticateToken, access.requireAdmin, (req, res
 
 app.post('/api/fs/sync', authenticateToken, access.requireAdmin, (req, res, next) => {
   try {
+    const direction = req.body?.direction === 'collect' ? 'collect' : 'push';
     syncEngine
-      .runSync()
+      .runSync(direction)
       .then((r) => {
         if (!r.skippedDueToRunning) {
-          console.log(`[fs] manual sync: +${r.added} ~${r.updated} -${r.deleted}${r.error ? ' error:' + r.error : ''}`);
+          console.log(`[fs] manual sync (${direction}): +${r.added} ~${r.updated} -${r.deleted}${r.error ? ' error:' + r.error : ''}`);
         }
       })
       .catch((e) => console.error('[fs] sync error', e));
-    ok(res, { running: true, startedAt: new Date().toISOString() });
+    ok(res, { running: true, direction, startedAt: new Date().toISOString() });
   } catch (e) { next(e); }
 });
 

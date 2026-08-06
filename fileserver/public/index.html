@@ -60,7 +60,11 @@
           <button id="fav-toggle" class="btn ghost" title="Show favorites only">★ Favorites</button>
           <select id="tag-filter" title="Filter by tag"><option value="">All tags</option></select>
           <button id="btn-share" class="btn ghost hidden" title="Share / folder permissions">Share</button>
-          <button id="btn-sync" class="btn ghost hidden" title="Run one-way mirror sync (FS-3)">Sync</button>
+          <button id="btn-sync" class="btn ghost hidden" title="Run sync (admin)">Sync</button>
+          <select id="sync-direction" class="hidden" title="Sync direction">
+            <option value="push">Push: resources → sync</option>
+            <option value="collect">Collect: sync → resources</option>
+          </select>
           <select id="mode-select" class="hidden" title="Switch mode: Server (drop/upload) or Mirror (sync, read-only)">
             <option value="fileserver">Mode: Server (drop)</option>
             <option value="mirror">Mode: Mirror (sync)</option>
