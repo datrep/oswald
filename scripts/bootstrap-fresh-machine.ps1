@@ -234,12 +234,16 @@ function Show-SqlStartDiagnostics {
         Select-Object -First 6 |
         ForEach-Object { Write-Host "    [$($_.TimeCreated.ToString('HH:mm:ss'))] $($_.ProviderName): $($_.Message)" -ForegroundColor $Warn }
     Write-Host ""
-    Write-Host "  Most likely fix after a fresh SQL Express install: REBOOT the machine, then re-run" -ForegroundColor $Info
-    Write-Host "  this script - it resumes (stages already completed are skipped)." -ForegroundColor $Info
+    Write-Host "  ================================================================" -ForegroundColor $Info
+    Write-Host "  SQL Server service would not start." -ForegroundColor $Info
+    Write-Host "  Most common cause right after a fresh SQL Express install: a REBOOT is required." -ForegroundColor $Info
+    Write-Host "  Restart the machine, then re-run this script - it resumes where it left off." -ForegroundColor $Info
+    Write-Host "  (If it still fails after reboot, the ERRORLOG/event-log lines above say why.)" -ForegroundColor $Info
+    Write-Host "  ================================================================" -ForegroundColor $Info
 }
 
 function Start-SqlService {
-    param([string]$Name, [string]$InstanceID, [switch]$Restart, [int]$TimeoutSec = 90)
+    param([string]$Name, [string]$InstanceID, [switch]$Restart)
     try { Set-Service -Name $Name -StartupType Automatic } catch { Write-Warn "could not set '$Name' to Automatic: $($_.Exception.Message)" }
     $attempts = 3
     for ($i = 1; $i -le $attempts; $i++) {
@@ -259,14 +263,15 @@ function Start-SqlService {
         Start-Sleep -Seconds 4
         if ((Get-Service -Name $Name).Status -eq 'Running') { break }
     }
-    try {
-        (Get-Service -Name $Name).WaitForStatus('Running', [TimeSpan]::FromSeconds($TimeoutSec))
-        Write-Ok "'$Name' is running"
-        return $true
-    } catch {
-        Show-SqlStartDiagnostics -Name $Name -InstanceID $InstanceID
-        return $false
-    }
+    # Bounded poll (NOT a long WaitForStatus) so a failed start surfaces quickly
+    # instead of looking hung for 90s.
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    do {
+        if ((Get-Service -Name $Name).Status -eq 'Running') { Write-Ok "'$Name' is running"; return $true }
+        Start-Sleep -Milliseconds 500
+    } while ($sw.Elapsed.TotalSeconds -lt 15)
+    Show-SqlStartDiagnostics -Name $Name -InstanceID $InstanceID
+    return $false
 }
 
 # ---------------------------------------------------------------------------
