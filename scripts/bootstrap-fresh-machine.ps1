@@ -307,16 +307,29 @@ $inst = $instances | Where-Object { $_.Instance -eq $Instance } | Select-Object 
 if (-not $inst) {
     if ($NoInstallSqlServer) {
         Write-Fail "SQL instance '$Instance' not found and -NoInstallSqlServer was set."
+        if ($instances.Count) { Write-Host "  Instances found: $($instances.Instance -join ', '). Re-run with -Instance <name> to use one." -ForegroundColor $Warn }
         exit 1
+    }
+    if ($instances.Count) {
+        Write-Warn "No instance named '$Instance', but these exist: $($instances.Instance -join ', ')"
+        Write-Host "  Re-run with -Instance <one-of-those> to use an existing install, or let the script install a new one:" -ForegroundColor $Warn
     }
     if (-not (Confirm-Present 'winget')) {
-        Write-Fail 'winget not available; install SQL Server 2022 Express manually, then re-run.'
+        Write-Fail 'winget not available. Install SQL Server Express (2022 or 2025) manually, then re-run.'
         exit 1
     }
-    Write-Host "  No SQL instance found — installing SQL Server 2022 Express (this takes several minutes)..."
-    winget install --id Microsoft.SQLServer.2022.Express -e --silent --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 0x8A150011) {
-        Write-Fail "SQL Express install failed (exit $LASTEXITCODE). See Windows Event Log / setup logs."
+    # Try the latest Express first, then the previous release (winget ids vary by source).
+    $installed = $false
+    foreach ($pkg in @('Microsoft.SQLServer.2025.Express', 'Microsoft.SQLServer.2022.Express')) {
+        Write-Host "  No SQL instance found — installing '$pkg' (this takes several minutes)..."
+        winget install --id $pkg -e --silent --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 0x8A150011) { $installed = $true; break }
+        Write-Warn "  winget could not install '$pkg' (exit $LASTEXITCODE); trying next..."
+    }
+    if (-not $installed) {
+        Write-Fail 'Could not auto-install SQL Server Express via winget.'
+        Write-Host "  Install SQL Server 2025 or 2022 Express manually from https://www.microsoft.com/en-us/sql-server/sql-server-downloads" -ForegroundColor $Warn
+        Write-Host "  (accept the defaults, instance name '$Instance'), then REBOOT and re-run this script - it will detect the instance and continue." -ForegroundColor $Warn
         exit 1
     }
     # Re-detect (install creates the instance; service may take a moment to appear)
@@ -339,6 +352,20 @@ if (-not $svc) {
 
 # (a) service on + automatic start (retries + diagnostics on failure)
 if (-not (Start-SqlService -Name $serviceName -InstanceID $($inst.InstanceID))) { exit 1 }
+
+# (a1) SQL Server Browser — needed for SSMS "Browse for servers" / instance discovery.
+$browser = Get-Service -Name 'SQLBrowser' -ErrorAction SilentlyContinue
+if ($browser) {
+    try { Set-Service -Name 'SQLBrowser' -StartupType Automatic } catch { Write-Warn "could not set SQLBrowser to Automatic: $($_.Exception.Message)" }
+    if ($browser.Status -ne 'Running') {
+        Write-Host "  Starting SQL Server Browser (for SSMS instance discovery)..."
+        try { Start-Service -Name 'SQLBrowser' -ErrorAction Stop; Write-Ok 'SQL Browser started' } catch { Write-Warn "could not start SQLBrowser: $($_.Exception.Message)" }
+    } else {
+        Write-Ok 'SQL Browser already running'
+    }
+} else {
+    Write-Warn 'SQLBrowser service not found (SSMS browse list may stay empty; type the server name manually)'
+}
 
 # (b)/(c)/(d) TCP/IP + Named Pipes + mixed-mode auth via registry
 $regBase = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$($inst.InstanceID)\MSSQLServer"
