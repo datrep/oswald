@@ -46,7 +46,7 @@ Useful switches:
 | `-Instance SQLEXPRESS` / `-SqlPort 1433` | SQL Server instance + static TCP port |
 | `-DbName` / `-DbUser` / `-DbPassword` | DB name, login, password (default: random strong) |
 | `-SaPassword <pw>` | fallback admin login if Windows auth is unavailable |
-| `-AppPort 8080` / `-HttpsPort 8443` / `-Host 0.0.0.0` | where the dashboard listens |
+| `-AppPort 8080` / `-HttpsPort 8443` / `-ListenHost 0.0.0.0` | where the dashboard listens |
 | `-NoInstallNode` / `-NoInstallSqlServer` | skip auto-install (prereqs already present) |
 | `-ResetDb` | **destructive** — drop + recreate the database from the schema |
 | `-ResetConfig` | force-regenerate `fileserver/config.json` (auto-detected otherwise) |
@@ -102,8 +102,14 @@ Schema changes are applied incrementally under `sql/migrations/` (after the init
 | 010 | `010_job_dashboard_prereq.sql` | `JobApplications` + `PolicyModules` (job tracker + “+ Add module” framework) |
 | 011 | `011_career_files.sql` | `CareerFiles` (resume/cert docs under `resources/career`) |
 | 012 | `012_certifications.sql` | `Certifications` (certificate dashboard) |
+| 013 | `013_utc_edicts_tasks.sql` | `Edicts`/`Tasks`/`Users`/`AuditLogs` timestamps → `GETUTCDATE()` + backfill (UTC-1) |
+| 014 | `014_uac_session_control.sql` | `Users.isActive` + `Users.tokenVersion` (immediate session revocation) |
 
 Apply with `sqlcmd` (see the migration files for the exact command).
+
+> `sql/schema/DB_init_table.sql` is kept **in sync** with migrations 004–014 (plus the
+> `Services` table, which predates the migration system) — a fresh build of the schema
+> produces a database equivalent to a fully migrated one.
 
 ## Users & permissions (UAC)
 
@@ -270,7 +276,7 @@ Push-Location fileserver; npm install; Pop-Location   # fileserver has its own p
 ### 4. Database
 - **Path A (fresh):** `.\setup.ps1` — installs deps and **destructively** re-initialises the DB from `sql\schema\DB_init_table.sql` (it asks for confirmation). Then apply the migrations below.
 - **Path B (keep data):** skip `setup.ps1`’s destructive step; just apply the migrations below to the existing DB.
-- **Apply all migrations in order (001 → 012)** with `sqlcmd` — the full table is in the *Database migrations* section above. `sql/schema/DB_init_table.sql` only describes the original core tables; **migrations are the source of truth** for everything added later (UAC, fileserver metadata, `ApiLogs`, `PolicyModules`, the Career tables).
+- **Apply all migrations in order (001 → 014)** with `sqlcmd` — the full table is in the *Database migrations* section above. `sql/schema/DB_init_table.sql` is kept in sync with the migrations, so a fresh build and a migrated DB are equivalent; migrations remain the incremental path for existing DBs.
 
 ### 5. TLS certificate (`fileserver/certs`)
 A self-signed cert is **auto-generated on first start** (`shared/tls.js` → `fileserver/certs/cert.pem` + `key.pem`). Trust it once so the browser stops warning:
