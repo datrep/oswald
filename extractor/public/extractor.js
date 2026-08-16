@@ -146,9 +146,11 @@ async function loadPreview(entry) {
 
 // --- pull full --------------------------------------------------------------
 async function pull(entryId) {
-  const data = await request('POST', `/api/extract/session/${sessionId}/entry/${entryId}/pull`, {
-    mode: 'strip',
-  });
+  const body = { mode: 'strip' };
+  const maxWidth = parseInt($('#max-width')?.value, 10);
+  if (Number.isFinite(maxWidth) && maxWidth > 0) body.setParams = { width: maxWidth };
+
+  const data = await request('POST', `/api/extract/session/${sessionId}/entry/${entryId}/pull`, body);
   pulled.set(entryId, { mime: data.mime });
   const badge = document.querySelector(`.badge.result[data-id="${entryId}"]`);
   if (badge) {

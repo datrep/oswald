@@ -57,6 +57,10 @@
               <p class="muted" id="session-meta"></p>
             </div>
             <div class="session-actions">
+              <label class="width-field" title="Optional: force this width (e.g. 4096) to bypass preview size caps">
+                Max width
+                <input type="number" id="max-width" min="0" max="100000" placeholder="auto" />
+              </label>
               <button class="btn" id="pull-all" disabled>Pull all full</button>
               <button class="btn btn-ghost" id="clear-session">Clear</button>
             </div>

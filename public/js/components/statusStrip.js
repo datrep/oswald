@@ -44,7 +44,14 @@ async function refresh() {
 
   try {
     const h = await apiGet('/api/health');
-    render([
+    let p = null;
+    try {
+      p = await apiGet('/api/pricing');
+    } catch (err) {
+      console.error('[StatusStrip] pricing check failed', err);
+    }
+
+    const chips = [
       {
         dot: 'online',
         label: `Server · up ${fmtUptime(h.uptime)}`,
@@ -65,7 +72,17 @@ async function refresh() {
         label: `${h.hosts.total} hosts${h.hosts.enabled ? ` · ${h.hosts.enabled} enabled` : ''}`,
         title: 'Configured network hosts',
       },
-    ]);
+    ];
+
+    if (p) {
+      chips.push({
+        dot: p.isPeak ? 'online' : 'idle',
+        label: p.isPeak ? '● Peak' : '○ Off-peak',
+        title: `${p.rates.model} · in $${p.rates.inputCacheMissPer1M}/M (hit $${p.rates.inputCacheHitPer1M}) · out $${p.rates.outputPer1M}/M · next change ${new Date(p.nextChangeAt).toLocaleTimeString()}`,
+      });
+    }
+
+    render(chips);
   } catch (err) {
     console.error('[StatusStrip] health check failed', err);
     render([{ dot: 'offline', label: 'Server unreachable', title: 'Failed to reach /api/health' }]);
