@@ -988,3 +988,27 @@ initPolicies();
 loadTrends();
 
 initTrendsCollapse();
+
+// Topbar/bottombar quotes — editable in Settings (General > Quotes).
+async function initQuotes() {
+  await loadSettings();
+  const apply = () => {
+    const top = document.getElementById('topbar-quote');
+    const bottom = document.getElementById('bottombar-quote');
+    if (top) top.textContent = getSetting('topbarQuote') || '';
+    if (bottom) bottom.textContent = getSetting('bottombarQuote') || '';
+  };
+  apply();
+  window.addEventListener('settings:changed', (e) => {
+    if (!e.detail) return;
+    const el =
+      e.detail.key === 'topbarQuote'
+        ? document.getElementById('topbar-quote')
+        : e.detail.key === 'bottombarQuote'
+          ? document.getElementById('bottombar-quote')
+          : null;
+    if (el) el.textContent = e.detail.value || '';
+  });
+}
+
+initQuotes();

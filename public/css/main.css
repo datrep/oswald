@@ -420,6 +420,7 @@ body > .content {
 }
 
 .status-item {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -445,6 +446,37 @@ body > .content {
 }
 .offline {
   background: var(--danger);
+}
+
+/* Hover popup for status chips (e.g. the peak/off-peak pricing chip) */
+.status-pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 220px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: none;
+  z-index: 1000;
+  color: var(--text);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.status-item:hover .status-pop {
+  display: block;
+}
+.pop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 2px 0;
+  white-space: nowrap;
+}
+.pop-row span {
+  color: var(--muted);
 }
 
 /* Neutralize any legacy bar borders */

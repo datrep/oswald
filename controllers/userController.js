@@ -15,11 +15,25 @@ async function registerUser(req, res, next) {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     await User.createUser(username, hashedPassword);
-    // New accounts get the read-only baseline role; an admin promotes them later.
     const created = await User.findUserByUsername(username);
-    await Role.assignRole(created.id, DEFAULT_ROLE);
 
-    res.status(201).json({ message: 'User registered successfully', role: DEFAULT_ROLE });
+    // First-run bootstrap: the very first account becomes admin so a fresh
+    // install isn't locked out (the dashboard has no other sign-up path).
+    const userCount = await User.countUsers();
+    const roleName = userCount <= 1 ? 'admin' : DEFAULT_ROLE;
+    await Role.assignRole(created.id, roleName);
+
+    res.status(201).json({ message: 'User registered successfully', role: roleName });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/users/bootstrap — public: whether a first-run admin needs creating.
+async function bootstrapStatus(req, res, next) {
+  try {
+    const userCount = await User.countUsers();
+    res.json({ needsSetup: userCount === 0 });
   } catch (err) {
     next(err);
   }
@@ -304,6 +318,7 @@ async function deleteRole(req, res, next) {
 
 module.exports = {
   registerUser,
+  bootstrapStatus,
   loginUser,
   updateUser,
   deleteUser,

@@ -5,6 +5,7 @@ const authenticateToken = require('../middlewares/auth');
 const { requirePermission } = require('../middlewares/auth');
 
 router.post('/register', userController.registerUser);
+router.get('/bootstrap', userController.bootstrapStatus);
 router.post('/login', userController.loginUser);
 router.put('/:userId', authenticateToken, userController.updateUser);
 router.delete('/:userId', authenticateToken, userController.deleteUser);

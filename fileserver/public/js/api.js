@@ -35,8 +35,10 @@ export const FS = {
 
   // Server-side login proxy (same-origin; the UI is HTTPS so it can't call the
   // HTTP dashboard directly — mixed content). The server sets the session cookie.
+  // NOTE: plain fetch (not this.request) so a 401 means "bad credentials", not
+  // "session expired" — no token is sent on login.
   async login(username, password) {
-    const r = await this.request('/api/fs/login', {
+    const r = await fetch('/api/fs/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -51,7 +53,7 @@ export const FS = {
     return this.json('/api/fs/config');
   },
   async register(username, password) {
-    const r = await this.request('/api/fs/register', {
+    const r = await fetch('/api/fs/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),

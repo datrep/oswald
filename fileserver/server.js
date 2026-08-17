@@ -32,6 +32,39 @@ function fsLabel(req) {
   return `fileserver:${m ? m[1] : 'other'}`;
 }
 
+// Dashboard upstream bases, in order: the configured base first (VPN/LAN),
+// then localhost so login/register keep working when the VPN is down.
+function dashboardBases() {
+  const bases = [];
+  const configured = String(getConfig().dashboardBase || '').replace(/\/+$/, '');
+  if (configured) bases.push(configured);
+  for (const local of ['http://localhost:8080', 'http://127.0.0.1:8080']) {
+    if (!bases.includes(local)) bases.push(local);
+  }
+  return bases;
+}
+
+// POST JSON to a dashboard endpoint (login/register), falling back to the next
+// base when one is unreachable (e.g. the VPN/LAN address is down). Returns the
+// first response that arrives; throws only if every base failed at network level.
+async function dashboardPost(path, body) {
+  let lastErr;
+  for (const base of dashboardBases()) {
+    try {
+      return await fetch(`${base}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(4000),
+      });
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[fileserver] dashboard ${base} unreachable (${e.message || e}); trying next base`);
+    }
+  }
+  throw lastErr;
+}
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '6mb' }));
@@ -232,11 +265,7 @@ app.post('/api/fs/register', async (req, res, next) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
-    const upstream = await fetch(`${getConfig().dashboardBase}/api/users/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+    const upstream = await dashboardPost('/api/users/register', { username, password });
     const body = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       return res.status(upstream.status >= 400 && upstream.status < 500 ? upstream.status : 500).json({ error: body.error || 'Registration failed' });
@@ -255,11 +284,7 @@ app.post('/api/fs/login', async (req, res, next) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
-    const upstream = await fetch(`${getConfig().dashboardBase}/api/users/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+    const upstream = await dashboardPost('/api/users/login', { username, password });
     const body = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       return res.status(upstream.status === 401 ? 401 : 500).json({ error: body.error || 'Login failed' });

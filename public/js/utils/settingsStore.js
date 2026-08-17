@@ -28,6 +28,7 @@ export const SETTINGS_CATEGORIES = [
 export const SETTINGS_SECTIONS = [
   { id: 'appearance', title: 'Appearance', category: 'general' },
   { id: 'behaviour', title: 'Behaviour', category: 'general' },
+  { id: 'quotes', title: 'Quotes', category: 'general' },
   { id: 'panels', title: 'Sidebar Panels', category: 'dashboard' },
   { id: 'trends', title: 'Trends', category: 'dashboard' },
   { id: 'statusstrip', title: 'Status Strip', category: 'dashboard' },
@@ -77,6 +78,23 @@ export const SETTINGS_SCHEMA = [
     section: 'behaviour',
     type: 'boolean',
     default: true,
+  },
+  // ---- General / Quotes (top & bottom bar) ----
+  {
+    key: 'topbarQuote',
+    label: 'Top bar quote',
+    description: 'Text shown in the topbar of the dashboard.',
+    section: 'quotes',
+    type: 'text',
+    default: 'Ad astra, per aspera, mente et ferro, Per discrimina maxima tolerans.',
+  },
+  {
+    key: 'bottombarQuote',
+    label: 'Bottom bar quote',
+    description: 'Text shown in the bottombar of the dashboard.',
+    section: 'quotes',
+    type: 'text',
+    default: 'Audendo magnus tegitur, timor vincit qui patitur.',
   },
   // ---- Dashboard / Sidebar Panels ----
   {
