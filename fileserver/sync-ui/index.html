@@ -42,6 +42,7 @@
   #log { background: #0a0c11; border: 1px solid var(--border); border-radius: 10px; padding: 12px; height: 260px; overflow-y: auto; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
   #log .err { color: var(--danger); }
   .hint { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -59,12 +60,9 @@
       <label class="full">Fileserver URL <input id="c-server" placeholder="https://172.22.160.3:8090" autocomplete="off" /></label>
       <label>Root <input id="c-root" value="sync" autocomplete="off" /></label>
       <label>Sub-path (optional) <input id="c-subpath" placeholder="" autocomplete="off" /></label>
-      <label>Username <input id="c-username" autocomplete="off" /></label>
-      <label>Password <input id="c-password" type="password" autocomplete="new-password" placeholder="(saved locally)" /></label>
     </div>
     <div class="row" style="margin-top:12px">
       <label style="flex-direction:row;align-items:center;gap:6px"><input id="c-insecure" type="checkbox" /> Allow self-signed TLS (insecure)</label>
-      <span class="hint">Credentials are stored in sync-ui-config.json on this machine.</span>
     </div>
     <div class="row" style="margin-top:12px">
       <button class="primary" id="btn-save">Save config</button>
@@ -74,6 +72,20 @@
       <label style="flex-direction:row;align-items:center;gap:6px">every <input id="c-interval" type="number" min="2" style="width:64px" />s</label>
     </div>
     <p class="muted" id="msg"></p>
+  </div>
+
+  <div class="card">
+    <h2>Sign in</h2>
+    <div class="grid">
+      <label>Username <input id="c-username" autocomplete="username" /></label>
+      <label>Password <input id="c-password" type="password" autocomplete="current-password" placeholder="" /></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="btn-signin">Sign in</button>
+      <button id="btn-signout" class="hidden">Sign out</button>
+      <span class="muted" id="auth-status">Not signed in</span>
+    </div>
+    <p class="hint">Sign in verifies your Oswald credentials against the fileserver. For a self-signed cert, tick "Allow self-signed TLS" above first. Credentials are saved to sync-ui-config.json and the engine logs in automatically on every run.</p>
   </div>
 
   <div class="card">
@@ -107,6 +119,14 @@ async function api(path, opts) {
   return j;
 }
 
+function updateAuthUI(st) {
+  const on = !!(st && st.signedIn);
+  $('btn-signin').classList.toggle('hidden', on);
+  $('btn-signout').classList.toggle('hidden', !on);
+  $('auth-status').textContent = on ? 'Signed in as ' + (st.username || '?') : 'Not signed in';
+  if (on && !$('c-username').value) $('c-username').value = st.username || '';
+}
+
 async function loadConfig() {
   try {
     saved = await api('/api/config');
@@ -116,11 +136,10 @@ async function loadConfig() {
     $('c-subpath').value = saved.subPath || '';
     $('c-username').value = saved.username || '';
     $('c-password').value = '';
-    $('c-password').placeholder = saved.hasPassword ? '(saved — leave blank to keep)' : '(saved locally)';
     $('c-insecure').checked = !!saved.insecure;
     $('c-watch').checked = !!saved.watch;
     $('c-interval').value = saved.interval || 30;
-    $('msg').textContent = saved.folder ? 'Loaded saved config.' : 'Enter your folder + credentials and Save.';
+    $('msg').textContent = saved.folder ? 'Loaded saved config.' : 'Enter your folder and Save config.';
   } catch (e) { $('msg').textContent = 'Could not load config: ' + e.message; }
 }
 
@@ -131,17 +150,35 @@ async function save() {
       server: $('c-server').value.trim(),
       root: $('c-root').value.trim() || 'sync',
       subPath: $('c-subpath').value.trim(),
-      username: $('c-username').value.trim(),
       insecure: $('c-insecure').checked,
       watch: $('c-watch').checked,
       interval: Number($('c-interval').value) || 30,
     };
-    if ($('c-password').value) body.password = $('c-password').value;
     const r = await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     saved = r.config;
     $('msg').textContent = 'Config saved.';
     refresh();
   } catch (e) { $('msg').textContent = 'Save failed: ' + e.message; }
+}
+
+async function signIn() {
+  const username = $('c-username').value.trim();
+  const password = $('c-password').value;
+  if (!username || !password) { $('auth-status').textContent = 'Enter username and password'; return; }
+  $('auth-status').textContent = 'Signing in…';
+  try {
+    const r = await api('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, insecure: $('c-insecure').checked }) });
+    $('c-password').value = '';
+    $('msg').textContent = 'Signed in as ' + r.username + '.';
+    updateAuthUI({ signedIn: true, username: r.username });
+  } catch (e) { $('auth-status').textContent = e.message; }
+}
+
+async function signOut() {
+  try { await api('/api/logout', { method: 'POST' }); } catch { /* noop */ }
+  $('c-password').value = '';
+  $('msg').textContent = 'Signed out.';
+  updateAuthUI({ signedIn: false, username: '' });
 }
 
 async function syncNow(dryRun) {
@@ -159,6 +196,7 @@ async function toggleWatch() {
 async function refresh() {
   try {
     const st = await api('/api/status');
+    updateAuthUI(st.auth || { signedIn: false, username: '' });
     const dot = $('live-dot');
     if (st.running) { dot.className = 'dot on'; $('live-text').textContent = 'syncing…'; }
     else if (st.lastReport?.error) { dot.className = 'dot err'; $('live-text').textContent = 'error'; }
@@ -191,6 +229,9 @@ $('btn-save').addEventListener('click', save);
 $('btn-sync').addEventListener('click', () => syncNow(false));
 $('btn-dry').addEventListener('click', () => syncNow(true));
 $('c-watch').addEventListener('change', toggleWatch);
+$('btn-signin').addEventListener('click', signIn);
+$('btn-signout').addEventListener('click', signOut);
+$('c-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 
 loadConfig();
 refresh();

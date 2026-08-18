@@ -10,6 +10,7 @@
 // Usage: node fileserver/sync-ui.js [--port 8650] [--config <path>]
 //   config file (default fileserver/sync-ui-config.json) persists the settings.
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { createSync } = require('./sync-core');
@@ -55,6 +56,43 @@ function saveConfig(c) {
 function publicConfig(c) {
   const { password, token, ...rest } = c;
   return { ...rest, hasPassword: !!password, hasToken: !!token };
+}
+function authState(c) {
+  return { signedIn: !!(c.username && c.password), username: c.username || '' };
+}
+
+// Verify credentials against the fileserver's login proxy (node:https so
+// self-signed certs can be tolerated). Returns { status, body }.
+async function verifyLogin(server, username, password, insecure) {
+  return new Promise((resolve) => {
+    let u;
+    try { u = new URL(String(server || '').replace(/\/+$/, '') + '/api/fs/login'); } catch { return resolve({ status: 0, body: { error: 'Invalid server URL' } }); }
+    const mod = u.protocol === 'https:' ? https : http;
+    const payload = JSON.stringify({ username, password });
+    const req = mod.request(
+      {
+        method: 'POST',
+        hostname: u.hostname,
+        port: u.port || (u.protocol === 'https:' ? 443 : 80),
+        path: u.pathname,
+        rejectUnauthorized: !insecure,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          let j = {};
+          try { j = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { /* noop */ }
+          resolve({ status: res.statusCode, body: j });
+        });
+      }
+    );
+    req.on('error', (e) => resolve({ status: 0, body: { error: e.message } }));
+    req.setTimeout(4000, () => req.destroy(new Error('timeout')));
+    req.write(payload);
+    req.end();
+  });
 }
 
 // ---- engine + watch ----
@@ -146,7 +184,38 @@ const server = http.createServer(async (req, res) => {
       // GET /api/status
       if (req.method === 'GET' && url.pathname === '/api/status') {
         const st = sync ? sync.getStatus() : { running: false, lastReport: null, config: null };
-        return json(res, 200, { running: st.running, lastReport: st.lastReport, engine: publicConfig(st.config || config), saved: publicConfig(config), watchOn: config.watch, port: PORT });
+        return json(res, 200, { running: st.running, lastReport: st.lastReport, engine: publicConfig(st.config || config), saved: publicConfig(config), auth: authState(config), watchOn: config.watch, port: PORT });
+      }
+      // POST /api/login — verify credentials against the fileserver and persist
+      // them for the sync engine (it logs in on every sync, so no stale token).
+      if (req.method === 'POST' && url.pathname === '/api/login') {
+        const body = await readBody(req);
+        const username = String(body.username || '').trim();
+        const password = String(body.password || '');
+        if (!username || !password) return json(res, 400, { error: 'Username and password required' });
+        if (!config.server) return json(res, 400, { error: 'Fileserver URL is required' });
+        // Honor the checkbox at click time (self-signed certs need insecure=on).
+        const insecure = body.insecure !== undefined ? !!body.insecure : config.insecure;
+        const r = await verifyLogin(config.server, username, password, insecure);
+        if (r.status !== 200) return json(res, r.status === 401 ? 401 : 502, { error: r.body.error || `Login failed (${r.status})` });
+        config.username = username;
+        config.password = password;
+        config.token = '';
+        if (body.insecure !== undefined) config.insecure = insecure;
+        saveConfig(config);
+        rebuildEngine();
+        log(`signed in as ${username}`);
+        return json(res, 200, { ok: true, username });
+      }
+      // POST /api/logout — forget credentials so sync can no longer authenticate.
+      if (req.method === 'POST' && url.pathname === '/api/logout') {
+        config.username = '';
+        config.password = '';
+        config.token = '';
+        saveConfig(config);
+        rebuildEngine();
+        log('signed out');
+        return json(res, 200, { ok: true });
       }
       // GET /api/config
       if (req.method === 'GET' && url.pathname === '/api/config') {
