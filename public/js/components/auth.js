@@ -1,8 +1,59 @@
 // components/auth.js
-// Lightweight login/logout control that renders into #auth-control.
-// Stores the JWT in localStorage so api.js can attach it to requests.
+// Auth control for #auth-control. Signed out: a Login button + inline form.
+// Signed in: a user chip (initials + username + role) whose popover has
+// Sign out and, for admins, a live "Recent logins" list (UAC-5). Stores the
+// JWT + identity in localStorage so api.js can attach the token to requests.
 
 import { getToken, clearToken, isLoggedIn, TOKEN_KEY } from '../api/api.js';
+
+const USER_KEY = 'oswald_username';
+const ROLES_KEY = 'oswald_roles';
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function hasPerm(code) {
+  try {
+    const t = getToken();
+    if (!t) return false;
+    const p = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return Array.isArray(p.permissions) && p.permissions.includes(code);
+  } catch { return false; }
+}
+function initials(name) {
+  return (name || '?').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+}
+function deviceLabel(ua) {
+  if (!ua) return 'Unknown device';
+  let os = 'OS';
+  if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Macintosh|Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  let browser = 'Browser';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\//.test(ua)) browser = 'Opera';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+  return `${browser} · ${os}`;
+}
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function storeIdentity(username, roles) {
+  try { localStorage.setItem(USER_KEY, username); localStorage.setItem(ROLES_KEY, JSON.stringify(roles || [])); } catch { /* ignore */ }
+}
+function clearIdentity() {
+  try { localStorage.removeItem(USER_KEY); localStorage.removeItem(ROLES_KEY); } catch { /* ignore */ }
+}
+function storedName() { try { return localStorage.getItem(USER_KEY) || ''; } catch { return ''; } }
+function storedRoles() { try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '[]'); } catch { return []; } }
 
 async function submitLogin(username, password) {
   const res = await fetch('/api/users/login', {
@@ -12,7 +63,62 @@ async function submitLogin(username, password) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Login failed');
-  return data.token;
+  storeIdentity(username, data.roles || []);
+  return data;
+}
+
+// Populate the chip from an existing session if identity wasn't stored.
+async function ensureIdentity() {
+  if (storedName()) return;
+  try {
+    const res = await fetch('/api/users/me', { headers: { Authorization: 'Bearer ' + getToken() } });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.username) storeIdentity(data.username, data.roles || []);
+  } catch { /* non-fatal */ }
+}
+
+async function renderRecentLogins(pop) {
+  const slot = pop.querySelector('.user-recent-slot');
+  if (!slot) return;
+  const box = document.createElement('div');
+  box.className = 'user-recent';
+  box.innerHTML = '<div class="user-recent-title">Recent logins</div><div class="user-recent-body muted">Loading…</div>';
+  slot.innerHTML = '';
+  slot.appendChild(box);
+  const body = box.querySelector('.user-recent-body');
+  try {
+    const res = await fetch('/api/users/sessions?limit=8', { headers: { Authorization: 'Bearer ' + getToken() } });
+    const data = await res.json().catch(() => ({}));
+    const s = data.sessions || [];
+    if (!s.length) { body.textContent = 'No logins recorded yet.'; return; }
+    body.innerHTML = s.map((x) => `
+      <div class="user-recent-row">
+        <span class="user-recent-user">${escapeHtml(x.username)}</span>
+        <span class="user-recent-meta" title="${escapeHtml(x.userAgent || '')}">${escapeHtml(deviceLabel(x.userAgent))} · ${escapeHtml(x.ip || '')}</span>
+        <span class="user-recent-time">${escapeHtml(fmtTime(x.loggedInAt))}</span>
+      </div>`).join('');
+  } catch {
+    body.textContent = 'Could not load logins.';
+  }
+}
+
+function renderUserPop() {
+  const pop = document.getElementById('user-pop');
+  if (!pop) return;
+  const name = storedName() || 'User';
+  const roles = storedRoles();
+  pop.innerHTML = `
+    <div class="user-pop-head"><span class="user-avatar">${escapeHtml(initials(name))}</span><div><strong>${escapeHtml(name)}</strong><div class="muted user-roles">${escapeHtml(roles.join(', ') || 'no roles')}</div></div></div>
+    <button type="button" class="user-pop-item" data-user-act="signout">Sign out</button>
+    ${hasPerm('users.manage') ? '<div class="user-recent-slot"></div>' : ''}
+  `;
+  pop.querySelector('[data-user-act="signout"]').addEventListener('click', () => {
+    clearIdentity();
+    clearToken();
+    setLoggedOutUI();
+    window.dispatchEvent(new CustomEvent('auth:logout'));
+  });
+  if (pop.querySelector('.user-recent-slot')) renderRecentLogins(pop);
 }
 
 async function submitRegister(username, password) {
@@ -40,29 +146,30 @@ async function needsSetup() {
 function setLoggedInUI() {
   const toggle = document.getElementById('auth-toggle');
   const panel = document.getElementById('auth-panel');
-  if (toggle) {
-    toggle.textContent = 'Logout';
-    toggle.style.transition = 'background 0.2s ease, transform 0.15s ease';
-    toggle.style.transform = 'scale(1.05)';
-    requestAnimationFrame(() => { toggle.style.transform = 'scale(1)'; });
-  }
+  const chip = document.getElementById('user-chip');
+  const pop = document.getElementById('user-pop');
+  if (toggle) toggle.classList.add('hidden');
   if (panel) panel.classList.add('hidden');
-  const error = document.getElementById('auth-error');
-  if (error) error.textContent = '';
+  if (chip) {
+    chip.classList.remove('hidden');
+    const name = storedName() || '…';
+    const nm = document.getElementById('user-name'); if (nm) nm.textContent = name;
+    const av = document.getElementById('user-avatar'); if (av) av.textContent = initials(name);
+  }
+  if (pop) pop.classList.add('hidden');
 }
 
 function setLoggedOutUI() {
   const toggle = document.getElementById('auth-toggle');
-  if (toggle) {
-    toggle.textContent = 'Login';
-    toggle.style.transition = 'background 0.2s ease, transform 0.15s ease';
-    toggle.style.transform = 'scale(1.05)';
-    requestAnimationFrame(() => { toggle.style.transform = 'scale(1)'; });
-  }
+  const chip = document.getElementById('user-chip');
+  const pop = document.getElementById('user-pop');
+  if (toggle) toggle.classList.remove('hidden');
+  if (chip) chip.classList.add('hidden');
+  if (pop) pop.classList.add('hidden');
 }
 
 function refreshUI() {
-  if (isLoggedIn()) setLoggedInUI();
+  if (isLoggedIn()) { ensureIdentity().then(setLoggedInUI); }
   else setLoggedOutUI();
 }
 
@@ -111,8 +218,8 @@ function renderSetup() {
 
     try {
       await submitRegister(username, password);
-      const token = await submitLogin(username, password);
-      localStorage.setItem(TOKEN_KEY, token);
+      const data = await submitLogin(username, password);
+      localStorage.setItem(TOKEN_KEY, data.token);
       setLoggedInUI();
       window.dispatchEvent(new CustomEvent('auth:login'));
       init(); // rebuild the normal login/logout control now that setup is done
@@ -127,29 +234,35 @@ function init() {
   if (!container) return;
 
   container.innerHTML = `
-        <div class="auth-control">
-            <button type="button" id="auth-toggle" class="auth-toggle">Login</button>
-            <form id="auth-panel" class="auth-panel hidden" autocomplete="off">
-                <input id="auth-username" type="text" placeholder="Username" autocomplete="username" required>
-                <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" required>
-                <button type="submit" id="auth-submit">Sign in</button>
-                <p class="auth-error" id="auth-error"></p>
-            </form>
-        </div>
-    `;
+    <div class="auth-control">
+      <button type="button" id="auth-toggle" class="auth-toggle">Login</button>
+      <div id="user-chip" class="user-chip hidden" role="button" tabindex="0" title="Account">
+        <span id="user-avatar" class="user-avatar"></span>
+        <span id="user-name" class="user-name"></span>
+      </div>
+      <div id="user-pop" class="user-pop hidden"></div>
+      <form id="auth-panel" class="auth-panel hidden" autocomplete="off">
+        <input id="auth-username" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit" id="auth-submit">Sign in</button>
+        <p class="auth-error" id="auth-error"></p>
+      </form>
+    </div>
+  `;
 
   const toggle = document.getElementById('auth-toggle');
   const panel = document.getElementById('auth-panel');
+  const chip = document.getElementById('user-chip');
+  const pop = document.getElementById('user-pop');
 
-  toggle.addEventListener('click', () => {
-    if (isLoggedIn()) {
-      clearToken();
-      setLoggedOutUI();
-      window.dispatchEvent(new CustomEvent('auth:logout'));
-    } else {
-      panel.classList.toggle('hidden');
-    }
+  toggle.addEventListener('click', () => panel.classList.toggle('hidden'));
+
+  chip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (pop.classList.contains('hidden')) { renderUserPop(); pop.classList.remove('hidden'); }
+    else pop.classList.add('hidden');
   });
+  chip.addEventListener('keydown', (e) => { if (e.key === 'Enter') chip.click(); });
 
   panel.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -157,8 +270,8 @@ function init() {
     const passwordEl = document.getElementById('auth-password');
     const error = document.getElementById('auth-error');
     try {
-      const token = await submitLogin(usernameEl.value, passwordEl.value);
-      localStorage.setItem(TOKEN_KEY, token);
+      const data = await submitLogin(usernameEl.value, passwordEl.value);
+      localStorage.setItem(TOKEN_KEY, data.token);
       usernameEl.value = '';
       passwordEl.value = '';
       setLoggedInUI();
@@ -168,13 +281,14 @@ function init() {
     }
   });
 
-  // Close the panel when clicking elsewhere.
+  // Close the panel / popover when clicking elsewhere.
   document.addEventListener('click', (e) => {
-    if (!container.contains(e.target)) panel.classList.add('hidden');
+    if (!container.contains(e.target)) { panel.classList.add('hidden'); pop.classList.add('hidden'); }
   });
 
-  // Keep the button in sync if the token is dropped elsewhere (e.g. a 401 in api.js).
+  // Keep the control in sync if the token is dropped elsewhere (e.g. a 401 in api.js).
   window.addEventListener('auth:logout', refreshUI);
+  window.addEventListener('auth:login', () => ensureIdentity().then(setLoggedInUI));
 
   refreshUI();
 

@@ -44,6 +44,7 @@
         <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
       </button>
+      <span id="fs-user-chip" class="fs-user-chip hidden" title="Signed in as"></span>
       <button id="btn-signout" class="btn ghost">Sign out</button>
     </div>
   </header>
@@ -144,6 +145,19 @@
       </div>
       <div id="viewer-tags" class="viewer-tags hidden"></div>
       <div id="viewer-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- File info (FS-4): opened by clicking a grid card -->
+  <div id="modal-fileinfo" class="modal">
+    <div class="modal-card info-card">
+      <div class="modal-head">
+        <h2 id="fileinfo-title" title=""></h2>
+        <div class="modal-actions">
+          <button id="fileinfo-close" class="btn close" title="Close">✕</button>
+        </div>
+      </div>
+      <div id="fileinfo-body" class="modal-body"></div>
     </div>
   </div>
 

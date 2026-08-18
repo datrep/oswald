@@ -28,6 +28,10 @@ const KIND_ICON = {
   dir: 'DIR', image: 'IMG', pdf: 'PDF', text: 'TXT', audio: 'AUD',
   video: 'VID', office: 'DOC', archive: 'ZIP', other: 'FILE',
 };
+const KIND_FULL = {
+  dir: 'Folder', image: 'Image', pdf: 'PDF', text: 'Text', audio: 'Audio',
+  video: 'Video', office: 'Document / Sheet', archive: 'Archive', other: 'File',
+};
 
 // ---------- helpers ----------
 function joinRel(path, name) {
@@ -67,6 +71,17 @@ function toast(msg) {
 
 // ---------- cached UI state (sort, list/grid) ----------
 const FS_STATE_KEY = 'oswald_fs_state';
+const FS_USER_KEY = 'oswald_fs_username';
+
+// UAC-5: show the signed-in username in the topbar (stored at login — the JWT
+// itself doesn't carry the username, and the fs proxy doesn't return one).
+function renderFsUserChip() {
+  const el = $('fs-user-chip');
+  if (!el) return;
+  const name = localStorage.getItem(FS_USER_KEY);
+  if (name) { el.textContent = name; el.classList.remove('hidden'); }
+  else el.classList.add('hidden');
+}
 
 function saveFsState() {
   try {
@@ -240,6 +255,8 @@ async function handleLogin(e) {
     const body = await FS.login(user, pass);
     FS.setToken(body.token);
     setSessionCookie(body.token);
+    localStorage.setItem(FS_USER_KEY, user);
+    renderFsUserChip();
     $('modal-login').classList.remove('show');
     $('login-user').value = '';
     $('login-pass').value = '';
@@ -256,6 +273,7 @@ async function handleLogin(e) {
 function signOut() {
   FS.clearToken();
   clearSessionCookie();
+  localStorage.removeItem(FS_USER_KEY);
   location.reload();
 }
 
@@ -466,13 +484,80 @@ function renderGrid(entries) {
         : `<div class="thumb"><span class="file-icon ${iconCls}">${KIND_ICON[e.kind] || 'FILE'}</span></div>`;
     const star = `<button class="fav-star grid${isFav(state.root, rel) ? ' on' : ''}" data-key="${key}" title="Favorite">★</button>`;
     const tags = e.isDir ? '' : tagsFor(state.root, rel).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('');
-    return `<div class="fs-grid-card" data-rel="${escapeHtml(rel)}" data-name="${escapeHtml(e.name)}" data-kind="${e.isDir ? 'dir' : e.kind}">
+    return `<div class="fs-grid-card" data-rel="${escapeHtml(rel)}" data-name="${escapeHtml(e.name)}" data-kind="${e.isDir ? 'dir' : e.kind}" data-size="${e.size ?? ''}" data-mtime="${e.mtime ?? ''}">
       ${thumb}
       ${star}
       <div class="gname" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</div>
       ${tags ? `<div class="g-tags">${tags}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+// ---------- FS-4: file info modal (grid-card click) ----------
+async function loadFileInfoTags(file) {
+  const tagsEl = $('fileinfo-tags');
+  if (!tagsEl) return;
+  try {
+    const { tags } = await FS.tags(file.root, file.rel);
+    tagsEl.innerHTML =
+      '<span class="vt-label">Tags:</span>' +
+      tags.map((t) => `<span class="tag-chip">${escapeHtml(t)}${file.write ? `<button class="tag-x" data-tag="${escapeHtml(t)}" title="Remove tag">×</button>` : ''}</span>`).join('') +
+      (file.write ? '<input class="tag-input" type="text" placeholder="+ tag" maxlength="64" />' : '');
+    tagsEl.querySelectorAll('.tag-x').forEach((b) => {
+      b.addEventListener('click', async () => {
+        try { await FS.tagRemove(file.root, file.rel, b.dataset.tag); await loadFileInfoTags(file); window.dispatchEvent(new CustomEvent('fs:tags-changed')); } catch (e) { toast(e.message); }
+      });
+    });
+    const input = tagsEl.querySelector('.tag-input');
+    if (input) {
+      input.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        const tag = input.value.trim();
+        if (!tag) return;
+        try { await FS.tagAdd(file.root, file.rel, tag); await loadFileInfoTags(file); window.dispatchEvent(new CustomEvent('fs:tags-changed')); } catch (err) { toast(err.message); }
+      });
+    }
+  } catch { /* ignore */ }
+}
+
+function openFileInfo(entry, mode) {
+  const modal = $('modal-fileinfo');
+  if (!modal) return;
+  const row = document.querySelector(`.fs-grid-card[data-rel="${CSS.escape(entry.rel)}"]`);
+  const size = row?.dataset.size || '';
+  const mtime = row?.dataset.mtime || '';
+  const canWrite = !!state.access?.write;
+  const isDir = entry.kind === 'dir';
+  const rel = entry.rel;
+  $('fileinfo-title').textContent = entry.name;
+  $('fileinfo-title').title = entry.name;
+  $('fileinfo-body').innerHTML = `
+    <div class="fileinfo-grid">
+      <div class="fileinfo-kv"><span>Kind</span><b>${KIND_FULL[entry.kind] || 'File'}</b></div>
+      <div class="fileinfo-kv"><span>Size</span><b>${isDir ? '—' : fmtBytes(size)}</b></div>
+      <div class="fileinfo-kv"><span>Modified</span><b>${mtime ? fmtTime(mtime) : '—'}</b></div>
+      <div class="fileinfo-kv"><span>Location</span><b class="fi-path">${escapeHtml(rel)}</b></div>
+    </div>
+    ${isDir ? '' : '<div class="fileinfo-tags" id="fileinfo-tags"></div>'}
+    <div class="fileinfo-actions">
+      ${isDir ? '' : `<button class="btn primary" data-fi="view">View</button><a class="btn" href="${FS.downloadUrl(state.root, rel)}" download>Download</a>`}
+      ${!isDir && canWrite && getFileKind(entry.name) === 'text' ? '<button class="btn" data-fi="edit">Edit</button>' : ''}
+      ${canWrite ? '<button class="btn" data-fi="rename">Rename</button><button class="btn" data-fi="move">Move</button>' : ''}
+      ${canWrite ? '<button class="btn danger" data-fi="del">Delete</button>' : ''}
+    </div>`;
+  if (!isDir) loadFileInfoTags({ root: state.root, rel, name: entry.name, write: canWrite });
+  modal.querySelectorAll('[data-fi]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.fi;
+      if (act === 'view') openViewer({ root: state.root, rel, name: entry.name, write: canWrite });
+      else if (act === 'edit') openEditor(state.root, rel, entry.name);
+      else if (act === 'rename') openRename(entry, mode);
+      else if (act === 'move') openMove(entry, mode);
+      else if (act === 'del') confirmDelete(entry, mode);
+      modal.classList.remove('show');
+    });
+  });
+  modal.classList.add('show');
 }
 
 // ---------- search ----------
@@ -549,6 +634,10 @@ async function handleListClick(ev) {
   }
   const anchor = ev.target.closest('a[download]');
   if (anchor) { ev.stopPropagation(); return; }
+  // FS-4: grid cards open the file-info modal (metadata + quick actions);
+  // list rows keep the existing behavior (dir = navigate, file = viewer).
+  if (entry.kind === 'dir') return openEntry(entry, mode);
+  if (ev.target.closest('.fs-grid-card')) return openFileInfo(entry, mode);
   openEntry(entry, mode);
 }
 
@@ -1075,6 +1164,7 @@ async function boot() {
   loadFsState();
   syncViewControls();
   applyZoom();
+  renderFsUserChip();
   await loadRoots();
   renderBreadcrumb();
   await loadDir();
@@ -1100,6 +1190,10 @@ async function boot() {
   };
 
   $('file-list').addEventListener('click', handleListClick);
+
+  // FS-4: file-info modal close (button + backdrop).
+  $('fileinfo-close').onclick = () => $('modal-fileinfo').classList.remove('show');
+  $('modal-fileinfo').addEventListener('click', (e) => { if (e.target === $('modal-fileinfo')) $('modal-fileinfo').classList.remove('show'); });
 
   // Grid zoom: ctrl+scrollwheel over the file list (0.4x - 2.5x).
   $('file-list').addEventListener(

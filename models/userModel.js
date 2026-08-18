@@ -140,3 +140,17 @@ exports.getSessionsByUser = async (userId, limit = 10) => {
     .query('SELECT TOP (@limit) id, loggedInAt, ip, userAgent FROM UserSessions WHERE userId = @userId ORDER BY loggedInAt DESC');
   return result.recordset;
 };
+
+// UAC-5: recent login sessions across ALL users (admin "who is logged in" view).
+exports.getAllSessions = async (limit = 20) => {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('limit', sql.Int, limit)
+    .query(`
+      SELECT TOP (@limit) s.id, s.userId, u.username, s.userAgent, s.ip, s.loggedInAt
+      FROM UserSessions s JOIN Users u ON u.id = s.userId
+      ORDER BY s.loggedInAt DESC
+    `);
+  return result.recordset;
+};

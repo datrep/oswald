@@ -8,6 +8,8 @@
 
 import { apiGet } from '../api/api.js';
 import { getToken } from '../api/api.js';
+import { initBreadcrumb } from '../components/breadcrumb.js';
+initBreadcrumb();
 
 const $ = (id) => document.getElementById(id);
 

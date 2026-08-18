@@ -514,6 +514,85 @@ main .status-strip {
   background: var(--panel-2);
   border-color: var(--accent);
 }
+/* ---------- UAC-5: user chip + popover ---------- */
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 3px 12px 3px 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.user-chip:hover { border-color: var(--accent); }
+.user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0a0e14;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  flex: none;
+}
+.user-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 950;
+  min-width: 250px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 10px;
+  box-shadow: var(--shadow);
+}
+.user-pop-head { display: flex; align-items: center; gap: 10px; padding: 4px 2px 10px; }
+.user-pop-head .user-avatar { width: 30px; height: 30px; font-size: 0.75rem; }
+.user-roles { font-size: 0.72rem; }
+.user-pop-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.user-pop-item:hover { background: var(--danger-soft); }
+.user-recent-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 10px 0 4px; }
+.user-recent-body { font-size: 0.78rem; max-height: 220px; overflow-y: auto; }
+.user-recent-row { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
+.user-recent-user { font-weight: 600; white-space: nowrap; }
+.user-recent-meta { color: var(--muted); font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-recent-time { color: var(--faint); font-size: 0.7rem; white-space: nowrap; }
+
+/* ---------- NAV-1: breadcrumb ---------- */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.breadcrumb a { color: var(--accent); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb .sep { color: var(--border-strong); }
+.breadcrumb .current { color: var(--text); font-weight: 600; }
+
 /* Topbar internal-page links (e.g. Logs, Users & Permissions) — match the auth/settings buttons. */
 .topbar-link {
   display: inline-flex;

@@ -10,6 +10,16 @@
 $root = $PSScriptRoot
 Set-Location $root
 
+# FS-OPS-1: refuse to double-launch — if the dashboard is already running, stop.
+$existing = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+    Where-Object { $_.CommandLine -like '*server.js*' -and $_.CommandLine -notlike '*fileserver*' } |
+    Select-Object -First 1
+if ($existing) {
+    Write-Host "A dashboard server is already running (PID $($existing.ProcessId)). Refusing to start a second instance." -ForegroundColor Yellow
+    Write-Host "If it is stuck, stop it first:  Stop-Process -Id $($existing.ProcessId) -Force"
+    exit 0
+}
+
 # Load .env (same variables the app uses) into the process environment.
 $envFile = Join-Path $root '.env'
 if (Test-Path $envFile) {

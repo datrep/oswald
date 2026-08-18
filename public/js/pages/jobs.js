@@ -9,6 +9,8 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../api/api.js';
 import { getToken, clearToken } from '../api/api.js';
 import { initModuleTabs } from '../components/moduleTabs.js';
 import { initNotepad, appendNotepad } from '../components/notepad.js';
+import { initBreadcrumb } from '../components/breadcrumb.js';
+initBreadcrumb();
 
 const $ = (id) => document.getElementById(id);
 

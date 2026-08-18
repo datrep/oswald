@@ -237,7 +237,17 @@ The fileserver is fully standalone (its own `fileserver/db.js` — no dependency
 - **Sync area root**: `config.json` roots include `sync` → the sync destination folder, so it's browsable over HTTPS. Give a user write via the **Share** modal (or an ACL row) and they can drop files there; admin `Collect` moves them into `resources`.
 - `mirror.mirrorPath` defaults to `sync.destination` (the sync area) — flipping to **Mirror** mode shows that same folder read-only.
 - Admin API: `POST /api/fs/sync` (run now, async) · `GET /api/fs/sync/status` (running + last report incl. `direction`).
-- Onboarding a tester: create an account (`scripts/create-account.js` or self-signup; default `user` role = read-only on `resources`), then grant an ACL write on the `sync` root (`FileServerACLs` row `rootId='sync', folderPath='', canRead=1, canWrite=1`, or the Share modal). The tester reads `Resources` and drops/uploads into `Sync area`; deletes there are their own CRUD. True two-way local-machine sync (client agent) is tracked as **SYNC-2**.
+- Onboarding a tester: create an account (`scripts/create-account.js` or self-signup; default `user` role = read-only on `resources`), then grant an ACL write on the `sync` root (`FileServerACLs` row `rootId='sync', folderPath='', canRead=1, canWrite=1`, or the Share modal). The tester reads `Resources` and drops/uploads into `Sync area`; deletes there are their own CRUD.
+
+### SYNC-2: bidirectional remote sync client (`fileserver/sync-client.js`)
+MEGA/Dropbox-like two-way sync between a **local folder on the tester's machine** and a **fileserver root/subpath** over ZeroTier HTTPS. The server stays dumb (storage + auth + perms via the existing `/api/fs`); **this CLI does the diffing**:
+- `GET /api/fs/manifest?root&path` (files.admin/read via ACL) → recursive subpath-relative `{rel, size, mtime}` + `dirs` so the client maps it 1:1 onto the local folder.
+- **last-write-wins**, with `<name>.conflict-<ts><ext>` copies when **both** sides changed since the last sync (loser kept; conflict artifacts are never re-synced).
+- **safe-delete**: a deletion only propagates when the far side is unchanged since the last sync (never clobbers a remotely-modified file).
+- Optional **`--watch`** (poll every `--interval` s). State file (default `<folder>/.oswald-sync.json`) records the post-sync manifests so passes are stable (no churn).
+- Usage: `node fileserver/sync-client.js --folder "C:\MyOswaldCopy" [--server https://172.22.160.3:8090] [--root sync] [--path <rel>] [--username U --password P | --token JWT] [--insecure] [--dry-run] [--watch] [--interval N]`.
+- TLS: the self-signed cert must be trusted on the tester's machine (or use `--insecure` for dev). Hand the tester this single file + Node.
+- E2E-verified as a tester account (12 checks): initial upload incl. subfolders, local-edit update (no churn), server-add download, local-delete safe-delete, both-sides conflict → `.conflict` copy, no-op re-run.
 
 ---
 

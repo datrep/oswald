@@ -2,6 +2,9 @@
 import { apiGet, apiPost, apiPut, apiDelete, isLoggedIn, getToken } from '../api/api.js';
 // settings
 import { getSetting, setSetting, loadSettings, applyGlobalSettings, initSessionTimeout } from '../utils/settingsStore.js';
+// NAV-1 breadcrumb
+import { initBreadcrumb, setBreadcrumbName } from '../components/breadcrumb.js';
+initBreadcrumb();
 
 // responsibility: query params and mode flags
 const params = new URLSearchParams(window.location.search);
@@ -632,6 +635,7 @@ async function loadPolicy() {
     if (titleIdEl) titleIdEl.textContent = '';
     titleEl.title = '';
     currentPolicy = null;
+    setBreadcrumbName(isCreateMode ? 'New policy' : 'Policy');
     renderPolicyRows(null);
     return;
   }
@@ -641,10 +645,12 @@ async function loadPolicy() {
     titleEl.textContent = policy.name;
     if (titleIdEl) titleIdEl.textContent = '#' + policy.id;
     titleEl.title = policy.name;
+    setBreadcrumbName('Policy: ' + policy.name);
     renderPolicyRows(currentPolicy);
   } catch (err) {
     console.error('[UI] Failed to load policy', err);
     currentPolicy = null;
+    setBreadcrumbName('Policy');
     renderPolicyRows(null);
   }
 }
