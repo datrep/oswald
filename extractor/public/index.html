@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Image Extractor</title>
+    <link rel="icon" href="/favicon/favicon-16x16.png" />
+    <link rel="stylesheet" href="/extract/extractor.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <h1>Image Extractor</h1>
+          <p class="muted">Pull cached images out of a HAR capture or URL list.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-ghost" href="/" title="Back to dashboard">Dashboard</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- Shown when there is no valid session token -->
+      <section id="gate" class="gate hidden">
+        <h2>Not signed in</h2>
+        <p class="muted">
+          The extractor is protected. Sign in from the dashboard, then come back here.
+        </p>
+        <a class="btn" href="/">Open dashboard</a>
+      </section>
+
+      <section id="app" class="app hidden">
+        <div class="import-grid">
+          <form id="har-form" class="card import-card">
+            <h2>Import HAR</h2>
+            <p class="muted">Upload a <code>.har</code> capture. Only request URLs + metadata are kept.</p>
+            <label class="drop" id="har-drop">
+              <input type="file" id="har-file" accept=".har,.json" hidden />
+              <span id="har-label">Choose a .har file</span>
+            </label>
+            <button type="submit" class="btn" id="har-submit" disabled>Import HAR</button>
+          </form>
+
+          <form id="url-form" class="card import-card">
+            <h2>Import URLs</h2>
+            <p class="muted">One image URL per line (or a single URL).</p>
+            <textarea id="url-input" rows="6" placeholder="https://example.com/img/1.png&#10;https://example.com/img/2.png"></textarea>
+            <button type="submit" class="btn">Import URLs</button>
+          </form>
+        </div>
+
+        <section class="card session-card hidden" id="session-card">
+          <div class="session-head">
+            <div>
+              <h2 id="session-title">Session</h2>
+              <p class="muted" id="session-meta"></p>
+            </div>
+            <div class="session-actions">
+              <label class="width-field" title="Optional: force this width (e.g. 4096) to bypass preview size caps">
+                Max width
+                <input type="number" id="max-width" min="0" max="100000" placeholder="auto" />
+              </label>
+              <button class="btn" id="pull-all" disabled>Pull all full</button>
+              <button class="btn btn-ghost" id="clear-session">Clear</button>
+            </div>
+          </div>
+          <div id="gallery" class="gallery"></div>
+        </section>
+
+        <div id="error" class="error hidden"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/extract/extractor.js"></script>
+  </body>
+</html>

@@ -121,6 +121,28 @@ function renderUserPop() {
   if (pop.querySelector('.user-recent-slot')) renderRecentLogins(pop);
 }
 
+async function submitRegister(username, password) {
+  const res = await fetch('/api/users/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Registration failed');
+  return data;
+}
+
+// True while the Users table is empty (first-run bootstrap).
+async function needsSetup() {
+  try {
+    const res = await fetch('/api/users/bootstrap');
+    const data = await res.json().catch(() => ({}));
+    return !!data.needsSetup;
+  } catch {
+    return false;
+  }
+}
+
 function setLoggedInUI() {
   const toggle = document.getElementById('auth-toggle');
   const panel = document.getElementById('auth-panel');
@@ -149,6 +171,62 @@ function setLoggedOutUI() {
 function refreshUI() {
   if (isLoggedIn()) { ensureIdentity().then(setLoggedInUI); }
   else setLoggedOutUI();
+}
+
+// First-run: replace the login control with an admin account setup form.
+// Shown only while /api/users/bootstrap reports no accounts yet.
+function renderSetup() {
+  const container = document.getElementById('auth-control');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="auth-control">
+      <form id="auth-setup-form" class="auth-panel" autocomplete="off">
+        <h3 style="margin:0;font-size:0.95rem">Create admin account</h3>
+        <p style="margin:0 0 4px;font-size:0.78rem;color:var(--muted)">
+          No accounts yet — the first account becomes the administrator.
+        </p>
+        <input id="setup-username" type="text" placeholder="Username" autocomplete="username" required />
+        <input id="setup-password" type="password" placeholder="Password" autocomplete="new-password" required />
+        <input id="setup-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" required />
+        <button type="submit">Create admin account</button>
+        <p class="auth-error" id="setup-error"></p>
+      </form>
+    </div>`;
+
+  const form = document.getElementById('auth-setup-form');
+  const error = document.getElementById('setup-error');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('setup-username').value.trim();
+    const password = document.getElementById('setup-password').value;
+    const confirm = document.getElementById('setup-confirm').value;
+
+    if (!username) {
+      error.textContent = 'Username is required';
+      return;
+    }
+    if (password !== confirm) {
+      error.textContent = 'Passwords do not match';
+      return;
+    }
+    if (password.length < 8) {
+      error.textContent = 'Password must be at least 8 characters';
+      return;
+    }
+
+    try {
+      await submitRegister(username, password);
+      const token = await submitLogin(username, password);
+      localStorage.setItem(TOKEN_KEY, token);
+      setLoggedInUI();
+      window.dispatchEvent(new CustomEvent('auth:login'));
+      init(); // rebuild the normal login/logout control now that setup is done
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
 }
 
 function init() {
@@ -213,6 +291,11 @@ function init() {
   window.addEventListener('auth:login', () => ensureIdentity().then(setLoggedInUI));
 
   refreshUI();
+
+  // First-run bootstrap: no accounts yet -> show the admin setup form.
+  needsSetup().then((setup) => {
+    if (setup) renderSetup();
+  });
 }
 
 init();

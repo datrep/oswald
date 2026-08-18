@@ -13,6 +13,12 @@ exports.createUser = async (username, passwordHash) => {
     `);
 };
 
+exports.countUsers = async () => {
+  const pool = await getPool();
+  const r = await pool.request().query('SELECT COUNT(*) AS n FROM Users');
+  return r.recordset[0].n;
+};
+
 exports.findUserByUsername = async (username) => {
   const pool = await getPool();
   const result = await pool

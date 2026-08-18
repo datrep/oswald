@@ -5,7 +5,10 @@
 # What this script does, in order:
 #   1. Elevates itself to Administrator (one UAC consent).
 #   2. Installs Node.js LTS via winget if `node` is missing.
-#   3. Installs SQL Server 2022 Express via winget if no instance is found.
+#   3. Installs SQL Server 2022 Express via winget if no instance is found —
+#      or, if the SQL service path is unusable (or -UseLocalDB is passed),
+#      falls back to SQL Server Express LocalDB (on-demand engine, no service)
+#      with mssql/msnodesqlv8 + Windows auth.
 #   4. Fixes the four classic "SQL Server isn't reachable" problems:
 #        - service stopped          -> Start-Service + Automatic startup
 #        - TCP/IP disabled          -> registry Enabled=1 + static port
@@ -14,7 +17,8 @@
 #   5. Bootstraps the database over Windows auth (Integrated Security) with
 #      System.Data.SqlClient (no sqlcmd dependency):
 #        - runs sql/schema/DB_init_table.sql  (fresh DB only, or -ResetDb)
-#        - applies sql/migrations/001..014    (idempotent, always)
+#        - applies sql/migrations/002..015    (idempotent, always; 001 is a
+#          drift-fix superseded by 002 and is skipped)
 #        - sets a strong api_user password + generates JWT_SECRET
 #   6. Writes .env (never overwrites an existing one).
 #   7. Creates gitignored runtime dirs and regenerates fileserver/config.json
@@ -41,6 +45,8 @@
 #   -ListenHost <addr> bind address written to .env (default 0.0.0.0)
 #   -InstallNode / -NoInstallNode        (default: auto-install if missing)
 #   -InstallSqlServer / -NoInstallSqlServer  (default: auto-install if missing)
+#   -UseLocalDB          force LocalDB (on-demand, no SQL service) mode
+#   -NoUseLocalDB        never fall back to LocalDB
 #   -ResetDb           DESTRUCTIVE: drop + recreate DB_Oswald from schema
 #   -ResetConfig       force-regenerate fileserver/config.json
 #   -SkipFirewallRules do NOT open inbound firewall ports (8080/8443/8090/8091)
@@ -67,6 +73,8 @@ param(
     [switch]$NoInstallNode,
     [switch]$InstallSqlServer,
     [switch]$NoInstallSqlServer,
+    [switch]$UseLocalDB,
+    [switch]$NoUseLocalDB,
     [switch]$ResetDb,
     [switch]$ResetConfig,
     [switch]$SkipFirewallRules,
@@ -152,28 +160,40 @@ function Invoke-SqlBatch {
     }
 }
 
-# SqlClient doesn't understand `GO`, so split a .sql file into batches.
+# SqlClient doesn't understand `GO`, so split a .sql file into batches and run
+# them on ONE connection (NOT one connection per batch — that resets the USE
+# context back to the connection-string default, so a schema's `USE DB_Oswald`
+# would be lost and its CREATE TABLEs would land in master).
 function Invoke-SqlScript {
     param([string]$ConnectionString, [string]$Path, [switch]$ContinueOnError)
     if (-not (Test-Path $Path)) { throw "Script not found: $Path" }
     $content = (Get-Content $Path -Raw) -replace "`r`n", "`n"
     $batches = $content -split "(?m)^\s*GO\s*$"
-    $n = 0
-    foreach ($b in $batches) {
-        $b = $b.Trim()
-        if (-not $b) { continue }
-        $n++
-        try {
-            Invoke-SqlBatch -ConnectionString $ConnectionString -Sql $b
-        } catch {
-            if ($ContinueOnError) {
-                Write-Warn "batch $n failed (continuing): $($_.Exception.Message)"
-            } else {
-                throw
+    $conn = New-Object System.Data.SqlClient.SqlConnection $ConnectionString
+    try {
+        $conn.Open()
+        $n = 0
+        foreach ($b in $batches) {
+            $b = $b.Trim()
+            if (-not $b) { continue }
+            $n++
+            try {
+                $cmd = $conn.CreateCommand()
+                $cmd.CommandText = $b
+                $cmd.CommandTimeout = 300
+                [void]$cmd.ExecuteNonQuery()
+            } catch {
+                if ($ContinueOnError) {
+                    Write-Warn "batch $n failed (continuing): $($_.Exception.Message)"
+                } else {
+                    throw
+                }
             }
         }
+        Write-Ok "$n batch(es) executed from $(Split-Path $Path -Leaf)"
+    } finally {
+        $conn.Dispose()
     }
-    Write-Ok "$n batch(es) executed from $(Split-Path $Path -Leaf)"
 }
 
 function Get-SqlInstances {
@@ -210,6 +230,57 @@ function Wait-TcpPort {
 
 function Confirm-Present([string]$Cmd) {
     return [bool](Get-Command $Cmd -ErrorAction SilentlyContinue)
+}
+
+# ---------------------------------------------------------------------------
+# LocalDB helpers — on-demand, no SQL service. Fallback for machines that
+# cannot run a SQL Server *service* instance (e.g. Windows To Go), and the
+# explicit `-UseLocalDB` path.
+# ---------------------------------------------------------------------------
+$script:LocalDbInstance = 'MSSQLLocalDB'
+$script:UseLocalDB = $false
+
+function Get-LocalDbExe {
+    $c = Get-Command SqlLocalDB -ErrorAction SilentlyContinue
+    if ($c) { return $c.Source }
+    foreach ($p in @(
+            "$env:ProgramFiles\Microsoft SQL Server\170\Tools\Binn\SqlLocalDB.exe",
+            "$env:ProgramFiles\Microsoft SQL Server\160\Tools\Binn\SqlLocalDB.exe",
+            "$env:ProgramFiles\Microsoft SQL Server\150\Tools\Binn\SqlLocalDB.exe",
+            "$env:ProgramFiles\Microsoft SQL Server\140\Tools\Binn\SqlLocalDB.exe")) {
+        if (Test-Path $p) { return $p }
+    }
+    return $null
+}
+
+function Start-LocalDb {
+    $exe = Get-LocalDbExe
+    if (-not $exe) {
+        Write-Warn 'SqlLocalDB.exe not found — SQL Server Express LocalDB is not installed.'
+        return $false
+    }
+    try {
+        & $exe start $script:LocalDbInstance 2>&1 | Out-Null
+        $info = & $exe info $script:LocalDbInstance 2>&1 | Out-String
+        if ($info -match 'State:\s*Running') { return $true }
+        Write-Warn "LocalDB instance '$($script:LocalDbInstance)' did not reach Running: $($info.Trim())"
+    } catch {
+        Write-Warn "LocalDB start error: $($_.Exception.Message)"
+    }
+    return $false
+}
+
+# Switch the whole bootstrap into LocalDB mode: start the instance, set the
+# script-level flags, and build the master connection string. Returns $true on
+# success, $false if LocalDB isn't usable.
+function Enable-LocalDbMode {
+    if ($script:UseLocalDB) { return $true }   # already on
+    if (-not (Start-LocalDb)) { return $false }
+    $script:UseLocalDB = $true
+    $script:LocalDbServer = '(localdb)\' + $script:LocalDbInstance
+    $script:masterCs = "Server=$($script:LocalDbServer);Database=master;Integrated Security=true;TrustServerCertificate=true"
+    Write-Ok "using LocalDB '$($script:LocalDbServer)' (Windows auth, no SQL service)"
+    return $true
 }
 
 # Start (or restart) a SQL Server service with retries. A fresh SQL Express
@@ -306,6 +377,17 @@ if (Confirm-Present 'node') {
 # Stage 2 — SQL Server: detect, install, enable, start
 # ---------------------------------------------------------------------------
 Write-Step "Stage 2/9  SQL Server ($Instance)"
+
+# LocalDB mode uses the on-demand engine (no SQL service). Forced via -UseLocalDB,
+# or auto-fallback below whenever the service path proves unusable.
+if ($UseLocalDB) {
+    if (-not (Enable-LocalDbMode)) { Write-Fail 'LocalDB requested (-UseLocalDB) but could not be started.'; exit 1 }
+}
+
+if (-not $script:UseLocalDB) {
+# The whole service flow runs inside this loop so an auto-fallback to LocalDB
+# (which sets $script:UseLocalDB) can `break` out and skip the rest cleanly.
+:stage2 while ($true) {
 $instances = Get-SqlInstances
 $inst = $instances | Where-Object { $_.Instance -eq $Instance } | Select-Object -First 1
 
@@ -320,17 +402,21 @@ if (-not $inst -and $instances.Count) {
 
 if (-not $inst) {
     if ($NoInstallSqlServer) {
-        Write-Fail "SQL instance '$Instance' not found and -NoInstallSqlServer was set."
         if ($instances.Count) { Write-Host "  Instances found: $($instances.Instance -join ', '). Re-run with -Instance <name> to use one." -ForegroundColor $Warn }
-        exit 1
+        if ($NoUseLocalDB) { Write-Fail "SQL instance '$Instance' not found and -NoInstallSqlServer was set (LocalDB disabled with -NoUseLocalDB)."; exit 1 }
+        Write-Warn "No SQL instance and -NoInstallSqlServer was set — attempting LocalDB fallback..."
+        if (Enable-LocalDbMode) { Write-Warn 'Continuing with LocalDB instead of a SQL service.'; break }
+        Write-Fail "SQL instance '$Instance' not found, -NoInstallSqlServer set, and LocalDB is unavailable."; exit 1
     }
     if ($instances.Count) {
         Write-Warn "No instance named '$Instance', but these exist: $($instances.Instance -join ', ')"
         Write-Host "  Re-run with -Instance <one-of-those> to use an existing install, or let the script install a new one:" -ForegroundColor $Warn
     }
     if (-not (Confirm-Present 'winget')) {
-        Write-Fail 'winget not available. Install SQL Server Express (2022 or 2025) manually, then re-run.'
-        exit 1
+        if ($NoUseLocalDB) { Write-Fail 'winget not available. Install SQL Server Express (2022 or 2025) manually, then re-run.'; exit 1 }
+        Write-Warn 'winget not available — attempting LocalDB fallback...'
+        if (Enable-LocalDbMode) { Write-Warn 'Continuing with LocalDB instead of a SQL service.'; break }
+        Write-Fail 'winget not available and LocalDB could not be started. Install SQL Server Express (2022 or 2025) manually, then re-run.'; exit 1
     }
     # Try the latest Express first, then the previous release (winget ids vary by source).
     $installed = $false
@@ -341,9 +427,16 @@ if (-not $inst) {
         Write-Warn "  winget could not install '$pkg' (exit $LASTEXITCODE); trying next..."
     }
     if (-not $installed) {
-        Write-Fail 'Could not auto-install SQL Server Express via winget.'
+        if ($NoUseLocalDB) {
+            Write-Fail 'Could not auto-install SQL Server Express via winget.'
+            Write-Host "  Install SQL Server 2025 or 2022 Express manually from https://www.microsoft.com/en-us/sql-server/sql-server-downloads" -ForegroundColor $Warn
+            Write-Host "  (accept the defaults, instance name '$Instance'), then REBOOT and re-run this script - it will detect the instance and continue." -ForegroundColor $Warn
+            exit 1
+        }
+        Write-Warn 'Could not auto-install SQL Server Express via winget — attempting LocalDB fallback...'
+        if (Enable-LocalDbMode) { Write-Warn 'Continuing with LocalDB instead of a SQL service.'; break }
+        Write-Fail 'Could not auto-install SQL Server Express via winget and LocalDB is unavailable.'
         Write-Host "  Install SQL Server 2025 or 2022 Express manually from https://www.microsoft.com/en-us/sql-server/sql-server-downloads" -ForegroundColor $Warn
-        Write-Host "  (accept the defaults, instance name '$Instance'), then REBOOT and re-run this script - it will detect the instance and continue." -ForegroundColor $Warn
         exit 1
     }
     # Re-detect (install creates the instance; service may take a moment to appear)
@@ -352,20 +445,79 @@ if (-not $inst) {
 }
 
 if (-not $inst) {
-    Write-Fail "Instance '$Instance' still not detected after install. Restart the machine and re-run."
-    exit 1
+    if ($NoUseLocalDB) { Write-Fail "Instance '$Instance' still not detected after install. Restart the machine and re-run."; exit 1 }
+    Write-Warn "Instance '$Instance' still not detected after install — attempting LocalDB fallback..."
+    if (Enable-LocalDbMode) { Write-Warn 'Continuing with LocalDB instead of a SQL service.'; break }
+    Write-Fail "Instance '$Instance' still not detected after install and LocalDB is unavailable. Restart the machine and re-run."; exit 1
 }
 Write-Ok "found instance '$($inst.Instance)' (InstanceID '$($inst.InstanceID)')"
 
 $serviceName = if ($inst.Instance -eq 'MSSQLSERVER') { 'MSSQLSERVER' } else { "MSSQL`$$($inst.Instance)" }
 $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if (-not $svc) {
-    Write-Fail "Service '$serviceName' not found. Check the instance name."
-    exit 1
+    if ($NoUseLocalDB) { Write-Fail "Service '$serviceName' not found. Check the instance name."; exit 1 }
+    Write-Warn "Service '$serviceName' not found — attempting LocalDB fallback..."
+    if (Enable-LocalDbMode) { Write-Warn 'Continuing with LocalDB instead of a SQL service.'; break }
+    Write-Fail "Service '$serviceName' not found and LocalDB is unavailable. Check the instance name."; exit 1
+}
+
+# (a0) SELF-HEAL a tampered/corrupt instance registry. sqlservr.exe needs the
+# MSSQLServer\Parameters key (values 0/1/2 = -d/-e/-l startup paths) to locate
+# master.mdf. If it has been deleted (registry tampering / aborted installer),
+# the service dies with exit 1067 + "could not find the specified named
+# instance (X) - error 2" (error 2 = file not found). Must run BEFORE the first
+# Start-SqlService, or that call fails fast and aborts the whole script.
+$instanceRegKey = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$($inst.InstanceID)"
+$setupKey       = "$instanceRegKey\Setup"
+$sqlPath        = (Get-ItemProperty $setupKey -ErrorAction SilentlyContinue).SQLPath
+if (-not $sqlPath) { $sqlPath = "C:\Program Files\Microsoft SQL Server\$($inst.InstanceID)\MSSQL" }
+$paramsKey = "$instanceRegKey\MSSQLServer\Parameters"
+if (-not (Test-Path $paramsKey)) {
+    Write-Warn "MSSQLServer\Parameters missing (tampered registry) - recreating startup parameters"
+    New-Item -Path $paramsKey -Force | Out-Null
+    New-ItemProperty -Path $paramsKey -Name 0 -Value "-d$sqlPath\DATA\master.mdf" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $paramsKey -Name 1 -Value "-e$sqlPath\Log\ERRORLOG" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $paramsKey -Name 2 -Value "-l$sqlPath\DATA\mastlog.ldf" -PropertyType String -Force | Out-Null
+    Write-Ok "recreated Parameters (-d/-e/-l under $sqlPath)"
+} else {
+    $params = Get-Item $paramsKey
+    foreach ($idx in 0,1,2) {
+        if (-not $params.GetValueNames().Contains([string]$idx)) {
+            $v = switch ($idx) { 0 { "-d$sqlPath\DATA\master.mdf" } 1 { "-e$sqlPath\Log\ERRORLOG" } 2 { "-l$sqlPath\DATA\mastlog.ldf" } }
+            Write-Warn "Parameters value '$idx' missing - restoring to '$v'"
+            New-ItemProperty -Path $paramsKey -Name $idx -Value $v -PropertyType String -Force | Out-Null
+        }
+    }
+    Write-Ok "MSSQLServer\Parameters present"
+}
+
+# Also restore the 32-bit instance-name mapping if it was removed (needed for
+# SQL Browser enumeration and 32-bit client tools).
+$wowMap = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Microsoft SQL Server\Instance Names\SQL'
+if (-not (Test-Path (Join-Path $wowMap $inst.Instance))) {
+    New-Item -Path $wowMap -Force | Out-Null
+    New-ItemProperty -Path $wowMap -Name $inst.Instance -Value $inst.InstanceID -PropertyType String -Force | Out-Null
+    Write-Ok "restored WOW6432Node instance mapping '$($inst.Instance)' -> '$($inst.InstanceID)'"
+}
+
+# Sanity-check the engine's data files so a fully-wiped install fails loudly
+# with a useful message instead of a cryptic 1067.
+foreach ($needle in @("$sqlPath\DATA\master.mdf", "$sqlPath\DATA\mastlog.ldf", "$sqlPath\Log\ERRORLOG")) {
+    if (-not (Test-Path $needle)) {
+        Write-Warn "expected file missing: $needle (if data was deleted too, restore a backup or use -ResetDb to rebuild from schema)"
+    }
 }
 
 # (a) service on + automatic start (retries + diagnostics on failure)
-if (-not (Start-SqlService -Name $serviceName -InstanceID $($inst.InstanceID))) { exit 1 }
+#     If the service refuses to start (this machine's actual failure mode), fall
+#     back to LocalDB instead of aborting.
+if (-not (Start-SqlService -Name $serviceName -InstanceID $($inst.InstanceID))) {
+    if ($NoUseLocalDB) { Show-SqlStartDiagnostics -Name $serviceName -InstanceID $($inst.InstanceID); exit 1 }
+    Write-Warn "SQL service '$serviceName' failed to start — attempting LocalDB fallback..."
+    if (Enable-LocalDbMode) { Write-Warn 'Continuing with LocalDB instead of the SQL service.'; break }
+    Show-SqlStartDiagnostics -Name $serviceName -InstanceID $($inst.InstanceID)
+    exit 1
+}
 
 # (a1) SQL Server Browser — needed for SSMS "Browse for servers" / instance discovery.
 $browser = Get-Service -Name 'SQLBrowser' -ErrorAction SilentlyContinue
@@ -408,6 +560,9 @@ if (-not (Wait-TcpPort -Port $SqlPort)) {
     exit 1
 }
 Write-Ok "SQL Server listening on TCP $SqlPort"
+break
+} # /stage2
+} # /if (-not $script:UseLocalDB)
 
 # ---------------------------------------------------------------------------
 # Stage 3 — database bootstrap (Windows auth, no sqlcmd needed)
@@ -433,15 +588,21 @@ function Get-AdminConnectionString {
     return $null
 }
 
-$masterCs = Get-AdminConnectionString
-if (-not $masterCs) {
-    Write-Fail 'Could not connect to SQL Server with any local mode (Windows auth or sa).'
-    Write-Host "  Fix: either ensure this account is a sysadmin on '$Instance'," -ForegroundColor $Warn
-    Write-Host "  or pass -SaPassword with an existing sa password, or connect with SSMS once to add yourself:" -ForegroundColor $Warn
-    Write-Host "  ALTER SERVER ROLE sysadmin ADD MEMBER [<domain>\<user>];" -ForegroundColor $Warn
-    exit 1
+if ($script:UseLocalDB) {
+    $masterCs = $script:masterCs
+    Write-Ok "LocalDB admin connection established"
+} else {
+    $masterCs = Get-AdminConnectionString
+    if (-not $masterCs) {
+        Write-Fail 'Could not connect to SQL Server with any local mode (Windows auth or sa).'
+        Write-Host "  Fix: either ensure this account is a sysadmin on '$Instance'," -ForegroundColor $Warn
+        Write-Host "  or pass -SaPassword with an existing sa password, or connect with SSMS once to add yourself:" -ForegroundColor $Warn
+        Write-Host "  ALTER SERVER ROLE sysadmin ADD MEMBER [<domain>\<user>];" -ForegroundColor $Warn
+        Write-Host "  ...or re-run with -UseLocalDB to use SQL Server Express LocalDB instead." -ForegroundColor $Warn
+        exit 1
+    }
+    Write-Ok "admin connection established"
 }
-Write-Ok "admin connection established"
 $dbCs = $masterCs -replace 'Database=master', "Database=$DbName"
 
 $dbExists = $false
@@ -467,9 +628,12 @@ if (-not $dbExists) {
     Invoke-SqlScript -ConnectionString $masterCs -Path (Join-Path $root 'sql\schema\DB_init_table.sql') -ContinueOnError
 }
 
-# Apply migrations 001..014 (idempotent — safe on both fresh and existing DBs)
-Write-Host "  Applying migrations..."
-$migrations = Get-ChildItem (Join-Path $root 'sql\migrations') -Filter '*.sql' | Sort-Object Name
+# Apply migrations 002..015. Migration 001 is a DRIFT-FIX for pre-existing DBs
+# whose plannedEnd was NOT NULL — on the current schema it ALWAYS fails (the
+# `active` computed column blocks the ALTER) and its work is fully superseded
+# by migration 002 (guarded/idempotent), so we skip 001 entirely.
+Write-Host "  Applying migrations (002..015; 001 is a drift-fix superseded by 002)..."
+$migrations = Get-ChildItem (Join-Path $root 'sql\migrations') -Filter '*.sql' | Sort-Object Name | Where-Object { $_.Name -notlike '001_*' }
 foreach ($m in $migrations) {
     Invoke-SqlScript -ConnectionString $dbCs -Path $m.FullName
 }
@@ -493,7 +657,28 @@ $envPath = Join-Path $root '.env'
 if (-not (Test-Path $envPath)) {
     if (-not $DbPassword) { $DbPassword = Get-RandomPassword }
     $jwt = Get-RandomHex 48
-    $content = @"
+    if ($script:UseLocalDB) {
+        # LocalDB mode: config/db.js + fileserver/db.js use mssql/msnodesqlv8
+        # over ODBC Driver 18 with Windows auth (DB_USER/DB_PASSWORD unused).
+        $content = @"
+# Generated by scripts/bootstrap-fresh-machine.ps1 on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+PORT=$AppPort
+HTTPS_PORT=$HttpsPort
+SERVER_HOST=$ListenHost
+LOCAL_SERVER_HOST=$ListenHost
+REMOTE_SERVER_HOST=0.0.0.0
+DB_DRIVER=msnodesqlv8
+DB_SERVER=(localdb)\$($script:LocalDbInstance)
+DB_INSTANCE=$($script:LocalDbInstance)
+DB_PORT=1433
+DB_DATABASE=$DbName
+DB_USER=$DbUser
+DB_PASSWORD=$DbPassword
+JWT_SECRET=$jwt
+NODE_ENV=production
+"@
+    } else {
+        $content = @"
 # Generated by scripts/bootstrap-fresh-machine.ps1 on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 PORT=$AppPort
 HTTPS_PORT=$HttpsPort
@@ -509,6 +694,7 @@ DB_PASSWORD=$DbPassword
 JWT_SECRET=$jwt
 NODE_ENV=production
 "@
+    }
     Set-Content -Path $envPath -Value $content -Encoding Ascii
     Write-Ok "wrote .env (strong random DB password + JWT secret generated)"
 } else {
@@ -675,6 +861,11 @@ Write-Host "  Bootstrap complete."
 Write-Host "  Dashboard : http://$ListenHost`:$AppPort   (HTTPS :$HttpsPort)" -ForegroundColor $Info
 Write-Host "  Fileserver: https://$ListenHost`:8090" -ForegroundColor $Info
 Write-Host "  First login: oswald_admin / admin  (change it immediately!)" -ForegroundColor $Info
-Write-Host "  Credentials for the api_user SQL login live in .env" -ForegroundColor $Info
+if ($script:UseLocalDB) {
+    Write-Host "  Database  : LocalDB '$($script:LocalDbServer)' (Windows auth, no SQL service)" -ForegroundColor $Info
+    Write-Host "  Auth      : Windows auth — DB_USER/DB_PASSWORD in .env are unused" -ForegroundColor $Info
+} else {
+    Write-Host "  Credentials for the api_user SQL login live in .env" -ForegroundColor $Info
+}
 Write-Host "==============================================================" -ForegroundColor $Ok
 Write-Host ""

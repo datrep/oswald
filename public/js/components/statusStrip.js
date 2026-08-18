@@ -20,6 +20,10 @@ function fmtUptime(sec) {
   return `${m}m`;
 }
 
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
 function render(chips) {
   const strip = document.getElementById('status-strip');
   if (!strip) return;
@@ -27,8 +31,8 @@ function render(chips) {
   chips.forEach((c) => {
     const item = document.createElement('span');
     item.className = 'status-item';
-    item.title = c.title || c.label;
-    item.innerHTML = `<span class="status-dot ${c.dot}"></span>${c.label}`;
+    if (c.title) item.title = c.title;
+    item.innerHTML = `<span class="status-dot ${c.dot}"></span>${c.label}${c.popup ? `<span class="status-pop">${c.popup}</span>` : ''}`;
     strip.appendChild(item);
   });
 }
@@ -44,7 +48,14 @@ async function refresh() {
 
   try {
     const h = await apiGet('/api/health');
-    render([
+    let p = null;
+    try {
+      p = await apiGet('/api/pricing');
+    } catch (err) {
+      console.error('[StatusStrip] pricing check failed', err);
+    }
+
+    const chips = [
       {
         dot: 'online',
         label: `Server · up ${fmtUptime(h.uptime)}`,
@@ -65,7 +76,25 @@ async function refresh() {
         label: `${h.hosts.total} hosts${h.hosts.enabled ? ` · ${h.hosts.enabled} enabled` : ''}`,
         title: 'Configured network hosts',
       },
-    ]);
+    ];
+
+    if (p) {
+      const nextLabel = new Date(p.nextChangeAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      chips.push({
+        dot: p.isPeak ? 'online' : 'idle',
+        label: p.isPeak ? '● Peak' : '○ Off-peak',
+        popup: `
+          <div class="pop-row"><span>Model</span><b>${esc(p.rates.model)}</b></div>
+          <div class="pop-row"><span>Window</span><b>${p.isPeak ? 'Peak' : 'Off-peak'}</b></div>
+          <div class="pop-row"><span>Input (cache miss)</span><b>$${p.rates.inputCacheMissPer1M}/M</b></div>
+          <div class="pop-row"><span>Input (cache hit)</span><b>$${p.rates.inputCacheHitPer1M}/M</b></div>
+          <div class="pop-row"><span>Output</span><b>$${p.rates.outputPer1M}/M</b></div>
+          <div class="pop-row"><span>Next change</span><b>${nextLabel}</b></div>
+        `,
+      });
+    }
+
+    render(chips);
   } catch (err) {
     console.error('[StatusStrip] health check failed', err);
     render([{ dot: 'offline', label: 'Server unreachable', title: 'Failed to reach /api/health' }]);

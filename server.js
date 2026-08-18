@@ -26,6 +26,9 @@ const logRoutes = require('./routes/logRoutes');
 const careerFileRoutes = require('./routes/careerFileRoutes');
 const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
 const certificationRoutes = require('./routes/certificationRoutes');
+const pricingRoutes = require('./routes/pricingRoutes');
+const extractorRouter = require('./extractor');
+const pricing = require('./services/pricing');
 const { apiLogger, archivePreviousSession } = require('./utils/apiLogger');
 const { createApiLog } = require('./models/apiLogModel');
 
@@ -72,6 +75,8 @@ app.use(express.json());
 
 app.use(express.static('public'));
 app.use(express.static('public/pages'));
+// Segmented image-extraction UI (own folder, separate from the main dashboard).
+app.use('/extract', express.static(path.join(__dirname, 'extractor', 'public')));
 app.use('/edicts', edictRoutes);
 
 app.get('/api/settings', (req, res) => {
@@ -99,6 +104,12 @@ app.use('/resources', (req, res, next) => {
 
 app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  next();
+});
+
+// Count every /api request for the /api/pricing stats (in-memory, DB-free).
+app.use('/api', (req, res, next) => {
+  pricing.recordRequest();
   next();
 });
 
@@ -159,6 +170,8 @@ app.use('/api/audit-logs', auditRoutes);
 app.use('/api/ips', ipRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/pricing', pricingRoutes);
+app.use('/api/extract', extractorRouter);
 app.use('/api/mcp', mcpRoutes);
 app.use('/api/servers', serverRoutes);
 app.use('/api/logs', logRoutes);
