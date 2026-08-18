@@ -218,8 +218,8 @@ function renderSetup() {
 
     try {
       await submitRegister(username, password);
-      const token = await submitLogin(username, password);
-      localStorage.setItem(TOKEN_KEY, token);
+      const data = await submitLogin(username, password);
+      localStorage.setItem(TOKEN_KEY, data.token);
       setLoggedInUI();
       window.dispatchEvent(new CustomEvent('auth:login'));
       init(); // rebuild the normal login/logout control now that setup is done
