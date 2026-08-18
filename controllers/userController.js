@@ -158,6 +158,17 @@ async function getUserSessions(req, res, next) {
   }
 }
 
+// UAC-5: GET /api/sessions — recent logins across all users (users.manage).
+async function getSessions(req, res, next) {
+  try {
+    const limit = Math.max(1, Math.min(50, Number.parseInt(req.query.limit, 10) || 20));
+    const sessions = await User.getAllSessions(limit);
+    res.json({ sessions });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // PUT /api/users/:userId/role — set a user's role to exactly one role (admin only).
 async function assignUserRole(req, res, next) {
   const { userId } = req.params;
@@ -311,6 +322,7 @@ module.exports = {
   getAllUsers,
   getRoles,
   getUserSessions,
+  getSessions,
   assignUserRole,
   setUserRoles,
   setUserActive,

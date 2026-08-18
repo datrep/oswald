@@ -11,8 +11,8 @@
   "allowSignup": true,
   "mirror": {
     "sourceRootId": "resources",
-    "mirrorPath": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror",
-    "readOnly": false
+    "mirrorPath": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area",
+    "readOnly": true
   },
   "sync": {
     "source": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources",
@@ -30,11 +30,6 @@
       "id": "sync",
       "name": "Sync area",
       "path": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area"
-    },
-    {
-      "id": "mirror",
-      "name": "mirror",
-      "path": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-mirror"
     }
   ],
   "search": {

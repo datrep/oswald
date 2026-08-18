@@ -3,6 +3,8 @@
 // and role CRUD with editable permissions. Backed by session revocation — any
 // access change logs the affected user(s) out immediately (Users.tokenVersion).
 import { apiGet, apiPut, apiPost, apiDelete, isLoggedIn, getToken } from '../api/api.js';
+import { initBreadcrumb } from '../components/breadcrumb.js';
+initBreadcrumb();
 
 const $ = (id) => document.getElementById(id);
 let STATE = { users: [], roles: [], permissions: [], myId: null, editUserId: null, search: '' };

@@ -292,6 +292,34 @@ app.get('/api/fs/list', authenticateToken, access.requireRead, async (req, res, 
   } catch (e) { next(e); }
 });
 
+// SYNC-2: recursive manifest for sync clients — flat {rel, size, mtime} file
+// + directory list under a folder (requireRead, so ACL-granted testers can read
+// their root). dirs[] lets the client create only the missing folders.
+app.get('/api/fs/manifest', authenticateToken, access.requireRead, (req, res, next) => {
+  try {
+    const root = req.query.root;
+    const rel = parseRel(req);
+    const files = [];
+    const dirs = [];
+    // rels are RELATIVE TO the requested path (so sync clients can map them
+    // 1:1 onto a local folder); listDir gets the root-relative path to walk.
+    const walk = (r) => {
+      const data = listDir(root, rel ? `${rel}/${r}` : r);
+      for (const e of data.entries) {
+        const child = r ? `${r}/${e.name}` : e.name;
+        if (e.isDir) {
+          dirs.push(child);
+          walk(child);
+        } else {
+          files.push({ rel: child, size: e.size, mtime: e.mtime });
+        }
+      }
+    };
+    walk('');
+    ok(res, { root, path: rel, files, dirs });
+  } catch (e) { next(e); }
+});
+
 app.get('/api/fs/search', authenticateToken, access.requireRead, (req, res, next) => {
   try { ok(res, { results: search(req.query.root, req.query.q, parseRel(req)) }); } catch (e) { next(e); }
 });

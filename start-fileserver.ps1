@@ -9,6 +9,16 @@
 $root = $PSScriptRoot
 Set-Location $root
 
+# FS-OPS-1: refuse to double-launch — if a fileserver is already running, stop.
+$existing = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+    Where-Object { $_.CommandLine -like '*fileserver*server.js*' } |
+    Select-Object -First 1
+if ($existing) {
+    Write-Host "A fileserver is already running (PID $($existing.ProcessId)). Refusing to start a second instance." -ForegroundColor Yellow
+    Write-Host "If it is stuck, stop it first:  Stop-Process -Id $($existing.ProcessId) -Force"
+    exit 0
+}
+
 $node = (Get-Command node -ErrorAction SilentlyContinue).Source
 if (-not $node) { $node = 'node' }
 $logOut = Join-Path $root 'fileserver.log'
