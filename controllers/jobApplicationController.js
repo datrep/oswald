@@ -3,6 +3,7 @@
 // user manages their OWN applications (userId comes from the token).
 
 const model = require('../models/jobApplicationModel');
+const { NotFoundError } = require('../utils/errors');
 
 function userIdOf(req) {
   return req.user.userID ?? req.user.id;
@@ -83,7 +84,7 @@ async function create(req, res, next) {
 async function getOne(req, res, next) {
   try {
     const app = await model.getApplicationById(Number(req.params.id), userIdOf(req));
-    if (!app) return res.status(404).json({ error: 'Application not found' });
+    if (!app) throw new NotFoundError('Application not found');
     res.json(app);
   } catch (err) {
     next(err);
@@ -97,7 +98,7 @@ async function update(req, res, next) {
   try {
     const id = Number(req.params.id);
     const app = await model.getApplicationById(id, userIdOf(req));
-    if (!app) return res.status(404).json({ error: 'Application not found' });
+    if (!app) throw new NotFoundError('Application not found');
     const data = pick(req.body);
     const body = req.body || {};
     const merged = { ...app };
@@ -115,7 +116,7 @@ async function update(req, res, next) {
 async function remove(req, res, next) {
   try {
     const removed = await model.deleteApplication(Number(req.params.id), userIdOf(req));
-    if (!removed) return res.status(404).json({ error: 'Application not found' });
+    if (!removed) throw new NotFoundError('Application not found');
     res.json({ success: true });
   } catch (err) {
     next(err);

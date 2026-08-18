@@ -4,6 +4,7 @@
 // policies.manage (mutating a policy's structure).
 
 const model = require('../models/policyModuleModel');
+const { NotFoundError } = require('../utils/errors');
 
 // GET /api/edicts/:id/modules — list modules attached to a policy.
 async function getModules(req, res, next) {
@@ -45,7 +46,7 @@ async function detachModule(req, res, next) {
     const { type } = req.params;
     if (!Number.isInteger(edictId)) return res.status(400).json({ error: 'Invalid policy id' });
     const removed = await model.detachModule(edictId, type);
-    if (!removed) return res.status(404).json({ error: 'Module not attached to this policy' });
+    if (!removed) throw new NotFoundError('Module not attached to this policy');
     const modules = await model.getModulesByEdict(edictId);
     res.json({ success: true, modules });
   } catch (err) {

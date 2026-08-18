@@ -34,10 +34,21 @@ class ForbiddenError extends AppError {
   }
 }
 
+/**
+ * Wrap an async route handler so rejections flow to the Express error handler,
+ * instead of requiring try/catch(next) in every controller.
+ */
+function asyncHandler(fn) {
+  return function wrapped(req, res, next) {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
 module.exports = {
   AppError,
   NotFoundError,
   ValidationError,
   UnauthorizedError,
   ForbiddenError,
+  asyncHandler,
 };

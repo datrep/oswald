@@ -3,6 +3,7 @@
 // authenticated user manages their OWN certifications (userId from the token).
 
 const model = require('../models/certificationModel');
+const { NotFoundError } = require('../utils/errors');
 
 function userIdOf(req) {
   return req.user.userID ?? req.user.id;
@@ -79,7 +80,7 @@ async function create(req, res, next) {
 async function getOne(req, res, next) {
   try {
     const cert = await model.getCertificationById(Number(req.params.id), userIdOf(req));
-    if (!cert) return res.status(404).json({ error: 'Certification not found' });
+    if (!cert) throw new NotFoundError('Certification not found');
     res.json(cert);
   } catch (err) {
     next(err);
@@ -92,7 +93,7 @@ async function update(req, res, next) {
   try {
     const id = Number(req.params.id);
     const cert = await model.getCertificationById(id, userIdOf(req));
-    if (!cert) return res.status(404).json({ error: 'Certification not found' });
+    if (!cert) throw new NotFoundError('Certification not found');
     const data = pick(req.body);
     const body = req.body || {};
     const merged = { ...cert };
@@ -110,7 +111,7 @@ async function update(req, res, next) {
 async function remove(req, res, next) {
   try {
     const removed = await model.deleteCertification(Number(req.params.id), userIdOf(req));
-    if (!removed) return res.status(404).json({ error: 'Certification not found' });
+    if (!removed) throw new NotFoundError('Certification not found');
     res.json({ success: true });
   } catch (err) {
     next(err);

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/userModel');
 const Role = require('../models/roleModel');
+const { NotFoundError } = require('../utils/errors');
 
 const DEFAULT_ROLE = 'user';
 
@@ -151,7 +152,7 @@ async function getUserInfo(req, res, next) {
     const user = await User.getUserInfo(userID);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      throw new NotFoundError('User not found');
     }
 
     const [roles, permissions] = await Promise.all([
@@ -347,7 +348,7 @@ async function deleteRole(req, res, next) {
   if (!Number.isInteger(roleId)) return res.status(400).json({ error: 'Invalid role id' });
   try {
     const role = (await Role.getAllRoles()).find((r) => r.id === roleId);
-    if (!role) return res.status(404).json({ error: 'Role not found' });
+    if (!role) throw new NotFoundError('Role not found');
     if (role.name === 'admin') return res.status(400).json({ error: 'The admin role cannot be deleted' });
     await Role.deleteRole(roleId);
     res.json({ success: true, message: 'Role deleted' });

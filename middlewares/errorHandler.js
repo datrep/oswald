@@ -20,8 +20,12 @@ function globalErrorHandler(err, req, res, next) {
     });
   }
 
-  // Handle database errors
-  if (err instanceof sql.RequestError) {
+  // Handle database errors (request, connection, and transaction failures).
+  if (
+    err instanceof sql.RequestError ||
+    err instanceof sql.ConnectionError ||
+    err instanceof sql.TransactionError
+  ) {
     return res.status(500).json({
       error: 'Database Error',
       details: err.message,

@@ -8,6 +8,7 @@ const {
   getCompletionTrends: modelGetCompletionTrends,
   reorderTasks: modelReorderTasks,
 } = require('../models/taskModel');
+const { NotFoundError } = require('../utils/errors');
 
 // GET all tasks
 async function getAllTasks(req, res, next) {
@@ -26,7 +27,7 @@ async function getTaskById(req, res, next) {
   try {
     const task = await modelGetTaskById(id);
     if (!task) {
-      return res.status(404).json({ error: 'Task not found' });
+      throw new NotFoundError('Task not found');
     }
     res.json(task);
   } catch (err) {

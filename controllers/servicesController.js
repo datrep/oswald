@@ -1,4 +1,5 @@
 const servicesModel = require('../models/servicesModel');
+const { NotFoundError } = require('../utils/errors');
 
 async function getAllServices(req, res, next) {
   try {
@@ -26,7 +27,7 @@ async function deleteService(req, res, next) {
     if (result) {
       res.status(200).json({ success: true, message: 'Service deleted successfully' });
     } else {
-      res.status(404).json({ error: 'Service not found' });
+      throw new NotFoundError('Service not found');
     }
   } catch (err) {
     next(err);
@@ -41,7 +42,7 @@ async function updateService(req, res, next) {
     if (result) {
       res.status(200).json(result);
     } else {
-      res.status(404).json({ error: 'Service not found' });
+      throw new NotFoundError('Service not found');
     }
   } catch (err) {
     next(err);

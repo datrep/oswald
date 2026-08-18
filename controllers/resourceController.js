@@ -10,6 +10,7 @@ const {
 } = require('../models/resourceModel');
 const path = require('path');
 const fs = require('fs');
+const { NotFoundError } = require('../utils/errors');
 
 // POST /api/resources
 async function createResource(req, res, next) {
@@ -93,7 +94,7 @@ async function deleteResourceById(req, res, next) {
     // Get file path from DB
     const resource = await getResourcePathById(id);
     if (!resource) {
-      return res.status(404).json({ error: 'Resource not found' });
+      throw new NotFoundError('Resource not found');
     }
 
     const publicDir = path.resolve(__dirname, '../public');

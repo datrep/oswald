@@ -8,6 +8,7 @@ const fs = require('fs');
 const multer = require('multer');
 const model = require('../models/careerFileModel');
 const { resourcesDirPath } = require('../shared/config');
+const { NotFoundError } = require('../utils/errors');
 
 // Resolve the career-files folder (default <resourcesDir>/career) and ensure it exists.
 function careerDir() {
@@ -72,7 +73,7 @@ async function remove(req, res, next) {
     const userId = req.user.userID ?? req.user.id;
     const id = Number(req.params.id);
     const file = await model.getCareerFileById(id, userId);
-    if (!file) return res.status(404).json({ error: 'File not found' });
+    if (!file) throw new NotFoundError('File not found');
     const removed = await model.deleteCareerFile(id, userId);
     // Best-effort: remove the stored file from disk (the DB row is the source of truth).
     if (removed) {
