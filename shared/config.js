@@ -54,4 +54,18 @@ function writeDashboardSettings(settings) {
   fs.writeFileSync(dashboardSettingsPath(), JSON.stringify(settings, null, 2) + '\n');
 }
 
-module.exports = { loadEnv, env, readJsonFile, dashboardSettingsPath, readDashboardSettings, writeDashboardSettings };
+/**
+ * Absolute path to the dashboard's resources storage directory
+ * (settings.resourcesDir, default <repo>/public/resources). Always resolves
+ * relative to the repo root, regardless of the process cwd, so every call site
+ * agrees on one directory.
+ */
+function resourcesDirPath() {
+  const configured = readDashboardSettings().resourcesDir;
+  if (typeof configured === 'string' && configured.trim()) {
+    return path.resolve(ROOT, configured.trim());
+  }
+  return path.join(ROOT, 'public', 'resources');
+}
+
+module.exports = { loadEnv, env, readJsonFile, dashboardSettingsPath, readDashboardSettings, writeDashboardSettings, resourcesDirPath };

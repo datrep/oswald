@@ -9,17 +9,39 @@
     "model": "deepseek-v4-pro",
     "effectiveFrom": "2026-08-16T16:00:00Z",
     "peakWindows": [
-      { "start": "01:00", "end": "04:00" },
-      { "start": "06:00", "end": "10:00" }
+      {
+        "start": "01:00",
+        "end": "04:00"
+      },
+      {
+        "start": "06:00",
+        "end": "10:00"
+      }
     ],
     "models": {
       "deepseek-v4-flash": {
-        "peak": { "cacheHit": 0.014, "cacheMiss": 0.44, "output": 1.32 },
-        "offPeak": { "cacheHit": 0.007, "cacheMiss": 0.22, "output": 0.66 }
+        "peak": {
+          "cacheHit": 0.014,
+          "cacheMiss": 0.44,
+          "output": 1.32
+        },
+        "offPeak": {
+          "cacheHit": 0.007,
+          "cacheMiss": 0.22,
+          "output": 0.66
+        }
       },
       "deepseek-v4-pro": {
-        "peak": { "cacheHit": 0.044, "cacheMiss": 1.32, "output": 3.96 },
-        "offPeak": { "cacheHit": 0.022, "cacheMiss": 0.66, "output": 1.98 }
+        "peak": {
+          "cacheHit": 0.044,
+          "cacheMiss": 1.32,
+          "output": 3.96
+        },
+        "offPeak": {
+          "cacheHit": 0.022,
+          "cacheMiss": 0.66,
+          "output": 1.98
+        }
       }
     }
   },

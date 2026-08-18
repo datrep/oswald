@@ -41,7 +41,7 @@ const {
   unhandledRejectionHandler,
 } = require('./middlewares/errorHandler');
 const mcpServer = require('./utils/mcpServer');
-const { loadEnv, readDashboardSettings, writeDashboardSettings } = require('./shared/config');
+const { loadEnv, readDashboardSettings, writeDashboardSettings, resourcesDirPath } = require('./shared/config');
 const { loadOrCreateCert } = require('./shared/tls');
 loadEnv();
 const { getPool } = require('./config/db');
@@ -71,7 +71,16 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.use(express.json());
+app.use(express.json({ limit: '6mb' }));
+
+// Security headers (aligned with the fileserver): nosniff on every response,
+// deny framing, and a tight referrer policy.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
 app.use(express.static('public'));
 app.use(express.static('public/pages'));
@@ -98,7 +107,7 @@ app.put('/api/settings', authenticateToken, requirePermission('users.manage'), (
 // Re-resolves the path on every request so a settings change takes effect without
 // a restart — and /resources/... URLs keep working if storage moves outside public/.
 app.use('/resources', (req, res, next) => {
-  const dir = path.resolve(readDashboardSettings().resourcesDir || 'public/resources');
+  const dir = resourcesDirPath();
   express.static(dir)(req, res, next);
 });
 

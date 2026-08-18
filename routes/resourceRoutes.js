@@ -5,24 +5,12 @@ const fs = require('fs');
 const multer = require('multer');
 const authenticateToken = require('../middlewares/auth');
 const { requirePermission } = require('../middlewares/auth');
+const { resourcesDirPath } = require('../shared/config');
 const resourceController = require('../controllers/resourceController');
-
-// The resources storage directory is a server setting (settings.json -> resourcesDir,
-// default public/resources). Resolved fresh per upload so a settings change is honored.
-function resourcesDir() {
-  try {
-    const settings = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'api', 'settings.json'), 'utf8')
-    );
-    return path.resolve(__dirname, '..', settings.resourcesDir || 'public/resources');
-  } catch {
-    return path.resolve(__dirname, '..', 'public', 'resources');
-  }
-}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = resourcesDir();
+    const dir = resourcesDirPath();
     try {
       fs.mkdirSync(dir, { recursive: true });
       cb(null, dir);

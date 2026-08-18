@@ -7,12 +7,11 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const model = require('../models/careerFileModel');
-const { readDashboardSettings } = require('../shared/config');
+const { resourcesDirPath } = require('../shared/config');
 
 // Resolve the career-files folder (default <resourcesDir>/career) and ensure it exists.
 function careerDir() {
-  const base = path.resolve(readDashboardSettings().resourcesDir || 'public/resources');
-  const dir = path.join(base, 'career');
+  const dir = path.join(resourcesDirPath(), 'career');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
