@@ -5,7 +5,7 @@ const ping = require('ping');
 const model = require('../models/ipModel');
 
 // GET /api/ips/check — ping enabled hosts from the DB
-exports.checkIPs = async (req, res, next) => {
+const checkIPs = async (req, res, next) => {
   try {
     const hosts = await model.getEnabledHosts();
     const results = await Promise.all(
@@ -25,7 +25,7 @@ exports.checkIPs = async (req, res, next) => {
 };
 
 // GET /api/ips/hosts
-exports.getAllHosts = async (req, res, next) => {
+const getAllHosts = async (req, res, next) => {
   try {
     res.json(await model.getAllHosts());
   } catch (err) {
@@ -34,7 +34,7 @@ exports.getAllHosts = async (req, res, next) => {
 };
 
 // POST /api/ips/hosts
-exports.createHost = async (req, res, next) => {
+const createHost = async (req, res, next) => {
   try {
     const { label, ip, enabled = true, sortOrder = 0 } = req.body;
     if (!label || !ip) {
@@ -48,7 +48,7 @@ exports.createHost = async (req, res, next) => {
 };
 
 // PUT /api/ips/hosts/:id
-exports.updateHost = async (req, res, next) => {
+const updateHost = async (req, res, next) => {
   try {
     const fields = {};
     for (const key of ['label', 'ip', 'enabled', 'sortOrder']) {
@@ -67,7 +67,7 @@ exports.updateHost = async (req, res, next) => {
 };
 
 // DELETE /api/ips/hosts/:id
-exports.deleteHost = async (req, res, next) => {
+const deleteHost = async (req, res, next) => {
   try {
     await model.deleteHost(req.params.id);
     res.json({ success: true, message: 'Host deleted' });
@@ -75,3 +75,5 @@ exports.deleteHost = async (req, res, next) => {
     next(err);
   }
 };
+
+module.exports = { checkIPs, getAllHosts, createHost, updateHost, deleteHost };

@@ -100,12 +100,12 @@ This script scans `public/resources/` and removes files not referenced by `Edict
 
 ## Important gotchas to know early
 
-1. **Host binding in `server.js` is not specific**.
-2. **`resource` static path mismatch risk**: server exposes `/resources` from `resources/`, while uploads are saved to `public/resources/`. Verify actual runtime paths before changing resource links.
-3. **Auth routes are present but currently not mounted** in `server.js` (user routes are commented out).
-4. **User schema mismatch risk**: user controller expects `userID` column patterns like `U123`, while SQL bootstrap defines `Users.id` as integer PK. Treat auth/user area as partially integrated.
-5. **Error middleware exists but is not wired** (`middlewares/errorHandler.js` is not attached to Express app).
-6. **Legacy and dump files** (`dump/`, old pages, unused upload helper) coexist with active code; confirm target paths before editing.
+1. **Host binding** — `server.js` binds `SERVER_HOST` (default `0.0.0.0`); it falls back to `0.0.0.0` if the requested host isn't present.
+2. **`resource` static path** — uploads land under `settings.json`'s `resourcesDir` (default `public/resources`) and are served at `/resources` via `resourcesDirPath()` in `shared/config.js`.
+3. **Auth + UAC are wired** — `routes/userRoutes.js` is mounted; JWT sessions are DB-backed (`Users.tokenVersion` revokes immediately on role/password/disable).
+4. **`Users.id` is an integer PK and the JWT claim is `userID`** — read the caller as `req.user.userID`.
+5. **Error handling is wired** — `middlewares/errorHandler.js` (global handler + 404 + unhandled-rejection); controllers throw `AppError` subclasses (e.g. `NotFoundError`).
+6. **Legacy files** — `utils/logger.js` is superseded by `utils/apiLogger.js`; confirm target paths before editing.
 
 ## Suggested learning path for a newcomer
 

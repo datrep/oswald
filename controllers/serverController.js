@@ -4,7 +4,7 @@
 const serverManager = require('../utils/serverManager');
 
 // GET /api/servers — status of every managed server.
-exports.getAll = async (req, res, next) => {
+const getAll = async (req, res, next) => {
   try {
     res.json({ servers: await serverManager.statusAll() });
   } catch (err) {
@@ -13,7 +13,7 @@ exports.getAll = async (req, res, next) => {
 };
 
 // GET /api/servers/:name
-exports.getStatus = async (req, res, next) => {
+const getStatus = async (req, res, next) => {
   try {
     res.json(await serverManager.statusOne(req.params.name));
   } catch (err) {
@@ -22,7 +22,7 @@ exports.getStatus = async (req, res, next) => {
 };
 
 // POST /api/servers/:name/start
-exports.start = (req, res, next) => {
+const start = (req, res, next) => {
   try {
     res.json(serverManager.start(req.params.name));
   } catch (err) {
@@ -31,10 +31,12 @@ exports.start = (req, res, next) => {
 };
 
 // POST /api/servers/:name/stop
-exports.stop = (req, res, next) => {
+const stop = (req, res, next) => {
   try {
     res.json(serverManager.stop(req.params.name));
   } catch (err) {
     next(err);
   }
 };
+
+module.exports = { getAll, getStatus, start, stop };

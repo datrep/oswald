@@ -1,9 +1,16 @@
 const { getPool } = require('../config/db');
 const sql = require('mssql');
 
-async function getAllTasks() {
+async function getAllTasks({ limit, offset } = {}) {
   const pool = await getPool();
-  const result = await pool.request().query(`SELECT * FROM Tasks ORDER BY createdAt DESC`);
+  const req = pool.request();
+  let query = `SELECT * FROM Tasks ORDER BY createdAt DESC`;
+  if (Number.isInteger(limit) && limit > 0) {
+    req.input('limit', sql.Int, limit);
+    req.input('offset', sql.Int, offset || 0);
+    query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+  }
+  const result = await req.query(query);
   return result.recordset;
 }
 

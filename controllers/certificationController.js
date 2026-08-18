@@ -6,7 +6,7 @@ const model = require('../models/certificationModel');
 const { NotFoundError } = require('../utils/errors');
 
 function userIdOf(req) {
-  return req.user.userID ?? req.user.id;
+  return req.user.userID;
 }
 
 function pick(data) {

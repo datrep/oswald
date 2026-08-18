@@ -9,6 +9,7 @@ const multer = require('multer');
 const model = require('../models/careerFileModel');
 const { resourcesDirPath } = require('../shared/config');
 const { NotFoundError } = require('../utils/errors');
+const { isAllowedExtension, uniqueFilename } = require('../shared/upload');
 
 // Resolve the career-files folder (default <resourcesDir>/career) and ensure it exists.
 function careerDir() {
@@ -18,16 +19,14 @@ function careerDir() {
 }
 
 // Same allowed document types as the resource uploads.
-const ALLOWED_EXT = /\.(png|jpe?g|gif|webp|pdf|txt|md|json|docx?|xlsx?|zip)$/i;
 function fileFilter(req, file, cb) {
-  if (ALLOWED_EXT.test(path.extname(file.originalname))) return cb(null, true);
+  if (isAllowedExtension(file.originalname)) return cb(null, true);
   cb(new Error('File type not allowed. Allowed: images, PDF, text, JSON, Word, Excel, ZIP.'));
 }
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, careerDir()),
-  filename: (req, file, cb) =>
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname.replace(/[\\/]/g, '_')}`),
+  filename: (req, file, cb) => cb(null, uniqueFilename(file)),
 });
 const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 }, fileFilter });
 
@@ -42,7 +41,7 @@ function uploadSingle(req, res, next) {
 async function create(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ error: 'A file is required' });
-    const userId = req.user.userID ?? req.user.id;
+    const userId = req.user.userID;
     const fileName = req.file.originalname;
     // Stored relative to public/ (like resources) so /resources/career/<file> serves it.
     const publicDir = path.resolve(__dirname, '..', 'public');
@@ -59,7 +58,7 @@ async function create(req, res, next) {
 // GET /api/career-files — list the user's career files.
 async function list(req, res, next) {
   try {
-    const userId = req.user.userID ?? req.user.id;
+    const userId = req.user.userID;
     const files = await model.getCareerFilesByUser(userId);
     res.json(files);
   } catch (err) {
@@ -70,7 +69,7 @@ async function list(req, res, next) {
 // DELETE /api/career-files/:id — remove a career file (owner only).
 async function remove(req, res, next) {
   try {
-    const userId = req.user.userID ?? req.user.id;
+    const userId = req.user.userID;
     const id = Number(req.params.id);
     const file = await model.getCareerFileById(id, userId);
     if (!file) throw new NotFoundError('File not found');

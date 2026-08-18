@@ -9,11 +9,12 @@ const {
   reorderTasks: modelReorderTasks,
 } = require('../models/taskModel');
 const { NotFoundError } = require('../utils/errors');
+const { parsePagination } = require('../shared/pagination');
 
 // GET all tasks
 async function getAllTasks(req, res, next) {
   try {
-    const tasks = await modelGetAllTasks();
+    const tasks = await modelGetAllTasks(parsePagination(req.query));
     res.json(tasks);
   } catch (err) {
     next(err);

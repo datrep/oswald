@@ -1,16 +1,23 @@
 const { getPool } = require('../config/db');
 const sql = require('mssql');
 
-async function getAllEdicts() {
+async function getAllEdicts({ limit, offset } = {}) {
   const pool = await getPool();
   // Enrich with the comma-joined module types attached to each policy (MOD-2:
   // lets the dashboard show a live jobs-module status chip on policy rows).
-  const result = await pool.request().query(`
+  const req = pool.request();
+  let query = `
             SELECT e.*,
                 (SELECT STRING_AGG(moduleType, ',') WITHIN GROUP (ORDER BY moduleType) FROM PolicyModules pm WHERE pm.edictId = e.id) AS modules
             FROM Edicts e
             ORDER BY e.createdAt DESC
-        `);
+        `;
+  if (Number.isInteger(limit) && limit > 0) {
+    req.input('limit', sql.Int, limit);
+    req.input('offset', sql.Int, offset || 0);
+    query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+  }
+  const result = await req.query(query);
   return result.recordset;
 }
 

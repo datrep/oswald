@@ -1,7 +1,6 @@
 const {
   getAllEdicts: modelGetAllEdicts,
   getEdictById: modelGetEdictById,
-  getTasksByEdict: modelGetTasksByEdict,
   createEdict: modelCreateEdict,
   updateEdict: modelUpdateEdict,
   deleteEdict: modelDeleteEdict,
@@ -10,11 +9,12 @@ const {
 } = require('../models/edictModel');
 
 const { NotFoundError } = require('../utils/errors');
+const { parsePagination } = require('../shared/pagination');
 
 // GET all edicts
 async function getAllEdicts(req, res, next) {
   try {
-    const edicts = await modelGetAllEdicts();
+    const edicts = await modelGetAllEdicts(parsePagination(req.query));
     res.json(edicts);
   } catch (err) {
     next(err);
@@ -29,17 +29,6 @@ async function getEdictById(req, res, next) {
       throw new NotFoundError('Edict not found');
     }
     res.json(edict);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// GET /api/tasks/edict/:edictId
-async function getTasksByEdict(req, res, next) {
-  try {
-    const { edictId } = req.params;
-    const tasks = await modelGetTasksByEdict(edictId);
-    res.json(tasks);
   } catch (err) {
     next(err);
   }
@@ -112,7 +101,6 @@ async function getCompletionTrends(req, res, next) {
 module.exports = {
   getAllEdicts,
   getEdictById,
-  getTasksByEdict,
   createEdict,
   updateEdict,
   deleteEdict,

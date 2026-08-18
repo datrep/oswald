@@ -1,49 +1,51 @@
 const {
-  createAuditLog,
-  getAllAuditLogs,
-  getAuditLogsByEdict,
-  getAuditLogsByTask,
+  createAuditLog: modelCreateAuditLog,
+  getAllAuditLogs: modelGetAllAuditLogs,
+  getAuditLogsByEdict: modelGetAuditLogsByEdict,
+  getAuditLogsByTask: modelGetAuditLogsByTask,
 } = require('../models/auditModel');
 
 // POST /api/audit-logs
-exports.createAuditLog = async (req, res, next) => {
+async function createAuditLog(req, res, next) {
   try {
     const { edictId, taskId, eventType, notes } = req.body;
-    await createAuditLog(edictId, taskId, eventType, notes);
+    await modelCreateAuditLog(edictId, taskId, eventType, notes);
     res.json({ success: true, message: 'Audit log created' });
   } catch (err) {
     next(err);
   }
-};
+}
 
 // GET /api/audit-logs
-exports.getAllAuditLogs = async (req, res, next) => {
+async function getAllAuditLogs(req, res, next) {
   try {
-    const auditLogs = await getAllAuditLogs();
+    const auditLogs = await modelGetAllAuditLogs();
     res.json(auditLogs);
   } catch (err) {
     next(err);
   }
-};
+}
 
 // GET /api/audit-logs/edict/:id
-exports.getAuditLogsByEdict = async (req, res, next) => {
+async function getAuditLogsByEdict(req, res, next) {
   try {
     const { id } = req.params;
-    const auditLogs = await getAuditLogsByEdict(id);
+    const auditLogs = await modelGetAuditLogsByEdict(id);
     res.json(auditLogs);
   } catch (err) {
     next(err);
   }
-};
+}
 
 // GET /api/audit-logs/task/:id
-exports.getAuditLogsByTask = async (req, res, next) => {
+async function getAuditLogsByTask(req, res, next) {
   try {
     const { id } = req.params;
-    const auditLogs = await getAuditLogsByTask(id);
+    const auditLogs = await modelGetAuditLogsByTask(id);
     res.json(auditLogs);
   } catch (err) {
     next(err);
   }
-};
+}
+
+module.exports = { createAuditLog, getAllAuditLogs, getAuditLogsByEdict, getAuditLogsByTask };

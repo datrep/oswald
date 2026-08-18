@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const authenticateToken = require('../middlewares/auth');
 const { requirePermission } = require('../middlewares/auth');
 const { resourcesDirPath } = require('../shared/config');
+const { isAllowedExtension, isAllowedMime, uniqueFilename } = require('../shared/upload');
 const resourceController = require('../controllers/resourceController');
 const {
   validateReorder,
@@ -25,26 +25,13 @@ const storage = multer.diskStorage({
     }
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    cb(null, uniqueFilename(file));
   },
 });
 
 // Restrict uploads to non-executable document/image types (no HTML/SVG/JS -> stored XSS).
-const ALLOWED_EXT = /\.(png|jpe?g|gif|webp|pdf|txt|md|json|docx?|xlsx?|zip)$/i;
 function fileFilter(req, file, cb) {
-  const extOk = ALLOWED_EXT.test(path.extname(file.originalname));
-  const mimeOk =
-    file.mimetype &&
-    (file.mimetype.startsWith('image/') ||
-      file.mimetype === 'application/pdf' ||
-      file.mimetype === 'text/plain' ||
-      file.mimetype === 'application/json' ||
-      file.mimetype === 'application/msword' ||
-      file.mimetype === 'application/vnd.ms-excel' ||
-      file.mimetype === 'application/zip' ||
-      file.mimetype.includes('officedocument'));
-  if (extOk && mimeOk) {
+  if (isAllowedExtension(file.originalname) && isAllowedMime(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error('File type not allowed. Allowed: images, PDF, text, JSON, Word, Excel, ZIP.'));

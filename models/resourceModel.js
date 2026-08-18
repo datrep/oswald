@@ -40,7 +40,7 @@ async function getResourcePathById(id) {
 }
 
 // List every resource across all policies (with the owning policy name), optionally filtered.
-async function getAllResources(search) {
+async function getAllResources(search, { limit, offset } = {}) {
   const pool = await getPool();
   const request = pool.request();
   let where = '';
@@ -48,13 +48,19 @@ async function getAllResources(search) {
     where = 'WHERE r.resourcePath LIKE @q OR r.description LIKE @q';
     request.input('q', sql.NVarChar, `%${search}%`);
   }
-  const result = await request.query(`
+  let query = `
             SELECT r.id, r.edictId, r.resourcePath, r.description, e.name AS edictName
             FROM EdictResources r
             LEFT JOIN Edicts e ON e.id = r.edictId
             ${where}
             ORDER BY r.resourcePath ASC
-        `);
+        `;
+  if (Number.isInteger(limit) && limit > 0) {
+    request.input('limit', sql.Int, limit);
+    request.input('offset', sql.Int, offset || 0);
+    query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+  }
+  const result = await request.query(query);
   return result.recordset;
 }
 

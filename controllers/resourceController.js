@@ -11,6 +11,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const { NotFoundError } = require('../utils/errors');
+const { parsePagination } = require('../shared/pagination');
 
 // POST /api/resources
 async function createResource(req, res, next) {
@@ -60,7 +61,7 @@ async function getResourcesByEdict(req, res, next) {
 async function getAllResources(req, res, next) {
   try {
     const q = req.query.q ? String(req.query.q).trim() : null;
-    const resources = await modelGetAllResources(q || null);
+    const resources = await modelGetAllResources(q || null, parsePagination(req.query));
     res.json(resources);
   } catch (err) {
     next(err);

@@ -4,8 +4,6 @@ const cors = require('cors');
 const https = require('https');
 const path = require('path');
 
-const logger = require('./utils/logger'); // legacy request logger — superseded by apiLogger (#58)
-
 const dbRoutes = require('./routes/dbRoutes');
 
 const edictRoutes = require('./routes/edictRoutes');
