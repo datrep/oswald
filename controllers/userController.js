@@ -67,12 +67,41 @@ async function loginUser(req, res, next) {
       expiresIn: '1h',
     });
 
-    // Record the login session (best-effort — never block login on a log failure).
+    // Record the login session (best-effort — never block login on a log failure)
+    // and hand back its id so the client can heartbeat it (UAC-5 live presence).
+    let sessionId = null;
     try {
-      await User.addSession(user.id, req.ip || null, (req.headers['user-agent'] || '').slice(0, 500));
+      sessionId = await User.addSession(user.id, req.ip || null, (req.headers['user-agent'] || '').slice(0, 500));
     } catch { /* logging is best-effort */ }
 
-    res.status(200).json({ message: 'Login successful', token, roles, permissions });
+    res.status(200).json({ message: 'Login successful', token, roles, permissions, sessionId });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// UAC-5: POST /api/users/heartbeat — bumps lastSeenAt for the current user's
+// session row (called ~every 60s while logged in). Requires a valid token;
+// the sessionId must belong to the caller (the model enforces it).
+async function heartbeat(req, res, next) {
+  const sessionId = Number.parseInt(req.body && req.body.sessionId, 10);
+  if (!Number.isInteger(sessionId) || sessionId <= 0) {
+    return res.status(400).json({ error: 'sessionId is required' });
+  }
+  try {
+    await User.touchSession(sessionId, req.user.userID);
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// UAC-5: GET /api/users/online — distinct users online in the last 3 minutes.
+async function getOnline(req, res, next) {
+  try {
+    const minutes = Math.max(1, Math.min(30, Number.parseInt(req.query.minutes, 10) || 3));
+    const online = await User.getOnlineUsers(minutes);
+    res.json({ online });
   } catch (err) {
     next(err);
   }
@@ -331,6 +360,8 @@ module.exports = {
   registerUser,
   bootstrapStatus,
   loginUser,
+  heartbeat,
+  getOnline,
   updateUser,
   deleteUser,
   getUserInfo,

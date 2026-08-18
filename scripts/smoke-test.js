@@ -16,9 +16,27 @@ require('dotenv').config();
 const sql = require('mssql');
 const { getPool } = require('../config/db');
 
-const HTTP_PORT = 4099;
-const HTTPS_PORT = 4499;
-const BASE = `http://127.0.0.1:${HTTP_PORT}`;
+// Windows reserves dynamic TCP ranges (Hyper-V/WinNAT) that shift on reboot —
+// e.g. 7986-8085 (incl. 8080) and 4435-4534 were reserved at the time of
+// writing. A hardcoded port can land inside one and fail with EACCES, so we
+// probe for free ports before booting the test server (falling back to the
+// legacy fixed ports if the probe itself fails).
+function findFreePort() {
+  const net = require('net');
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const port = srv.address().port;
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
+}
+
+let HTTP_PORT = 4099;
+let HTTPS_PORT = 4499;
+let BASE = `http://127.0.0.1:${HTTP_PORT}`;
+let child = null;
 
 const ADMIN_PERMS = [
   'files.admin', 'files.read', 'files.write', 'mcp.manage', 'monitoring.manage',
@@ -96,10 +114,22 @@ function httpsGet(path) {
 }
 
 // ---- boot -------------------------------------------------------------------
-const child = spawn(process.execPath, ['server.js'], {
-  env: { ...process.env, PORT: String(HTTP_PORT), HTTPS_PORT: String(HTTPS_PORT), SERVER_HOST: '127.0.0.1' },
-  stdio: 'ignore',
-});
+// Resolve two free ports first (bind 0 probes skip Windows-reserved ranges),
+// then boot the isolated server on them.
+async function boot() {
+  try {
+    const [p1, p2] = await Promise.all([findFreePort(), findFreePort()]);
+    if (p1 && p2 && p1 !== p2) {
+      HTTP_PORT = p1;
+      HTTPS_PORT = p2;
+      BASE = `http://127.0.0.1:${HTTP_PORT}`;
+    }
+  } catch { /* keep legacy fixed ports */ }
+  child = spawn(process.execPath, ['server.js'], {
+    env: { ...process.env, PORT: String(HTTP_PORT), HTTPS_PORT: String(HTTPS_PORT), SERVER_HOST: '127.0.0.1' },
+    stdio: 'ignore',
+  });
+}
 
 async function waitReady(timeoutMs = 8000) {
   const start = Date.now();
@@ -435,6 +465,7 @@ async function run() {
 }
 
 (async () => {
+  await boot();
   let ready = false;
   try {
     ready = await waitReady();
@@ -442,7 +473,7 @@ async function run() {
   if (!ready) {
     console.error('FATAL: test server did not become ready on', BASE);
     process.exitCode = 1;
-    child.kill();
+    if (child) child.kill();
     return;
   }
   try {
@@ -455,6 +486,6 @@ async function run() {
     process.exitCode = 1;
   } finally {
     await cleanup();
-    child.kill();
+    if (child) child.kill();
   }
 })();

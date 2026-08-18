@@ -7,7 +7,7 @@ import { initBreadcrumb } from '../components/breadcrumb.js';
 initBreadcrumb();
 
 const $ = (id) => document.getElementById(id);
-let STATE = { users: [], roles: [], permissions: [], myId: null, editUserId: null, search: '' };
+let STATE = { users: [], roles: [], permissions: [], myId: null, editUserId: null, search: '', online: new Set() };
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,6 +49,7 @@ function renderStats() {
     <span class="uac-stat users"><b>${STATE.users.length}</b> users</span>
     <span class="uac-stat active"><b>${active}</b> active</span>
     <span class="uac-stat disabled"><b>${STATE.users.length - active}</b> disabled</span>
+    <span class="uac-stat online"><b id="uac-online-count">${STATE.online.size}</b> online</span>
     <span class="uac-stat roles"><b>${STATE.roles.length}</b> roles</span>
     <span class="uac-stat perms"><b>${STATE.permissions.length}</b> permissions</span>
   `;
@@ -114,7 +115,7 @@ function renderUsers() {
     const tr = document.createElement('tr');
     tr.dataset.id = u.id;
     tr.innerHTML = `
-      <td>${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(you)</span>' : ''}</td>
+      <td><span class="udot" data-udot></span>${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(you)</span>' : ''}</td>
       <td>${roleChips(u.roles)}</td>
       <td>${statusChip(u)}</td>
       <td class="last">${fmtLastLogin(u.lastLoginAt)}</td>
@@ -123,9 +124,34 @@ function renderUsers() {
     `;
     tbody.appendChild(tr);
   }
+  applyOnlineDots();
   tbody.querySelectorAll('button[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => act(btn.dataset.act, btn.closest('tr').dataset.id));
   });
+}
+
+// UAC-5 live presence: toggle the green dot on each row + the stat count from
+// STATE.online (Set of online user ids) without re-rendering the whole table,
+// so open row menus are not disturbed by the periodic refresh.
+function applyOnlineDots() {
+  const count = $('uac-online-count');
+  if (count) count.textContent = STATE.online.size;
+  document.querySelectorAll('#users-table tbody tr').forEach((tr) => {
+    const dot = tr.querySelector('[data-udot]');
+    if (!dot) return;
+    const on = STATE.online.has(Number(tr.dataset.id));
+    dot.classList.toggle('on', on);
+    dot.title = on ? 'Online now' : '';
+  });
+}
+
+async function refreshOnline() {
+  if (!isLoggedIn() || !hasPerm('users.manage')) return;
+  try {
+    const { online } = await apiGet('/api/users/online?minutes=3');
+    STATE.online = new Set((online || []).map((u) => u.userId));
+    applyOnlineDots();
+  } catch { /* non-fatal */ }
 }
 
 async function act(name, userId) {
@@ -306,11 +332,12 @@ async function load() {
       apiGet('/api/users/roles'),
       apiGet('/api/users/me'),
     ]);
-    STATE = { users, roles, permissions, myId: me.id, editUserId: null, search: '' };
+    STATE = { users, roles, permissions, myId: me.id, editUserId: null, search: '', online: new Set() };
     if ($('user-search')) $('user-search').value = '';
     renderUsers();
     renderRoles();
     renderStats();
+    refreshOnline();
     feedback(`${users.length} user(s) · ${roles.length} role(s) · ${permissions.length} permission(s).`);
   } catch (err) {
     feedback('Failed to load: ' + err.message);
@@ -353,6 +380,11 @@ function init() {
   // Re-render when auth changes (login/logout via the topbar control or a 401).
   window.addEventListener('auth:login', load);
   window.addEventListener('auth:logout', load);
+
+  // UAC-5 live presence: poll who is online while the page is open, and refresh
+  // immediately when the tab becomes visible again.
+  setInterval(refreshOnline, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshOnline(); });
 }
 
 init();

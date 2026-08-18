@@ -33,30 +33,72 @@ function fsLabel(req) {
 }
 
 // Dashboard upstream bases, in order: the configured base first (VPN/LAN),
-// then localhost so login/register keep working when the VPN is down.
+// then the dashboard's HTTPS port (the dashboard primarily serves HTTPS; its
+// HTTP :8080 listener may not be bound), then plain localhost so login/register
+// keep working when the VPN is down. Self-signed certs are tolerated (both
+// services share the same trusted cert pair).
 function dashboardBases() {
   const bases = [];
   const configured = String(getConfig().dashboardBase || '').replace(/\/+$/, '');
   if (configured) bases.push(configured);
-  for (const local of ['http://localhost:8080', 'http://127.0.0.1:8080']) {
+  for (const local of [
+    'https://172.22.160.3:8443',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'https://localhost:8443',
+    'https://127.0.0.1:8443',
+  ]) {
     if (!bases.includes(local)) bases.push(local);
   }
   return bases;
 }
 
 // POST JSON to a dashboard endpoint (login/register), falling back to the next
-// base when one is unreachable (e.g. the VPN/LAN address is down). Returns the
-// first response that arrives; throws only if every base failed at network level.
+// base when one is unreachable (e.g. the VPN/LAN address is down). Uses
+// node:http(s) directly because undici fetch ignores a node:https Agent, so a
+// self-signed dashboard cert could never be tolerated. Returns the first
+// response (a fetch-like object: status / ok / json()); throws only if every
+// base failed at network level.
+function dashboardReq(base, path, body) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(base + path);
+    const mod = u.protocol === 'https:' ? https : require('http');
+    const payload = JSON.stringify(body);
+    const req = mod.request(
+      {
+        method: 'POST',
+        hostname: u.hostname,
+        port: u.port || (u.protocol === 'https:' ? 443 : 80),
+        path: u.pathname + u.search,
+        rejectUnauthorized: false, // ignored for http
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          resolve({
+            status: res.statusCode,
+            ok: res.statusCode >= 200 && res.statusCode < 400,
+            body: text,
+            json: async () => { try { return JSON.parse(text); } catch { return {}; } },
+          });
+        });
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(2500, () => req.destroy(new Error('timeout')));
+    req.write(payload);
+    req.end();
+  });
+}
+
 async function dashboardPost(path, body) {
   let lastErr;
   for (const base of dashboardBases()) {
     try {
-      return await fetch(`${base}${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(4000),
-      });
+      return await dashboardReq(base, path, body);
     } catch (e) {
       lastErr = e;
       console.warn(`[fileserver] dashboard ${base} unreachable (${e.message || e}); trying next base`);

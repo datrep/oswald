@@ -12,6 +12,8 @@ router.delete('/:userId', authenticateToken, userController.deleteUser);
 router.get('/me', authenticateToken, userController.getUserInfo);
 router.get('/', authenticateToken, requirePermission('users.manage'), userController.getAllUsers);
 router.get('/sessions', authenticateToken, requirePermission('users.manage'), userController.getSessions);
+router.post('/heartbeat', authenticateToken, userController.heartbeat);
+router.get('/online', authenticateToken, requirePermission('users.manage'), userController.getOnline);
 router.get('/roles', authenticateToken, requirePermission('users.manage'), userController.getRoles);
 router.post('/roles', authenticateToken, requirePermission('users.manage'), userController.createRole);
 router.put('/roles/:roleId', authenticateToken, requirePermission('users.manage'), userController.updateRole);

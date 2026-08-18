@@ -107,7 +107,7 @@ Schema changes are applied incrementally under `sql/migrations/` (after the init
 
 Apply with `sqlcmd` (see the migration files for the exact command).
 
-> `sql/schema/DB_init_table.sql` is kept **in sync** with migrations 004–014 (plus the
+> `sql/schema/DB_init_table.sql` is kept **in sync** with migrations 004–016 (plus the
 > `Services` table, which predates the migration system) — a fresh build of the schema
 > produces a database equivalent to a fully migrated one.
 
@@ -116,8 +116,12 @@ Apply with `sqlcmd` (see the migration files for the exact command).
 The dashboard has a users & roles admin page at `pages/users.html` — linked from the sidebar **Links → "users & permissions"** (requires `users.manage`, i.e. admin):
 
 - Lists every user with their roles; **Make admin / Make user** promote/demote (role assignment *replaces* roles; you can't change your own role, and the last admin can't be demoted).
+- **Last login + device** columns (from the `UserSessions` history) and a **live presence** stat + green dot on anyone online right now.
 - Read-only **permission matrix** (role → permission).
 - Create accounts via `scripts/create-account.js` (or the fileserver's self-signup).
+
+### UAC-5: live presence (heartbeat)
+While signed in, every dashboard page heartbeats its session row every ~60s (`POST /api/users/heartbeat` with the `sessionId` handed back at login; also fires on tab-visible). A session seen within the last 3 minutes counts as **online**: the top-right user pop shows a green "you are online" dot, and the users page shows an **online** stat + a green dot per row, refreshed every 30s (`GET /api/users/online?minutes=3`, `users.manage`). Schema: `UserSessions.lastSeenAt` (migration 016).
 
 ## Task & resource ordering
 
@@ -239,14 +243,17 @@ The fileserver is fully standalone (its own `fileserver/db.js` — no dependency
 - Admin API: `POST /api/fs/sync` (run now, async) · `GET /api/fs/sync/status` (running + last report incl. `direction`).
 - Onboarding a tester: create an account (`scripts/create-account.js` or self-signup; default `user` role = read-only on `resources`), then grant an ACL write on the `sync` root (`FileServerACLs` row `rootId='sync', folderPath='', canRead=1, canWrite=1`, or the Share modal). The tester reads `Resources` and drops/uploads into `Sync area`; deletes there are their own CRUD.
 
-### SYNC-2: bidirectional remote sync client (`fileserver/sync-client.js`)
-MEGA/Dropbox-like two-way sync between a **local folder on the tester's machine** and a **fileserver root/subpath** over ZeroTier HTTPS. The server stays dumb (storage + auth + perms via the existing `/api/fs`); **this CLI does the diffing**:
+### SYNC-2: bidirectional remote sync client (`fileserver/sync-core.js` + `sync-client.js` + `sync-ui.js`)
+MEGA/Dropbox-like two-way sync between a **local folder on the tester's machine** and a **fileserver root/subpath** over ZeroTier HTTPS. The server stays dumb (storage + auth + perms via the existing `/api/fs`); **the client does the diffing**. The engine lives in `sync-core.js` (`createSync(config)` → `runSync()`/`getStatus()`, node-builtins only) and is shared by two front-ends:
+- **CLI** — `node fileserver/sync-client.js --folder "C:\MyOswaldCopy" [--server https://172.22.160.3:8090] [--root sync] [--path <rel>] [--username U --password P | --token JWT] [--insecure] [--dry-run] [--watch] [--interval N]`.
+- **Local web UI** — `node fileserver/sync-ui.js` opens `http://127.0.0.1:8650/` (no Electron/deps): config form (folder/server/root/path/credentials, persisted to `sync-ui-config.json`), **Sync now / Dry-run**, **Auto (watch)** toggle + interval, last-sync stats, and a live activity log. Hand the tester `sync-core.js` + `sync-client.js` + `sync-ui.js` + `sync-ui/` + Node.
+
+Engine semantics:
 - `GET /api/fs/manifest?root&path` (files.admin/read via ACL) → recursive subpath-relative `{rel, size, mtime}` + `dirs` so the client maps it 1:1 onto the local folder.
 - **last-write-wins**, with `<name>.conflict-<ts><ext>` copies when **both** sides changed since the last sync (loser kept; conflict artifacts are never re-synced).
 - **safe-delete**: a deletion only propagates when the far side is unchanged since the last sync (never clobbers a remotely-modified file).
 - Optional **`--watch`** (poll every `--interval` s). State file (default `<folder>/.oswald-sync.json`) records the post-sync manifests so passes are stable (no churn).
-- Usage: `node fileserver/sync-client.js --folder "C:\MyOswaldCopy" [--server https://172.22.160.3:8090] [--root sync] [--path <rel>] [--username U --password P | --token JWT] [--insecure] [--dry-run] [--watch] [--interval N]`.
-- TLS: the self-signed cert must be trusted on the tester's machine (or use `--insecure` for dev). Hand the tester this single file + Node.
+- TLS: the self-signed cert must be trusted on the tester's machine (or use `--insecure` for dev).
 - E2E-verified as a tester account (12 checks): initial upload incl. subfolders, local-edit update (no churn), server-add download, local-delete safe-delete, both-sides conflict → `.conflict` copy, no-op re-run.
 
 ---
@@ -289,7 +296,7 @@ Push-Location fileserver; npm install; Pop-Location   # fileserver has its own p
 ### 4. Database
 - **Path A (fresh):** `.\setup.ps1` — installs deps and **destructively** re-initialises the DB from `sql\schema\DB_init_table.sql` (it asks for confirmation). Then apply the migrations below.
 - **Path B (keep data):** skip `setup.ps1`’s destructive step; just apply the migrations below to the existing DB.
-- **Apply all migrations in order (001 → 014)** with `sqlcmd` — the full table is in the *Database migrations* section above. `sql/schema/DB_init_table.sql` is kept in sync with the migrations, so a fresh build and a migrated DB are equivalent; migrations remain the incremental path for existing DBs.
+- **Apply all migrations in order (001 → 016)** with `sqlcmd` — the full table is in the *Database migrations* section above. `sql/schema/DB_init_table.sql` is kept in sync with the migrations, so a fresh build and a migrated DB are equivalent; migrations remain the incremental path for existing DBs.
 
 ### 5. TLS certificate (`fileserver/certs`)
 A self-signed cert is **auto-generated on first start** (`shared/tls.js` → `fileserver/certs/cert.pem` + `key.pem`). Trust it once so the browser stops warning:

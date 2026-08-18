@@ -20,8 +20,12 @@
       .uac-stat.users { color: #7dd3fc; border-color: rgba(125,211,252,0.32); background: rgba(125,211,252,0.08); }
       .uac-stat.active { color: #6ee7b7; border-color: rgba(110,231,183,0.32); background: rgba(110,231,183,0.08); }
       .uac-stat.disabled { color: #fda4af; border-color: rgba(253,164,175,0.32); background: rgba(253,164,175,0.08); }
+      .uac-stat.online { color: #34d399; border-color: rgba(52,211,153,0.55); background: rgba(52,211,153,0.14); }
       .uac-stat.roles { color: #fcd34d; border-color: rgba(252,211,77,0.32); background: rgba(252,211,77,0.08); }
       .uac-stat.perms { color: #c4b5fd; border-color: rgba(196,181,253,0.32); background: rgba(196,181,253,0.08); }
+      /* UAC-5 live presence: green presence dot in the users table */
+      .udot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border); margin-right: 6px; vertical-align: middle; }
+      .udot.on { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.8); }
       #users-content { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
       .uac-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: stretch; flex: 1 1 auto; min-height: 0; margin-top: 14px; }
       .uac-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }

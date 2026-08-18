@@ -557,6 +557,17 @@ main .status-strip {
 .user-pop-head { display: flex; align-items: center; gap: 10px; padding: 4px 2px 10px; }
 .user-pop-head .user-avatar { width: 30px; height: 30px; font-size: 0.75rem; }
 .user-roles { font-size: 0.72rem; }
+/* UAC-5 live presence: green "online" dot next to the signed-in name. */
+.online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok, #4cd1a8);
+  box-shadow: 0 0 6px var(--ok, #4cd1a8);
+  vertical-align: middle;
+  margin-left: 2px;
+}
 .user-pop-item {
   width: 100%;
   text-align: left;

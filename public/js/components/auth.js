@@ -8,6 +8,7 @@ import { getToken, clearToken, isLoggedIn, TOKEN_KEY } from '../api/api.js';
 
 const USER_KEY = 'oswald_username';
 const ROLES_KEY = 'oswald_roles';
+const SESSION_KEY = 'oswald_session';
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,11 +50,15 @@ function fmtTime(iso) {
 function storeIdentity(username, roles) {
   try { localStorage.setItem(USER_KEY, username); localStorage.setItem(ROLES_KEY, JSON.stringify(roles || [])); } catch { /* ignore */ }
 }
+function storeSession(sessionId) {
+  try { localStorage.setItem(SESSION_KEY, sessionId || ''); } catch { /* ignore */ }
+}
 function clearIdentity() {
-  try { localStorage.removeItem(USER_KEY); localStorage.removeItem(ROLES_KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(USER_KEY); localStorage.removeItem(ROLES_KEY); localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
 }
 function storedName() { try { return localStorage.getItem(USER_KEY) || ''; } catch { return ''; } }
 function storedRoles() { try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '[]'); } catch { return []; } }
+function storedSessionId() { try { return localStorage.getItem(SESSION_KEY) || ''; } catch { return ''; } }
 
 async function submitLogin(username, password) {
   const res = await fetch('/api/users/login', {
@@ -64,6 +69,7 @@ async function submitLogin(username, password) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Login failed');
   storeIdentity(username, data.roles || []);
+  storeSession(data.sessionId);
   return data;
 }
 
@@ -108,7 +114,7 @@ function renderUserPop() {
   const name = storedName() || 'User';
   const roles = storedRoles();
   pop.innerHTML = `
-    <div class="user-pop-head"><span class="user-avatar">${escapeHtml(initials(name))}</span><div><strong>${escapeHtml(name)}</strong><div class="muted user-roles">${escapeHtml(roles.join(', ') || 'no roles')}</div></div></div>
+    <div class="user-pop-head"><span class="user-avatar">${escapeHtml(initials(name))}</span><div><strong>${escapeHtml(name)} <span class="online-dot" title="You are online"></span></strong><div class="muted user-roles">${escapeHtml(roles.join(', ') || 'no roles')}</div></div></div>
     <button type="button" class="user-pop-item" data-user-act="signout">Sign out</button>
     ${hasPerm('users.manage') ? '<div class="user-recent-slot"></div>' : ''}
   `;
@@ -141,6 +147,40 @@ async function needsSetup() {
   } catch {
     return false;
   }
+}
+
+// ---- UAC-5 live presence (heartbeat) ----
+// While signed in, ping the server every 60s so the dashboard can show who is
+// online. Stops on logout or when the server rejects the heartbeat (revoked /
+// expired token) — the next real request will surface the login-again state.
+let heartbeatTimer = null;
+
+async function heartbeat() {
+  const sid = storedSessionId();
+  if (!isLoggedIn() || !sid) return;
+  try {
+    const res = await fetch('/api/users/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+      body: JSON.stringify({ sessionId: sid }),
+    });
+    if (res.status === 401 || res.status === 403) stopHeartbeat();
+  } catch { /* transient network error — retried next tick */ }
+}
+
+function onVisible() { if (!document.hidden) heartbeat(); }
+
+function startHeartbeat() {
+  stopHeartbeat();
+  if (!isLoggedIn()) return;
+  heartbeat();
+  heartbeatTimer = setInterval(heartbeat, 60000);
+  document.addEventListener('visibilitychange', onVisible);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  document.removeEventListener('visibilitychange', onVisible);
 }
 
 function setLoggedInUI() {
@@ -287,10 +327,11 @@ function init() {
   });
 
   // Keep the control in sync if the token is dropped elsewhere (e.g. a 401 in api.js).
-  window.addEventListener('auth:logout', refreshUI);
-  window.addEventListener('auth:login', () => ensureIdentity().then(setLoggedInUI));
+  window.addEventListener('auth:logout', () => { stopHeartbeat(); refreshUI(); });
+  window.addEventListener('auth:login', () => { ensureIdentity().then(setLoggedInUI); startHeartbeat(); });
 
   refreshUI();
+  startHeartbeat();
 
   // First-run bootstrap: no accounts yet -> show the admin setup form.
   needsSetup().then((setup) => {

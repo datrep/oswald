@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Oswald Sync</title>
+<style>
+  :root {
+    --bg: #0f1117; --bg-soft: #161924; --panel: #1b1f2c; --panel-2: #202536;
+    --border: #2a3042; --text: #e6e8ef; --muted: #8b91a3; --accent: #7c8cf8;
+    --accent-soft: rgba(124,140,248,.14); --danger: #f0757e; --ok: #4cd1a8;
+    --mono: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: var(--text); background: radial-gradient(1200px 500px at 50% -10%, rgba(124,140,248,.06), transparent 60%), var(--bg); min-height: 100vh; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  header h1 { font-size: 1.2rem; margin: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.err { background: var(--danger); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  label { display: flex; flex-direction: column; gap: 5px; font-size: 0.78rem; color: var(--muted); }
+  label.full { grid-column: 1 / -1; }
+  input, select { background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; outline: none; }
+  input:focus { border-color: var(--accent); }
+  input[type=checkbox] { width: auto; accent-color: var(--accent); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 0.85rem; cursor: pointer; font-weight: 600; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+  button.primary:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+  .stat b { display: block; font-size: 1.3rem; }
+  .stat span { font-size: 0.7rem; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .mono { font-family: var(--mono); }
+  #log { background: #0a0c11; border: 1px solid var(--border); border-radius: 10px; padding: 12px; height: 260px; overflow-y: auto; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+  #log .err { color: var(--danger); }
+  .hint { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Oswald Sync</h1>
+    <span class="dot" id="live-dot" title="Sync engine"></span>
+    <span class="muted" id="live-text">idle</span>
+  </header>
+
+  <div class="card">
+    <h2>Connection &amp; folder</h2>
+    <div class="grid">
+      <label class="full">Local folder <input id="c-folder" placeholder="C:\MyOswaldCopy" autocomplete="off" /></label>
+      <label class="full">Fileserver URL <input id="c-server" placeholder="https://172.22.160.3:8090" autocomplete="off" /></label>
+      <label>Root <input id="c-root" value="sync" autocomplete="off" /></label>
+      <label>Sub-path (optional) <input id="c-subpath" placeholder="" autocomplete="off" /></label>
+      <label>Username <input id="c-username" autocomplete="off" /></label>
+      <label>Password <input id="c-password" type="password" autocomplete="new-password" placeholder="(saved locally)" /></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label style="flex-direction:row;align-items:center;gap:6px"><input id="c-insecure" type="checkbox" /> Allow self-signed TLS (insecure)</label>
+      <span class="hint">Credentials are stored in sync-ui-config.json on this machine.</span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="btn-save">Save config</button>
+      <button id="btn-sync">Sync now</button>
+      <button id="btn-dry">Dry-run</button>
+      <label style="flex-direction:row;align-items:center;gap:6px"><input id="c-watch" type="checkbox" /> Auto (watch)</label>
+      <label style="flex-direction:row;align-items:center;gap:6px">every <input id="c-interval" type="number" min="2" style="width:64px" />s</label>
+    </div>
+    <p class="muted" id="msg"></p>
+  </div>
+
+  <div class="card">
+    <h2>Last sync</h2>
+    <div class="stats">
+      <div class="stat"><b id="s-dl">–</b><span>downloaded</span></div>
+      <div class="stat"><b id="s-up">–</b><span>uploaded</span></div>
+      <div class="stat"><b id="s-del">–</b><span>deleted</span></div>
+      <div class="stat"><b id="s-cf">–</b><span>conflicts</span></div>
+      <div class="stat"><b id="s-un">–</b><span>unchanged</span></div>
+      <div class="stat"><b id="s-err">–</b><span>notes</span></div>
+    </div>
+    <p class="mono muted" id="s-time" style="margin:10px 0 0;font-size:12px"></p>
+  </div>
+
+  <div class="card">
+    <h2>Activity log</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (s, v) => { const n = document.createElement('div'); n.className = 'mono'; n.textContent = s; if (v) n.classList.add(v); return n; };
+let saved = null;
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+async function loadConfig() {
+  try {
+    saved = await api('/api/config');
+    $('c-folder').value = saved.folder || '';
+    $('c-server').value = saved.server || '';
+    $('c-root').value = saved.root || 'sync';
+    $('c-subpath').value = saved.subPath || '';
+    $('c-username').value = saved.username || '';
+    $('c-password').value = '';
+    $('c-password').placeholder = saved.hasPassword ? '(saved — leave blank to keep)' : '(saved locally)';
+    $('c-insecure').checked = !!saved.insecure;
+    $('c-watch').checked = !!saved.watch;
+    $('c-interval').value = saved.interval || 30;
+    $('msg').textContent = saved.folder ? 'Loaded saved config.' : 'Enter your folder + credentials and Save.';
+  } catch (e) { $('msg').textContent = 'Could not load config: ' + e.message; }
+}
+
+async function save() {
+  try {
+    const body = {
+      folder: $('c-folder').value.trim(),
+      server: $('c-server').value.trim(),
+      root: $('c-root').value.trim() || 'sync',
+      subPath: $('c-subpath').value.trim(),
+      username: $('c-username').value.trim(),
+      insecure: $('c-insecure').checked,
+      watch: $('c-watch').checked,
+      interval: Number($('c-interval').value) || 30,
+    };
+    if ($('c-password').value) body.password = $('c-password').value;
+    const r = await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    saved = r.config;
+    $('msg').textContent = 'Config saved.';
+    refresh();
+  } catch (e) { $('msg').textContent = 'Save failed: ' + e.message; }
+}
+
+async function syncNow(dryRun) {
+  $('msg').textContent = dryRun ? 'Dry-run started…' : 'Sync started…';
+  try { await api('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dryRun: !!dryRun }) }); }
+  catch (e) { $('msg').textContent = e.message; }
+}
+
+async function toggleWatch() {
+  try {
+    await api('/api/watch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ watch: $('c-watch').checked, interval: Number($('c-interval').value) || 30 }) });
+  } catch (e) { $('msg').textContent = e.message; }
+}
+
+async function refresh() {
+  try {
+    const st = await api('/api/status');
+    const dot = $('live-dot');
+    if (st.running) { dot.className = 'dot on'; $('live-text').textContent = 'syncing…'; }
+    else if (st.lastReport?.error) { dot.className = 'dot err'; $('live-text').textContent = 'error'; }
+    else { dot.className = 'dot'; $('live-text').textContent = 'idle'; }
+    const rep = st.lastReport;
+    $('s-dl').textContent = rep ? rep.downloaded : '–';
+    $('s-up').textContent = rep ? rep.uploaded : '–';
+    $('s-del').textContent = rep ? rep.deleted : '–';
+    $('s-cf').textContent = rep ? rep.conflicts : '–';
+    $('s-un').textContent = rep ? rep.unchanged : '–';
+    $('s-err').textContent = rep ? (rep.errors?.length || 0) : '–';
+    $('s-time').textContent = rep ? `started ${rep.startedAt || ''} · finished ${rep.finishedAt || ''}${rep.error ? ' · error: ' + rep.error : ''}` : '';
+  } catch { /* server restarting */ }
+}
+
+async function refreshLog() {
+  try {
+    const j = await api('/api/log');
+    const box = $('log');
+    if (box._lastLen !== j.log.length) {
+      box.innerHTML = '';
+      for (const line of j.log) box.appendChild(el(line, /error|fail/i.test(line) ? 'err' : ''));
+      box.scrollTop = box.scrollHeight;
+      box._lastLen = j.log.length;
+    }
+  } catch { /* ignore */ }
+}
+
+$('btn-save').addEventListener('click', save);
+$('btn-sync').addEventListener('click', () => syncNow(false));
+$('btn-dry').addEventListener('click', () => syncNow(true));
+$('c-watch').addEventListener('change', toggleWatch);
+
+loadConfig();
+refresh();
+refreshLog();
+setInterval(refresh, 2000);
+setInterval(refreshLog, 2000);
+</script>
+</body>
+</html>
