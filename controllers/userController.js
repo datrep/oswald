@@ -23,7 +23,7 @@ async function registerUser(req, res, next) {
     const roleName = userCount <= 1 ? 'admin' : DEFAULT_ROLE;
     await Role.assignRole(created.id, roleName);
 
-    res.status(201).json({ message: 'User registered successfully', role: roleName });
+    res.status(201).json({ success: true, message: 'User registered successfully', role: roleName });
   } catch (err) {
     next(err);
   }
@@ -74,7 +74,7 @@ async function loginUser(req, res, next) {
       sessionId = await User.addSession(user.id, req.ip || null, (req.headers['user-agent'] || '').slice(0, 500));
     } catch { /* logging is best-effort */ }
 
-    res.status(200).json({ message: 'Login successful', token, roles, permissions, sessionId });
+    res.status(200).json({ success: true, message: 'Login successful', token, roles, permissions, sessionId });
   } catch (err) {
     next(err);
   }
@@ -119,7 +119,7 @@ async function updateUser(req, res, next) {
     const hashedPassword = await bcrypt.hash(password, 10);
     await User.updateUser(userID, username, hashedPassword);
 
-    res.json({ message: 'User updated successfully' });
+    res.json({ success: true, message: 'User updated successfully' });
   } catch (err) {
     next(err);
   }
@@ -138,7 +138,7 @@ async function deleteUser(req, res, next) {
       if (adminCount <= 1) return res.status(400).json({ error: 'Cannot delete the last admin' });
     }
     await User.deleteUser(targetId);
-    res.json({ message: 'User deleted' });
+    res.json({ success: true, message: 'User deleted' });
   } catch (err) {
     next(err);
   }
@@ -240,7 +240,7 @@ async function assignUserRole(req, res, next) {
       }
     }
     await Role.setRole(parsedId, role);
-    res.json({ message: `Role set to "${role}"` });
+    res.json({ success: true, message: `Role set to "${role}"` });
   } catch (err) {
     next(err);
   }
@@ -267,7 +267,7 @@ async function setUserRoles(req, res, next) {
       }
     }
     await Role.setRoles(userId, roles);
-    res.json({ message: 'Roles updated — sessions revoked' });
+    res.json({ success: true, message: 'Roles updated — sessions revoked' });
   } catch (err) {
     next(err);
   }
@@ -290,7 +290,7 @@ async function setUserActive(req, res, next) {
       }
     }
     await User.setIsActive(userId, isActive);
-    res.json({ message: isActive ? 'Account enabled' : 'Account disabled — sessions revoked' });
+    res.json({ success: true, message: isActive ? 'Account enabled' : 'Account disabled — sessions revoked' });
   } catch (err) {
     next(err);
   }
@@ -307,7 +307,7 @@ async function resetUserPassword(req, res, next) {
   try {
     const hashed = await bcrypt.hash(password, 10);
     await User.resetPassword(userId, hashed);
-    res.json({ message: 'Password reset — all sessions revoked' });
+    res.json({ success: true, message: 'Password reset — all sessions revoked' });
   } catch (err) {
     next(err);
   }
@@ -320,7 +320,7 @@ async function createRole(req, res, next) {
   try {
     const id = await Role.createRole(name.trim(), description);
     if (Array.isArray(permissions)) await Role.setRolePermissions(id, permissions);
-    res.status(201).json({ message: 'Role created', id });
+    res.status(201).json({ success: true, message: 'Role created', id });
   } catch (err) {
     next(err);
   }
@@ -335,7 +335,7 @@ async function updateRole(req, res, next) {
   try {
     await Role.updateRole(roleId, name.trim(), description);
     if (Array.isArray(permissions)) await Role.setRolePermissions(roleId, permissions);
-    res.json({ message: 'Role updated — holders logged out' });
+    res.json({ success: true, message: 'Role updated — holders logged out' });
   } catch (err) {
     next(err);
   }
@@ -350,7 +350,7 @@ async function deleteRole(req, res, next) {
     if (!role) return res.status(404).json({ error: 'Role not found' });
     if (role.name === 'admin') return res.status(400).json({ error: 'The admin role cannot be deleted' });
     await Role.deleteRole(roleId);
-    res.json({ message: 'Role deleted' });
+    res.json({ success: true, message: 'Role deleted' });
   } catch (err) {
     next(err);
   }

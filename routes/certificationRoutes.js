@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middlewares/auth');
 const certificationController = require('../controllers/certificationController');
+const { validateCertificationCreate } = require('../middlewares/validators');
 
 // Certifications (Certificate Dashboard) — personal, owner-scoped. Any
 // authenticated user manages their OWN certifications.
@@ -10,7 +11,7 @@ router.get('/stats', authenticateToken, certificationController.stats);
 // literal segments BEFORE /:id so they aren't swallowed by the id param
 router.get('/expiries', authenticateToken, certificationController.expiries);
 router.get('/:id', authenticateToken, certificationController.getOne);
-router.post('/', authenticateToken, certificationController.create);
+router.post('/', authenticateToken, validateCertificationCreate, certificationController.create);
 router.put('/:id', authenticateToken, certificationController.update);
 router.delete('/:id', authenticateToken, certificationController.remove);
 

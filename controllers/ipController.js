@@ -61,7 +61,7 @@ exports.createHost = async (req, res, next) => {
       .query(
         `INSERT INTO NetworkHosts (label, ip, enabled, sortOrder) VALUES (@label, @ip, @enabled, @sortOrder)`
       );
-    res.json({ message: 'Host created' });
+    res.json({ success: true, message: 'Host created' });
   } catch (err) {
     next(err);
   }
@@ -95,7 +95,7 @@ exports.updateHost = async (req, res, next) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
     await req2.query(`UPDATE NetworkHosts SET ${sets.join(', ')} WHERE id = @id`);
-    res.json({ message: 'Host updated' });
+    res.json({ success: true, message: 'Host updated' });
   } catch (err) {
     next(err);
   }
@@ -109,7 +109,7 @@ exports.deleteHost = async (req, res, next) => {
       .request()
       .input('id', sql.Int, req.params.id)
       .query(`DELETE FROM NetworkHosts WHERE id = @id`);
-    res.json({ message: 'Host deleted' });
+    res.json({ success: true, message: 'Host deleted' });
   } catch (err) {
     next(err);
   }

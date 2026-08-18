@@ -115,7 +115,7 @@ async function deleteResourceById(req, res, next) {
     // Delete DB record
     await modelDeleteResourceById(id);
 
-    res.json({ message: 'Resource deleted successfully' });
+    res.json({ success: true, message: 'Resource deleted successfully' });
   } catch (err) {
     next(err);
   }
@@ -133,23 +133,12 @@ async function updateResource(req, res, next) {
   }
 }
 
-// PUT /api/resources/reorder — persist a manual ordering within a policy
+// PUT /api/resources/reorder — persist a manual ordering within a policy.
+// Payload shape is validated by the shared reorder schema.
 async function reorderResources(req, res, next) {
-  const { edictId, orderedIds } = req.body || {};
-  const edict = Number.parseInt(edictId, 10);
-  if (!Number.isFinite(edict)) {
-    return res.status(400).json({ error: 'edictId must be a valid id' });
-  }
-  if (!Array.isArray(orderedIds) || !orderedIds.length) {
-    return res.status(400).json({ error: 'orderedIds must be a non-empty array' });
-  }
-  const ids = orderedIds.map((x) => Number.parseInt(x, 10));
-  if (ids.some((x) => !Number.isFinite(x))) {
-    return res.status(400).json({ error: 'orderedIds must contain only numeric ids' });
-  }
   try {
-    await modelReorderResources(edict, ids);
-    res.json({ message: 'Resource order updated' });
+    await modelReorderResources(req.body.edictId, req.body.orderedIds);
+    res.json({ success: true, message: 'Resource order updated' });
   } catch (err) {
     next(err);
   }

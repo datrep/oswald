@@ -58,7 +58,7 @@ async function createEdict(req, res, next) {
       priority,
       state
     );
-    res.json({ message: 'Edict created successfully', id: insertedId });
+    res.json({ success: true, message: 'Edict created successfully', id: insertedId });
   } catch (err) {
     next(err);
   }
@@ -71,7 +71,7 @@ async function updateEdict(req, res, next) {
 
   try {
     await modelUpdateEdict(id, name, plannedStart, plannedEnd, info, priority, state);
-    res.json({ message: 'Edict updated successfully' });
+    res.json({ success: true, message: 'Edict updated successfully' });
   } catch (err) {
     next(err);
   }
@@ -83,7 +83,7 @@ async function deleteEdict(req, res, next) {
 
   try {
     await modelDeleteEdict(id);
-    res.json({ message: 'Edict deleted successfully' });
+    res.json({ success: true, message: 'Edict deleted successfully' });
   } catch (err) {
     next(err);
   }

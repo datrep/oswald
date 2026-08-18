@@ -24,7 +24,7 @@ async function deleteService(req, res, next) {
     const id = req.params.id;
     const result = await servicesModel.deleteService(id);
     if (result) {
-      res.status(200).json({ message: 'Service deleted successfully' });
+      res.status(200).json({ success: true, message: 'Service deleted successfully' });
     } else {
       res.status(404).json({ error: 'Service not found' });
     }

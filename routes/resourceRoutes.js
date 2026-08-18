@@ -7,6 +7,12 @@ const authenticateToken = require('../middlewares/auth');
 const { requirePermission } = require('../middlewares/auth');
 const { resourcesDirPath } = require('../shared/config');
 const resourceController = require('../controllers/resourceController');
+const {
+  validateReorder,
+  normalizeResourceEdictId,
+  validateResourceCreate,
+  validateResourceAttach,
+} = require('../middlewares/validators');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -60,9 +66,9 @@ function uploadSingle(req, res, next) {
 }
 
 router.get('/', resourceController.getAllResources);
-router.post('/', authenticateToken, requirePermission('resources.manage'), uploadSingle, resourceController.createResource);
-router.post('/attach', authenticateToken, requirePermission('resources.manage'), resourceController.attachResource);
-router.put('/reorder', authenticateToken, requirePermission('resources.manage'), resourceController.reorderResources);
+router.post('/', authenticateToken, requirePermission('resources.manage'), uploadSingle, normalizeResourceEdictId, validateResourceCreate, resourceController.createResource);
+router.post('/attach', authenticateToken, requirePermission('resources.manage'), normalizeResourceEdictId, validateResourceAttach, resourceController.attachResource);
+router.put('/reorder', authenticateToken, requirePermission('resources.manage'), validateReorder, resourceController.reorderResources);
 router.put('/:id', authenticateToken, requirePermission('resources.manage'), resourceController.updateResource);
 router.delete('/:id', authenticateToken, requirePermission('resources.manage'), resourceController.deleteResourceById);
 router.get('/edict/:edictId', resourceController.getResourcesByEdict);

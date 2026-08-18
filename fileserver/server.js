@@ -10,6 +10,7 @@ const archiver = require('archiver');
 
 // Shared TLS util (#70) — same load-or-generate cert logic as the dashboard.
 const { loadOrCreateCert } = require('../shared/tls');
+const { loginLimiter, registerLimiter } = require('../shared/rateLimit');
 
 const { authenticateToken } = require('./auth');
 const access = require('./access');
@@ -298,7 +299,7 @@ app.put('/api/fs/settings', authenticateToken, access.requireAdmin, (req, res, n
 
 // Self-service account creation (fileserver login page -> Sign up).
 // Creates a read-only 'user' role account via the dashboard's register endpoint.
-app.post('/api/fs/register', async (req, res, next) => {
+app.post('/api/fs/register', registerLimiter, async (req, res, next) => {
   try {
     if (!getConfig().allowSignup) {
       return res.status(403).json({ error: 'Self-registration is disabled' });
@@ -320,7 +321,7 @@ app.post('/api/fs/register', async (req, res, next) => {
 // call the HTTP dashboard directly (mixed content) — the fileserver does it.
 // On success we set the same-site session cookie (covers <img>/<video>/<a>)
 // and hand the token back for the Authorization header.
-app.post('/api/fs/login', async (req, res, next) => {
+app.post('/api/fs/login', loginLimiter, async (req, res, next) => {
   try {
     const { username, password } = req.body || {};
     if (!username || !password) {

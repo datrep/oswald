@@ -3,10 +3,12 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const authenticateToken = require('../middlewares/auth');
 const { requirePermission } = require('../middlewares/auth');
+const { loginLimiter, registerLimiter } = require('../shared/rateLimit');
+const { validateRegister, validateLogin } = require('../middlewares/validators');
 
-router.post('/register', userController.registerUser);
+router.post('/register', registerLimiter, validateRegister, userController.registerUser);
 router.get('/bootstrap', userController.bootstrapStatus);
-router.post('/login', userController.loginUser);
+router.post('/login', loginLimiter, validateLogin, userController.loginUser);
 router.put('/:userId', authenticateToken, userController.updateUser);
 router.delete('/:userId', authenticateToken, userController.deleteUser);
 router.get('/me', authenticateToken, userController.getUserInfo);
