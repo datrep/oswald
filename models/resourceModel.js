@@ -1,127 +1,103 @@
-const { getPool } = require('../config/db');
-const sql = require('mssql');
+const { Repository } = require('../shared/repository');
+const { sql } = require('../shared/db');
+
+const repo = new Repository('EdictResources');
+
+async function nextOrder(edictId) {
+  const row = await repo.one(
+    `SELECT ISNULL(MAX(sortOrder), -1) + 1 AS nextOrder FROM EdictResources WHERE edictId = @edictId`,
+    (req) => req.input('edictId', sql.Int, edictId)
+  );
+  return row?.nextOrder ?? 0;
+}
 
 async function createResource(edictId, description, filePath) {
-  const pool = await getPool();
-  const order = await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .query(`SELECT ISNULL(MAX(sortOrder), -1) + 1 AS nextOrder FROM EdictResources WHERE edictId = @edictId`);
-  const nextOrder = order.recordset[0]?.nextOrder ?? 0;
-  await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .input('resourcePath', sql.NVarChar, filePath)
-    .input('description', sql.NVarChar, description)
-    .input('sortOrder', sql.Int, nextOrder).query(`
-            INSERT INTO EdictResources (edictId, resourcePath, description, sortOrder)
-            VALUES (@edictId, @resourcePath, @description, @sortOrder);
-        `);
+  const sortOrder = await nextOrder(edictId);
+  await repo.query(
+    `INSERT INTO EdictResources (edictId, resourcePath, description, sortOrder)
+     VALUES (@edictId, @resourcePath, @description, @sortOrder)`,
+    (req) => req
+      .input('edictId', sql.Int, edictId)
+      .input('resourcePath', sql.NVarChar, filePath)
+      .input('description', sql.NVarChar, description)
+      .input('sortOrder', sql.Int, sortOrder)
+  );
 }
 
 async function getResourcesByEdict(edictId) {
-  const pool = await getPool();
-  const result = await pool.request().input('edictId', sql.Int, edictId).query(`
-            SELECT id, edictId, resourcePath, description, sortOrder
-            FROM EdictResources
-            WHERE edictId = @edictId
-            ORDER BY sortOrder, id
-        `);
-  return result.recordset;
+  return repo.all({
+    columns: 'id, edictId, resourcePath, description, sortOrder',
+    where: 'edictId = @edictId',
+    order: 'sortOrder, id',
+    bind: (req) => req.input('edictId', sql.Int, edictId),
+  });
 }
 
 async function getResourcePathById(id) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('id', sql.Int, id)
-    .query(`SELECT resourcePath FROM EdictResources WHERE id = @id`);
-  return result.recordset[0];
+  return repo.one(
+    `SELECT resourcePath FROM EdictResources WHERE id = @id`,
+    (req) => req.input('id', sql.Int, id)
+  );
 }
 
 // List every resource across all policies (with the owning policy name), optionally filtered.
 async function getAllResources(search, { limit, offset } = {}) {
-  const pool = await getPool();
-  const request = pool.request();
-  let where = '';
-  if (search) {
-    where = 'WHERE r.resourcePath LIKE @q OR r.description LIKE @q';
-    request.input('q', sql.NVarChar, `%${search}%`);
-  }
+  const where = search ? 'r.resourcePath LIKE @q OR r.description LIKE @q' : '';
+  const paginate = Number.isInteger(limit) && limit > 0;
   let query = `
-            SELECT r.id, r.edictId, r.resourcePath, r.description, e.name AS edictName
-            FROM EdictResources r
-            LEFT JOIN Edicts e ON e.id = r.edictId
-            ${where}
-            ORDER BY r.resourcePath ASC
-        `;
-  if (Number.isInteger(limit) && limit > 0) {
-    request.input('limit', sql.Int, limit);
-    request.input('offset', sql.Int, offset || 0);
-    query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
-  }
-  const result = await request.query(query);
-  return result.recordset;
+    SELECT r.id, r.edictId, r.resourcePath, r.description, e.name AS edictName
+    FROM EdictResources r
+    LEFT JOIN Edicts e ON e.id = r.edictId
+    ${where ? `WHERE ${where}` : ''}
+    ORDER BY r.resourcePath ASC`;
+  if (paginate) query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+  return repo.query(query, (req) => {
+    if (search) req.input('q', sql.NVarChar, `%${search}%`);
+    if (paginate) {
+      req.input('limit', sql.Int, limit);
+      req.input('offset', sql.Int, offset || 0);
+    }
+  });
 }
 
 // Attach an EXISTING file (resourcePath already on disk, e.g. in public/resources)
 // to a policy — used by the "pull from Oswald's /resources" picker.
 // Returns the new row id.
 async function attachResource(edictId, description, resourcePath) {
-  const pool = await getPool();
-  const order = await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .query(`SELECT ISNULL(MAX(sortOrder), -1) + 1 AS nextOrder FROM EdictResources WHERE edictId = @edictId`);
-  const nextOrder = order.recordset[0]?.nextOrder ?? 0;
-  const result = await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .input('resourcePath', sql.NVarChar, resourcePath)
-    .input('description', sql.NVarChar, description)
-    .input('sortOrder', sql.Int, nextOrder).query(`
-            INSERT INTO EdictResources (edictId, resourcePath, description, sortOrder)
-            OUTPUT inserted.id
-            VALUES (@edictId, @resourcePath, @description, @sortOrder);
-        `);
-  return result.recordset[0] ? result.recordset[0].id : null;
+  const sortOrder = await nextOrder(edictId);
+  return repo.create([
+    { column: 'edictId', param: 'edictId', type: sql.Int, value: edictId },
+    { column: 'resourcePath', param: 'resourcePath', type: sql.NVarChar, value: resourcePath },
+    { column: 'description', param: 'description', type: sql.NVarChar, value: description },
+    { column: 'sortOrder', param: 'sortOrder', type: sql.Int, value: sortOrder },
+  ]);
 }
 
 // Persist a manual ordering for resources within an edict (drag-to-reorder).
 async function reorderResources(edictId, orderedIds) {
-  const pool = await getPool();
-  const transaction = new sql.Transaction(pool);
-  await transaction.begin();
-  try {
+  await repo.transaction(async (tx) => {
     for (let i = 0; i < orderedIds.length; i++) {
-      await transaction
+      await tx
         .request()
         .input('id', sql.Int, orderedIds[i])
         .input('sortOrder', sql.Int, i)
         .input('edictId', sql.Int, edictId)
         .query(`UPDATE EdictResources SET sortOrder = @sortOrder WHERE id = @id AND edictId = @edictId`);
     }
-    await transaction.commit();
-  } catch (err) {
-    await transaction.rollback();
-    throw err;
-  }
+  });
 }
 
 async function deleteResourceById(id) {
-  const pool = await getPool();
-  await pool.request().input('id', sql.Int, id).query(`DELETE FROM EdictResources WHERE id = @id`);
+  return repo.remove(id);
 }
 
 // Update only the metadata (description) of an existing resource — the file on
 // disk is untouched, so editing a resource no longer requires re-selecting it.
 async function updateResource(id, description) {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('id', sql.Int, id)
-    .input('description', sql.NVarChar, description)
-    .query(`UPDATE EdictResources SET description = @description WHERE id = @id`);
+  return repo.execute(
+    `UPDATE EdictResources SET description = @description WHERE id = @id`,
+    (req) => req.input('id', sql.Int, id).input('description', sql.NVarChar, description)
+  );
 }
 
 module.exports = {

@@ -8,7 +8,7 @@ const fs = require('fs');
 const multer = require('multer');
 const model = require('../models/careerFileModel');
 const { resourcesDirPath } = require('../shared/config');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, asyncHandler } = require('../utils/errors');
 const { isAllowedExtension, uniqueFilename } = require('../shared/upload');
 
 // Resolve the career-files folder (default <resourcesDir>/career) and ensure it exists.
@@ -38,55 +38,41 @@ function uploadSingle(req, res, next) {
 }
 
 // POST /api/career-files — upload a career document (multipart: file, kind, description).
-async function create(req, res, next) {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'A file is required' });
-    const userId = req.user.userID;
-    const fileName = req.file.originalname;
-    // Stored relative to public/ (like resources) so /resources/career/<file> serves it.
-    const publicDir = path.resolve(__dirname, '..', 'public');
-    const filePath = path.relative(publicDir, req.file.path).replace(/\\/g, '/');
-    const kind = ['resume', 'cert', 'other'].includes(req.body?.kind) ? req.body.kind : 'other';
-    await model.createCareerFile(userId, fileName, filePath, kind, req.body?.description || null);
-    const files = await model.getCareerFilesByUser(userId);
-    res.json({ success: true, files });
-  } catch (err) {
-    next(err);
-  }
-}
+const create = asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'A file is required' });
+  const userId = req.user.userID;
+  const fileName = req.file.originalname;
+  // Stored relative to public/ (like resources) so /resources/career/<file> serves it.
+  const publicDir = path.resolve(__dirname, '..', 'public');
+  const filePath = path.relative(publicDir, req.file.path).replace(/\\/g, '/');
+  const kind = ['resume', 'cert', 'other'].includes(req.body?.kind) ? req.body.kind : 'other';
+  await model.createCareerFile(userId, fileName, filePath, kind, req.body?.description || null);
+  const files = await model.getCareerFilesByUser(userId);
+  res.json({ success: true, files });
+});
 
 // GET /api/career-files — list the user's career files.
-async function list(req, res, next) {
-  try {
-    const userId = req.user.userID;
-    const files = await model.getCareerFilesByUser(userId);
-    res.json(files);
-  } catch (err) {
-    next(err);
-  }
-}
+const list = asyncHandler(async (req, res) => {
+  res.json(await model.getCareerFilesByUser(req.user.userID));
+});
 
 // DELETE /api/career-files/:id — remove a career file (owner only).
-async function remove(req, res, next) {
-  try {
-    const userId = req.user.userID;
-    const id = Number(req.params.id);
-    const file = await model.getCareerFileById(id, userId);
-    if (!file) throw new NotFoundError('File not found');
-    const removed = await model.deleteCareerFile(id, userId);
-    // Best-effort: remove the stored file from disk (the DB row is the source of truth).
-    if (removed) {
-      try {
-        const publicDir = path.resolve(__dirname, '..', 'public');
-        const abs = path.resolve(publicDir, file.filePath);
-        fs.unlink(abs, () => {});
-      } catch { /* ignore */ }
-    }
-    const files = await model.getCareerFilesByUser(userId);
-    res.json({ success: true, files });
-  } catch (err) {
-    next(err);
+const remove = asyncHandler(async (req, res) => {
+  const userId = req.user.userID;
+  const id = Number(req.params.id);
+  const file = await model.getCareerFileById(id, userId);
+  if (!file) throw new NotFoundError('File not found');
+  const removed = await model.deleteCareerFile(id, userId);
+  // Best-effort: remove the stored file from disk (the DB row is the source of truth).
+  if (removed) {
+    try {
+      const publicDir = path.resolve(__dirname, '..', 'public');
+      const abs = path.resolve(publicDir, file.filePath);
+      fs.unlink(abs, () => {});
+    } catch { /* ignore */ }
   }
-}
+  const files = await model.getCareerFilesByUser(userId);
+  res.json({ success: true, files });
+});
 
 module.exports = { create, list, remove, uploadSingle };

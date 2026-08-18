@@ -1,53 +1,26 @@
 const servicesModel = require('../models/servicesModel');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, asyncHandler } = require('../utils/errors');
 
-async function getAllServices(req, res, next) {
-  try {
-    const services = await servicesModel.getAllServices();
-    res.json(services);
-  } catch (err) {
-    next(err);
-  }
-}
+const getAllServices = asyncHandler(async (req, res) => {
+  res.json(await servicesModel.getAllServices());
+});
 
-async function createService(req, res, next) {
-  try {
-    const serviceData = req.body;
-    const result = await servicesModel.createService(serviceData);
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-}
+const createService = asyncHandler(async (req, res) => {
+  const result = await servicesModel.createService(req.body);
+  res.status(201).json(result);
+});
 
-async function deleteService(req, res, next) {
-  try {
-    const id = req.params.id;
-    const result = await servicesModel.deleteService(id);
-    if (result) {
-      res.status(200).json({ success: true, message: 'Service deleted successfully' });
-    } else {
-      throw new NotFoundError('Service not found');
-    }
-  } catch (err) {
-    next(err);
-  }
-}
+const deleteService = asyncHandler(async (req, res) => {
+  const affected = await servicesModel.deleteService(req.params.id);
+  if (!affected) throw new NotFoundError('Service not found');
+  res.json({ success: true, message: 'Service deleted successfully' });
+});
 
-async function updateService(req, res, next) {
-  try {
-    const id = req.params.id;
-    const serviceData = req.body;
-    const result = await servicesModel.updateService(id, serviceData);
-    if (result) {
-      res.status(200).json(result);
-    } else {
-      throw new NotFoundError('Service not found');
-    }
-  } catch (err) {
-    next(err);
-  }
-}
+const updateService = asyncHandler(async (req, res) => {
+  const affected = await servicesModel.updateService(req.params.id, req.body);
+  if (!affected) throw new NotFoundError('Service not found');
+  res.json({ success: true, message: 'Service updated successfully' });
+});
 
 module.exports = {
   getAllServices,

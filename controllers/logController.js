@@ -3,17 +3,13 @@
 // write to ApiLogs; this endpoint lets you view the combined traffic and filter
 // by service source.
 const { getAllApiLogs } = require('../models/apiLogModel');
+const { asyncHandler } = require('../utils/errors');
 
-async function getLogs(req, res, next) {
-  try {
-    const logs = await getAllApiLogs({
-      source: req.query.source || undefined,
-      limit: req.query.limit || undefined,
-    });
-    res.json(logs);
-  } catch (err) {
-    next(err);
-  }
-}
+const getLogs = asyncHandler(async (req, res) => {
+  res.json(await getAllApiLogs({
+    source: req.query.source || undefined,
+    limit: req.query.limit || undefined,
+  }));
+});
 
 module.exports = { getLogs };

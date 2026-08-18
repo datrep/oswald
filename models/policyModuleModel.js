@@ -5,43 +5,35 @@
 // FUTURE SCOPE: new module types (e.g. 'certificates') only need to be added to
 // MODULE_TYPES here + the frontend registry in policy.js — no schema change.
 
-const { getPool } = require('../config/db');
-const sql = require('mssql');
+const { Repository } = require('../shared/repository');
+const { sql } = require('../shared/db');
+
+const repo = new Repository('PolicyModules');
 
 // Backend allowlist — the API rejects anything not listed here.
 const MODULE_TYPES = ['jobs', 'career_files', 'certificates'];
 
 async function getModulesByEdict(edictId) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .query(`
-            SELECT id, edictId, moduleType, config, createdAt
-            FROM PolicyModules
-            WHERE edictId = @edictId
-            ORDER BY id
-        `);
-  return result.recordset;
+  return repo.all({
+    columns: 'id, edictId, moduleType, config, createdAt',
+    where: 'edictId = @edictId',
+    order: 'id',
+    bind: (req) => req.input('edictId', sql.Int, edictId),
+  });
 }
 
 async function attachModule(edictId, moduleType) {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .input('moduleType', sql.NVarChar, moduleType)
-    .query(`INSERT INTO PolicyModules (edictId, moduleType) VALUES (@edictId, @moduleType)`);
+  await repo.query(
+    `INSERT INTO PolicyModules (edictId, moduleType) VALUES (@edictId, @moduleType)`,
+    (req) => req.input('edictId', sql.Int, edictId).input('moduleType', sql.NVarChar, moduleType)
+  );
 }
 
 async function detachModule(edictId, moduleType) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('edictId', sql.Int, edictId)
-    .input('moduleType', sql.NVarChar, moduleType)
-    .query(`DELETE FROM PolicyModules WHERE edictId = @edictId AND moduleType = @moduleType`);
-  return (result.rowsAffected && result.rowsAffected[0]) || 0;
+  return repo.execute(
+    `DELETE FROM PolicyModules WHERE edictId = @edictId AND moduleType = @moduleType`,
+    (req) => req.input('edictId', sql.Int, edictId).input('moduleType', sql.NVarChar, moduleType)
+  );
 }
 
 module.exports = { MODULE_TYPES, getModulesByEdict, attachModule, detachModule };

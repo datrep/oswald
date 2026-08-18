@@ -1,104 +1,68 @@
 // models/userModel.js
-const { getPool } = require('../config/db');
-const sql = require('mssql');
+const { Repository } = require('../shared/repository');
+const { sql } = require('../shared/db');
+
+const repo = new Repository('Users');
 
 exports.createUser = async (username, passwordHash) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('username', sql.VarChar(50), username)
-    .input('passwordHash', sql.VarChar(255), passwordHash).query(`
-      INSERT INTO Users (username, passwordHash)
-      VALUES (@username, @passwordHash)
-    `);
+  await repo.query(
+    `INSERT INTO Users (username, passwordHash) VALUES (@username, @passwordHash)`,
+    (req) => req.input('username', sql.VarChar(50), username).input('passwordHash', sql.VarChar(255), passwordHash)
+  );
 };
 
 exports.countUsers = async () => {
-  const pool = await getPool();
-  const r = await pool.request().query('SELECT COUNT(*) AS n FROM Users');
-  return r.recordset[0].n;
+  const r = await repo.query('SELECT COUNT(*) AS n FROM Users');
+  return r[0].n;
 };
 
 exports.findUserByUsername = async (username) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('username', sql.VarChar(50), username)
-    .query('SELECT * FROM Users WHERE username = @username');
-  return result.recordset[0];
+  return repo.one('SELECT * FROM Users WHERE username = @username', (req) => req.input('username', sql.VarChar(50), username));
 };
 
 exports.updateUser = async (userID, username, passwordHash) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('userID', sql.Int, userID)
-    .input('username', sql.VarChar(50), username)
-    .input('passwordHash', sql.VarChar(255), passwordHash).query(`
-      UPDATE Users SET username = @username, passwordHash = @passwordHash, updatedAt = GETUTCDATE()
-      WHERE id = @userID
-    `);
+  await repo.query(
+    `UPDATE Users SET username = @username, passwordHash = @passwordHash, updatedAt = GETUTCDATE() WHERE id = @userID`,
+    (req) => req.input('userID', sql.Int, userID).input('username', sql.VarChar(50), username).input('passwordHash', sql.VarChar(255), passwordHash)
+  );
 };
 
 exports.deleteUser = async (userID) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('userID', sql.Int, userID)
-    .query('DELETE FROM Users WHERE id = @userID');
+  await repo.query('DELETE FROM Users WHERE id = @userID', (req) => req.input('userID', sql.Int, userID));
 };
 
 exports.getUserInfo = async (userID) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('userID', sql.Int, userID)
-    .query('SELECT id, username, isActive, createdAt, updatedAt FROM Users WHERE id = @userID');
-  return result.recordset[0];
+  return repo.one('SELECT id, username, isActive, createdAt, updatedAt FROM Users WHERE id = @userID', (req) => req.input('userID', sql.Int, userID));
 };
 
 // UAC session control (opsec): lightweight per-request auth check.
 exports.getAuthState = async (userId) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .query('SELECT isActive, tokenVersion FROM Users WHERE id = @userId');
-  return result.recordset[0] || null;
+  return repo.one('SELECT isActive, tokenVersion FROM Users WHERE id = @userId', (req) => req.input('userId', sql.Int, userId));
 };
 
 // Invalidate every existing JWT for a user (role/password/active changes).
 exports.bumpTokenVersion = async (userId) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .query('UPDATE Users SET tokenVersion = tokenVersion + 1 WHERE id = @userId');
+  await repo.query('UPDATE Users SET tokenVersion = tokenVersion + 1 WHERE id = @userId', (req) => req.input('userId', sql.Int, userId));
 };
 
 // Enable/disable an account (disable also revokes all sessions).
 exports.setIsActive = async (userId, isActive) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .input('isActive', sql.Bit, isActive)
-    .query('UPDATE Users SET isActive = @isActive, tokenVersion = tokenVersion + 1 WHERE id = @userId');
+  await repo.query(
+    'UPDATE Users SET isActive = @isActive, tokenVersion = tokenVersion + 1 WHERE id = @userId',
+    (req) => req.input('userId', sql.Int, userId).input('isActive', sql.Bit, isActive)
+  );
 };
 
 // Admin password reset (also revokes all sessions).
 exports.resetPassword = async (userId, passwordHash) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .input('passwordHash', sql.VarChar(255), passwordHash)
-    .query('UPDATE Users SET passwordHash = @passwordHash, tokenVersion = tokenVersion + 1, updatedAt = GETUTCDATE() WHERE id = @userId');
+  await repo.query(
+    'UPDATE Users SET passwordHash = @passwordHash, tokenVersion = tokenVersion + 1, updatedAt = GETUTCDATE() WHERE id = @userId',
+    (req) => req.input('userId', sql.Int, userId).input('passwordHash', sql.VarChar(255), passwordHash)
+  );
 };
 
 exports.getAllUsersWithRoles = async () => {
-  const pool = await getPool();
-  const result = await pool.request().query(`
+  const result = await repo.query(`
     SELECT u.id, u.username, u.isActive,
            COALESCE(STRING_AGG(r.name, ','), '') AS roles,
            s.loggedInAt AS lastLoginAt, s.userAgent AS lastUserAgent,
@@ -110,7 +74,7 @@ exports.getAllUsersWithRoles = async () => {
     GROUP BY u.id, u.username, u.isActive, s.loggedInAt, s.userAgent, s.lastSeenAt
     ORDER BY u.username
   `);
-  return result.recordset.map((u) => ({
+  return result.map((u) => ({
     id: u.id,
     username: u.username,
     isActive: u.isActive !== false,
@@ -124,64 +88,48 @@ exports.getAllUsersWithRoles = async () => {
 // Record a successful login (best-effort, never fails the login itself).
 // Returns the new session id so the client can heartbeat it for live presence.
 exports.addSession = async (userId, ip, userAgent) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .input('ip', sql.NVarChar, ip)
-    .input('userAgent', sql.NVarChar, userAgent)
-    .query('INSERT INTO UserSessions (userId, ip, userAgent) OUTPUT INSERTED.id AS id VALUES (@userId, @ip, @userAgent)');
-  return result.recordset[0]?.id || null;
+  const rows = await repo.query(
+    'INSERT INTO UserSessions (userId, ip, userAgent) OUTPUT INSERTED.id AS id VALUES (@userId, @ip, @userAgent)',
+    (req) => req.input('userId', sql.Int, userId).input('ip', sql.NVarChar, ip).input('userAgent', sql.NVarChar, userAgent)
+  );
+  return rows[0]?.id || null;
 };
 
 // UAC-5: heartbeat — bump lastSeenAt for one of the current user's sessions.
 // The userId guard stops a user from touching someone else's session row.
 exports.touchSession = async (sessionId, userId) => {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('id', sql.Int, sessionId)
-    .input('userId', sql.Int, userId)
-    .query('UPDATE UserSessions SET lastSeenAt = GETUTCDATE() WHERE id = @id AND userId = @userId');
+  await repo.query(
+    'UPDATE UserSessions SET lastSeenAt = GETUTCDATE() WHERE id = @id AND userId = @userId',
+    (req) => req.input('id', sql.Int, sessionId).input('userId', sql.Int, userId)
+  );
 };
 
 // UAC-5: distinct users with a session seen within the last N minutes.
 exports.getOnlineUsers = async (minutes = 3) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('minutes', sql.Int, minutes)
-    .query(`
-      SELECT s.userId, u.username, MAX(s.lastSeenAt) AS lastSeenAt
-      FROM UserSessions s JOIN Users u ON u.id = s.userId
-      WHERE s.lastSeenAt >= DATEADD(MINUTE, -@minutes, GETUTCDATE())
-      GROUP BY s.userId, u.username
-      ORDER BY u.username
-    `);
-  return result.recordset;
+  return repo.query(
+    `SELECT s.userId, u.username, MAX(s.lastSeenAt) AS lastSeenAt
+     FROM UserSessions s JOIN Users u ON u.id = s.userId
+     WHERE s.lastSeenAt >= DATEADD(MINUTE, -@minutes, GETUTCDATE())
+     GROUP BY s.userId, u.username
+     ORDER BY u.username`,
+    (req) => req.input('minutes', sql.Int, minutes)
+  );
 };
 
 // Recent login sessions for one user (admin-only view).
 exports.getSessionsByUser = async (userId, limit = 10) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .input('limit', sql.Int, limit)
-    .query('SELECT TOP (@limit) id, loggedInAt, lastSeenAt, ip, userAgent FROM UserSessions WHERE userId = @userId ORDER BY loggedInAt DESC');
-  return result.recordset;
+  return repo.query(
+    'SELECT TOP (@limit) id, loggedInAt, lastSeenAt, ip, userAgent FROM UserSessions WHERE userId = @userId ORDER BY loggedInAt DESC',
+    (req) => req.input('userId', sql.Int, userId).input('limit', sql.Int, limit)
+  );
 };
 
 // UAC-5: recent login sessions across ALL users (admin "who is logged in" view).
 exports.getAllSessions = async (limit = 20) => {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('limit', sql.Int, limit)
-    .query(`
-      SELECT TOP (@limit) s.id, s.userId, u.username, s.userAgent, s.ip, s.loggedInAt, s.lastSeenAt
-      FROM UserSessions s JOIN Users u ON u.id = s.userId
-      ORDER BY s.loggedInAt DESC
-    `);
-  return result.recordset;
+  return repo.query(
+    `SELECT TOP (@limit) s.id, s.userId, u.username, s.userAgent, s.ip, s.loggedInAt, s.lastSeenAt
+     FROM UserSessions s JOIN Users u ON u.id = s.userId
+     ORDER BY s.loggedInAt DESC`,
+    (req) => req.input('limit', sql.Int, limit)
+  );
 };

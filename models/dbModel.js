@@ -1,32 +1,32 @@
-const { getPool } = require('../config/db');
-const sql = require('mssql');
+const { Repository } = require('../shared/repository');
+const { sql } = require('../shared/db');
 const { NotFoundError } = require('../utils/errors');
 
+// Only repo.query() is used here (information_schema / dynamic-identifier queries).
+const repo = new Repository('');
+
 async function getTables() {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .query(`SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'`);
-  return result.recordset.map((row) => row.TABLE_NAME);
+  const rows = await repo.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'`
+  );
+  return rows.map((row) => row.TABLE_NAME);
 }
 
 async function getTableRows(tableName) {
-  const pool = await getPool();
-
   // Validate table exists first
-  const tableCheck = await pool.request().input('tableName', sql.NVarChar, tableName)
-    .query(`SELECT TABLE_NAME
-                FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME=@tableName`);
+  const tableCheck = await repo.query(
+    `SELECT TABLE_NAME
+     FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME=@tableName`,
+    (req) => req.input('tableName', sql.NVarChar, tableName)
+  );
 
-  if (tableCheck.recordset.length === 0) {
+  if (tableCheck.length === 0) {
     throw new NotFoundError(`Table '${tableName}' not found.`);
   }
 
-  // Fetch rows safely
-  const rows = await pool.request().query(`SELECT * FROM [${tableName}]`); // safe now because we validated table name
-
-  return rows.recordset;
+  // Fetch rows safely (identifier validated against INFORMATION_SCHEMA above).
+  return repo.query(`SELECT * FROM [${tableName}]`);
 }
 
 module.exports = {

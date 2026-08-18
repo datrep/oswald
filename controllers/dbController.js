@@ -1,26 +1,15 @@
 const { getTables, getTableRows } = require('../models/dbModel');
+const { asyncHandler } = require('../utils/errors');
 
 // GET: api/db/tables
-async function getTablesHandler(req, res, next) {
-  try {
-    const tables = await getTables();
-    res.json(tables);
-  } catch (err) {
-    next(err);
-  }
-}
+const getTablesHandler = asyncHandler(async (req, res) => {
+  res.json(await getTables());
+});
 
 // GET: api/db/:tableName
-async function getTableRowsHandler(req, res, next) {
-  const { tableName } = req.params;
-
-  try {
-    const rows = await getTableRows(tableName);
-    res.json(rows);
-  } catch (err) {
-    next(err);
-  }
-}
+const getTableRowsHandler = asyncHandler(async (req, res) => {
+  res.json(await getTableRows(req.params.tableName));
+});
 
 module.exports = {
   getTableRows: getTableRowsHandler,

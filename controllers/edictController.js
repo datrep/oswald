@@ -8,95 +8,50 @@ const {
   getCompletionTrends: modelGetCompletionTrends,
 } = require('../models/edictModel');
 
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, asyncHandler } = require('../utils/errors');
 const { parsePagination } = require('../shared/pagination');
 
 // GET all edicts
-async function getAllEdicts(req, res, next) {
-  try {
-    const edicts = await modelGetAllEdicts(parsePagination(req.query));
-    res.json(edicts);
-  } catch (err) {
-    next(err);
-  }
-}
+const getAllEdicts = asyncHandler(async (req, res) => {
+  res.json(await modelGetAllEdicts(parsePagination(req.query)));
+});
 
 // GET edict by id
-async function getEdictById(req, res, next) {
-  try {
-    const edict = await modelGetEdictById(req.params.id);
-    if (!edict) {
-      throw new NotFoundError('Edict not found');
-    }
-    res.json(edict);
-  } catch (err) {
-    next(err);
-  }
-}
+const getEdictById = asyncHandler(async (req, res) => {
+  const edict = await modelGetEdictById(req.params.id);
+  if (!edict) throw new NotFoundError('Edict not found');
+  res.json(edict);
+});
 
 // CREATE edict
-async function createEdict(req, res, next) {
+const createEdict = asyncHandler(async (req, res) => {
   const { name, plannedStart, plannedEnd, info, priority, state } = req.body;
-
-  try {
-    const insertedId = await modelCreateEdict(
-      name,
-      plannedStart,
-      plannedEnd,
-      info,
-      priority,
-      state
-    );
-    res.json({ success: true, message: 'Edict created successfully', id: insertedId });
-  } catch (err) {
-    next(err);
-  }
-}
+  const insertedId = await modelCreateEdict(name, plannedStart, plannedEnd, info, priority, state);
+  res.json({ success: true, message: 'Edict created successfully', id: insertedId });
+});
 
 // UPDATE edict
-async function updateEdict(req, res, next) {
-  const id = req.params.id;
+const updateEdict = asyncHandler(async (req, res) => {
   const { name, plannedStart, plannedEnd, info, priority, state } = req.body;
-
-  try {
-    await modelUpdateEdict(id, name, plannedStart, plannedEnd, info, priority, state);
-    res.json({ success: true, message: 'Edict updated successfully' });
-  } catch (err) {
-    next(err);
-  }
-}
+  await modelUpdateEdict(req.params.id, name, plannedStart, plannedEnd, info, priority, state);
+  res.json({ success: true, message: 'Edict updated successfully' });
+});
 
 // DELETE edict
-async function deleteEdict(req, res, next) {
-  const id = req.params.id;
-
-  try {
-    await modelDeleteEdict(id);
-    res.json({ success: true, message: 'Edict deleted successfully' });
-  } catch (err) {
-    next(err);
-  }
-}
+const deleteEdict = asyncHandler(async (req, res) => {
+  await modelDeleteEdict(req.params.id);
+  res.json({ success: true, message: 'Edict deleted successfully' });
+});
 
 // GET unfinished edicts (policies that have passed their end date but not archived)
-async function getUnfinishedEdicts(req, res, next) {
-  try {
-    const unfinishedEdicts = await modelGetUnfinishedEdicts();
-    res.json(unfinishedEdicts);
-  } catch (err) {
-    next(err);
-  }
-}
+const getUnfinishedEdicts = asyncHandler(async (req, res) => {
+  res.json(await modelGetUnfinishedEdicts());
+});
 
 // GET completion trends (monthly completions + totals)
-async function getCompletionTrends(req, res, next) {
-  try {
-    const trends = await modelGetCompletionTrends();
-    res.json(trends);
-  } catch (err) {
-    next(err);
-  }
-}
+const getCompletionTrends = asyncHandler(async (req, res) => {
+  res.json(await modelGetCompletionTrends());
+});
 
 module.exports = {
   getAllEdicts,

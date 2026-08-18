@@ -1,105 +1,59 @@
-const sql = require('mssql');
-const { getPool } = require('../config/db');
+const { Repository } = require('../shared/repository');
+const { sql } = require('../shared/db');
+
+const repo = new Repository('Services');
 
 async function getAllServices() {
-  const pool = await getPool();
-  const result = await pool.request().query(`
-            SELECT *
-            FROM Services
-            WHERE enabled = 1
-            ORDER BY sortOrder ASC, name ASC
-        `);
-  return result.recordset;
+  return repo.all({ where: 'enabled = 1', order: 'sortOrder ASC, name ASC' });
 }
 
 async function createService(serviceData) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    // Map service properties to SQL parameters
-    .input('name', sql.NVarChar, serviceData.name)
-    .input('description', sql.NVarChar, serviceData.description)
-    .input('type', sql.NVarChar, serviceData.type)
-    .input('target', sql.NVarChar, serviceData.target)
-    .input('iconPath', sql.NVarChar, serviceData.iconPath)
-    .input('enabled', sql.Bit, serviceData.enabled ?? true)
-    .input('sortOrder', sql.Int, serviceData.sortOrder ?? 0).query(`
-            INSERT INTO Services (name, description, type, target, iconPath, enabled, sortOrder)
-            VALUES (@name, @description, @type, @target, @iconPath, @enabled, @sortOrder)
-        `);
-  return result;
+  const id = await repo.create([
+    { column: 'name', param: 'name', type: sql.NVarChar, value: serviceData.name },
+    { column: 'description', param: 'description', type: sql.NVarChar, value: serviceData.description },
+    { column: 'type', param: 'type', type: sql.NVarChar, value: serviceData.type },
+    { column: 'target', param: 'target', type: sql.NVarChar, value: serviceData.target },
+    { column: 'iconPath', param: 'iconPath', type: sql.NVarChar, value: serviceData.iconPath },
+    { column: 'enabled', param: 'enabled', type: sql.Bit, value: serviceData.enabled ?? true },
+    { column: 'sortOrder', param: 'sortOrder', type: sql.Int, value: serviceData.sortOrder ?? 0 },
+  ]);
+  return { id };
 }
 
 async function getServiceById(id) {
-  const pool = await getPool();
-  const result = await pool.request().input('id', sql.Int, id).query(`
-            SELECT *
-            FROM Services
-            WHERE id = @id
-        `);
-  return result.recordset[0] || null;
+  return repo.byId(id);
 }
 
+const SERVICE_UPDATABLE = {
+  name: sql.NVarChar,
+  description: sql.NVarChar,
+  type: sql.NVarChar,
+  target: sql.NVarChar,
+  iconPath: sql.NVarChar,
+  enabled: sql.Bit,
+  sortOrder: sql.Int,
+};
+
 async function updateService(id, serviceData) {
-  const pool = await getPool();
-
-  // Only include fields that are being updated and exist in the serviceData
-  const updates = [];
-  const params = {};
-
-  if (serviceData.name !== undefined) {
-    updates.push('name = @name');
-    params.name = { type: sql.NVarChar, value: serviceData.name };
+  const sets = [];
+  const present = [];
+  for (const [key, type] of Object.entries(SERVICE_UPDATABLE)) {
+    if (serviceData[key] === undefined) continue;
+    sets.push(`${key} = @p_${key}`);
+    present.push([key, type]);
   }
-  if (serviceData.description !== undefined) {
-    updates.push('description = @description');
-    params.description = { type: sql.NVarChar, value: serviceData.description };
-  }
-  if (serviceData.type !== undefined) {
-    updates.push('type = @type');
-    params.type = { type: sql.NVarChar, value: serviceData.type };
-  }
-  if (serviceData.target !== undefined) {
-    updates.push('target = @target');
-    params.target = { type: sql.NVarChar, value: serviceData.target };
-  }
-  if (serviceData.iconPath !== undefined) {
-    updates.push('iconPath = @iconPath');
-    params.iconPath = { type: sql.NVarChar, value: serviceData.iconPath };
-  }
-  if (serviceData.enabled !== undefined) {
-    updates.push('enabled = @enabled');
-    params.enabled = { type: sql.Bit, value: serviceData.enabled };
-  }
-  if (serviceData.sortOrder !== undefined) {
-    updates.push('sortOrder = @sortOrder');
-    params.sortOrder = { type: sql.Int, value: serviceData.sortOrder };
-  }
-
-  if (updates.length === 0) {
-    return { affectedRows: 0 };
-  }
-
-  params.id = { type: sql.Int, value: id };
-  const request = pool.request();
-  Object.entries(params).forEach(([name, { type, value }]) => {
-    request.input(name, type, value);
-  });
-  const result = await request.query(`
-            UPDATE Services
-            SET ${updates.join(', ')}
-            WHERE id = @id
-        `);
-  return result;
+  if (!sets.length) return 0;
+  return repo.execute(
+    `UPDATE Services SET ${sets.join(', ')} WHERE id = @id`,
+    (req) => {
+      req.input('id', sql.Int, id);
+      for (const [key, type] of present) req.input(`p_${key}`, type, serviceData[key]);
+    }
+  );
 }
 
 async function deleteService(id) {
-  const pool = await getPool();
-  const result = await pool.request().input('id', sql.Int, id).query(`
-            DELETE FROM Services
-            WHERE id = @id
-        `);
-  return result;
+  return repo.remove(id);
 }
 
 module.exports = {

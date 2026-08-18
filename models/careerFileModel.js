@@ -5,60 +5,47 @@
 // FUTURE SCOPE: tagging, expiry tracking for certs, or per-file versions would
 // extend this model without touching the table shape.
 
-const { getPool } = require('../config/db');
-const sql = require('mssql');
+const { Repository } = require('../shared/repository');
+const { sql } = require('../shared/db');
+
+const repo = new Repository('CareerFiles');
+
+const COLUMNS = 'id, userId, fileName, filePath, kind, description, createdAt';
 
 async function createCareerFile(userId, fileName, filePath, kind, description) {
-  const pool = await getPool();
-  await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .input('fileName', sql.NVarChar, fileName)
-    .input('filePath', sql.NVarChar, filePath)
-    .input('kind', sql.NVarChar, kind || 'other')
-    .input('description', sql.NVarChar, description || null)
-    .query(`
-            INSERT INTO CareerFiles (userId, fileName, filePath, kind, description)
-            VALUES (@userId, @fileName, @filePath, @kind, @description)
-        `);
+  await repo.query(
+    `INSERT INTO CareerFiles (userId, fileName, filePath, kind, description)
+     VALUES (@userId, @fileName, @filePath, @kind, @description)`,
+    (req) => req
+      .input('userId', sql.Int, userId)
+      .input('fileName', sql.NVarChar, fileName)
+      .input('filePath', sql.NVarChar, filePath)
+      .input('kind', sql.NVarChar, kind || 'other')
+      .input('description', sql.NVarChar, description || null)
+  );
 }
 
 async function getCareerFilesByUser(userId) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('userId', sql.Int, userId)
-    .query(`
-            SELECT id, userId, fileName, filePath, kind, description, createdAt
-            FROM CareerFiles
-            WHERE userId = @userId
-            ORDER BY id DESC
-        `);
-  return result.recordset;
+  return repo.all({
+    columns: COLUMNS,
+    where: 'userId = @userId',
+    order: 'id DESC',
+    bind: (req) => req.input('userId', sql.Int, userId),
+  });
 }
 
 async function getCareerFileById(id, userId) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('id', sql.Int, id)
-    .input('userId', sql.Int, userId)
-    .query(`
-            SELECT id, userId, fileName, filePath, kind, description, createdAt
-            FROM CareerFiles
-            WHERE id = @id AND userId = @userId
-        `);
-  return result.recordset[0] || null;
+  return repo.one(
+    `SELECT ${COLUMNS} FROM CareerFiles WHERE id = @id AND userId = @userId`,
+    (req) => req.input('id', sql.Int, id).input('userId', sql.Int, userId)
+  );
 }
 
 async function deleteCareerFile(id, userId) {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('id', sql.Int, id)
-    .input('userId', sql.Int, userId)
-    .query(`DELETE FROM CareerFiles WHERE id = @id AND userId = @userId`);
-  return (result.rowsAffected && result.rowsAffected[0]) || 0;
+  return repo.execute(
+    `DELETE FROM CareerFiles WHERE id = @id AND userId = @userId`,
+    (req) => req.input('id', sql.Int, id).input('userId', sql.Int, userId)
+  );
 }
 
 module.exports = { createCareerFile, getCareerFilesByUser, getCareerFileById, deleteCareerFile };
