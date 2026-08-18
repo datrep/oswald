@@ -6,10 +6,14 @@ public/resources
 temp
 /config/ips.txt
 
+
+
 # Fileserver (FS-1) service
 fileserver/temp-uploads
 fileserver/thumb-cache
 fileserver/node_modules/
+# Sync client local web UI — local config (contains saved credentials)
+fileserver/sync-ui-config.json
 
 # Environment files (secrets)
 .env

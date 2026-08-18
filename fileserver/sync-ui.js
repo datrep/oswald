@@ -39,7 +39,10 @@ function defaultConfig() {
     username: '',
     password: '',
     token: '',
-    insecure: false,
+    // The sync client talks to a self-signed fileserver by default, so allow
+    // self-signed certs out of the box (the checkbox still lets you disable it
+    // once the cert is trusted).
+    insecure: true,
     dryRun: false,
     watch: false,
     interval: 30,
@@ -197,7 +200,13 @@ const server = http.createServer(async (req, res) => {
         // Honor the checkbox at click time (self-signed certs need insecure=on).
         const insecure = body.insecure !== undefined ? !!body.insecure : config.insecure;
         const r = await verifyLogin(config.server, username, password, insecure);
-        if (r.status !== 200) return json(res, r.status === 401 ? 401 : 502, { error: r.body.error || `Login failed (${r.status})` });
+        if (r.status !== 200) {
+          let msg = r.body.error || `Login failed (${r.status})`;
+          if (/certificate|CERT_|self-signed|unable to verify|SSL|TLS|fetch failed/i.test(msg)) {
+            msg += insecure ? '' : ' — self-signed cert: tick "Allow self-signed TLS (insecure)" and retry.';
+          }
+          return json(res, r.status === 401 ? 401 : 502, { error: msg });
+        }
         config.username = username;
         config.password = password;
         config.token = '';
