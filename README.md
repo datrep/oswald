@@ -113,6 +113,8 @@ Apply with `sqlcmd` (see the migration files for the exact command).
 
 ## Users & permissions (UAC)
 
+**Default login: `oswald_admin` / `admin`** — change it immediately (`node scripts/reset-password.js`).
+
 The dashboard has a users & roles admin page at `pages/users.html` — linked from the sidebar **Links → "users & permissions"** (requires `users.manage`, i.e. admin):
 
 - Lists every user with their roles; **Make admin / Make user** promote/demote (role assignment *replaces* roles; you can't change your own role, and the last admin can't be demoted).
@@ -180,7 +182,7 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*fileserver
 Logs: `fileserver.log` / `fileserver.err.log` in the repo root.
 
 ### Accounts (who can log in)
-The fileserver shares the dashboard's `Users` table — there are no separate fileserver logins. Only `oswald_admin` exists by default, so hand out accounts, not the admin password:
+The fileserver shares the dashboard's `Users` table — there are no separate fileserver logins. Only `oswald_admin` exists by default (password `admin` — change it immediately), so hand out accounts, not the admin password:
 
 - **Create an account for someone** (read-only by default; `--admin` for full access):
   ```powershell

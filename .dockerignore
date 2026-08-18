@@ -1,0 +1,23 @@
+# Docker build context is the repo root (fileserver needs ../shared, ../utils,
+# ../models, ../config). Keep the context lean and exclude secrets/runtime dirs.
+.git
+.gitignore
+node_modules
+**/node_modules
+logs
+temp
+public
+extractor
+routes
+controllers
+middlewares
+services
+scripts
+docs
+downloads
+sql
+fileserver/node_modules
+fileserver/temp-uploads
+fileserver/certs
+.env
+*.log

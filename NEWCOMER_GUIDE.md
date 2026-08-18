@@ -78,8 +78,7 @@ Useful for debugging table contents (`/api/db/tables`, `/api/db/:tableName`).
 ## Database and schema
 
 - SQL bootstrap/reset script: `sql/schema/DB_init_table.sql`
-- Connection config + shared connection pool: `config/db.js`
-- Shared connection pool logic: `config/db.js`
+- Connection config + shared pool: `shared/db.js` (re-exported by `config/db.js` and `fileserver/db.js`)
 
 Schema includes `Edicts`, `Tasks`, `Users`, `EdictResources`, `AuditLogs` with FK relationships.
 

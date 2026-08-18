@@ -9,8 +9,7 @@
 // the token's `v` matches Users.tokenVersion — so access changes on the
 // dashboard revoke fileserver sessions immediately too.
 const { makeAuthenticateToken } = require('../shared/auth');
-const { getPool } = require('./db');
-const sql = require('mssql');
+const { getPool, sql } = require('./db');
 
 const authenticateToken = makeAuthenticateToken({
   invalidStatus: 401,

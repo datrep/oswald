@@ -5,7 +5,7 @@
 # via BUILTIN\Administrators).
 #
 #   - schema:  sql/schema/DB_init_table.sql   (creates DB + tables + seed)
-#   - migrate: sql/migrations/002..015        (001 is a drift-fix, superseded)
+#   - migrate: every sql/migrations/*.sql except 001 (001 is a drift-fix, superseded)
 #   - api_user login gets a strong password (written to temp)
 #
 # Logs to temp\setup-sqlexpress-db.log
@@ -38,8 +38,8 @@ Log '--- running schema ---'
 & $sqlcmd -S $S -E -b -i (Join-Path $root 'sql\schema\DB_init_table.sql') 2>&1 | Out-String | ForEach-Object { Log "  $_" }
 Log "  schema exit: $LASTEXITCODE"
 
-# --- 3. migrations 002..015 ---
-Log '--- running migrations (002..015) ---'
+# --- 3. migrations (all files except 001) ---
+Log '--- running migrations (all except 001) ---'
 $migs = Get-ChildItem (Join-Path $root 'sql\migrations') -Filter '*.sql' | Sort-Object Name | Where-Object { $_.Name -notlike '001_*' }
 foreach ($m in $migs) {
     Log "  $($m.Name) ..."
@@ -63,4 +63,6 @@ Log '--- verify ---'
 # test SQL auth as api_user
 & $sqlcmd -S $S -d DB_Oswald -U api_user -P $pw -h -1 -W -Q "SELECT 'sql-auth-ok' AS t" 2>&1 | Out-String | ForEach-Object { Log "  api_user sql-auth: $_" }
 
+Log ''
+Log 'First login: oswald_admin / admin  (change it immediately!)'
 Log '==== COMPLETE ===='

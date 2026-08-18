@@ -11,7 +11,9 @@
 #
 services:
   fileserver:
-    build: ./fileserver
+    build:
+      context: .
+      dockerfile: fileserver/Dockerfile
     image: oswald-fileserver
     container_name: oswald-fileserver
     restart: unless-stopped

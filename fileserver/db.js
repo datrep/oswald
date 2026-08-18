@@ -4,6 +4,6 @@
 // reset on failure). It now shares ../shared/db.js with the dashboard so both
 // services behave identically.
 
-const { getPool } = require('../shared/db');
+const { getPool, sql } = require('../shared/db');
 
-module.exports = { getPool };
+module.exports = { getPool, sql };

@@ -15,6 +15,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const sql = require('mssql');
 const { getPool } = require('../config/db');
+const runSmokeSections = require('./smoke-sections');
 
 // Windows reserves dynamic TCP ranges (Hyper-V/WinNAT) that shift on reboot —
 // e.g. 7986-8085 (incl. 8080) and 4435-4534 were reserved at the time of
@@ -454,6 +455,9 @@ async function run() {
     const f = path.join(__dirname, '..', 'logs', `active-api.dashboard.${HTTP_PORT}.log`);
     ok('Session log active file exists on disk', fs.existsSync(f), f);
   });
+
+  // Additional module coverage (segregated in scripts/smoke-sections.js).
+  await runSmokeSections({ ADMIN, READ_ONLY, req, check, ok, created });
 
   console.log('');
   console.log(`Regression suite: ${passed} passed, ${failed} failed, ${passed + failed} total`);
