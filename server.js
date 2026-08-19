@@ -276,6 +276,15 @@ async function startServer() {
   } catch (err) {
     console.error('WARNING: database pool failed to initialize:', err.message);
   }
+
+  // Auto-start any managed services flagged autoStart (skips already-running /
+  // port-held ones). Skipped during the smoke test so the regression suite
+  // doesn't spawn real services.
+  if (process.env.SMOKE_TEST !== '1') {
+    require('./utils/serverManager').autoStart().catch((err) => {
+      console.error('[servers] autoStart failed:', err.message);
+    });
+  }
 }
 
 startServer();

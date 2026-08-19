@@ -141,14 +141,15 @@ Tasks and resources on the policy workspace (`pages/policy.html?id=…`) can be 
 
 Each task card shows its **task ID** (`#<id>`), and **archived tasks (state 3) are hidden by default** — a "Show archived" toggle above the list reveals them (persisted via the settings store). The policy card counter + progress rail always reflect the full task set.
 
-## Managed services (Server tray)
+## Managed services (Server tray + servers page)
 
-The dashboard sidebar **Server ▾** section can start/stop the side services as child processes (backed by `utils/serverManager.js` — add a new managed service by adding one entry to its `DEFINITIONS` registry):
+The dashboard manages its side services as child processes (backed by `utils/serverManager.js`). Built-ins are **MCP Filesystem Server** (project-root scoped) and **Oswald Fileserver** (`:8090`). The **Server ▾** tray shows live status (running/stopped/**attached**/**detached**, pid, uptime, healthy) with Start / Stop / Restart / Attach; the **`servers.html` page** is the full console.
 
-- **MCP Filesystem Server** — Model Context Protocol filesystem server, scoped to the project root.
-- **Oswald Fileserver** — the separate HTTPS share on `:8090`.
-
-API: `GET /api/servers` (status of all — any signed-in user) · `GET /api/servers/:name` · `POST /api/servers/:name/start` · `POST /api/servers/:name/stop` (start/stop require `services.manage`). The `portActive` field reports whether something already listens on the service's port, so a **detached** fileserver is shown as "port in use" instead of letting you spawn a conflicting copy.
+- **Servers page** (`pages/servers.html`, sidebar → Server → servers ›): one card per service with status, health probe, pid/uptime, an **inline log tail** (+ clear), Start/Stop/Restart, **Open ↗**, and — for user-defined services — Edit/Delete. Status is readable by any signed-in user; all controls + config require `services.manage`.
+- **Config-driven registry**: user-defined services live in **`config/servers.json`** and can be **added/edited/removed from the UI** (`+ New server` form: name, label, command, args, cwd, port, logFile, healthUrl, autoStart). Built-ins are code-defined and protected. Add a service = one form, no code.
+- **Open / Close / Attach**: Start spawns a managed child; Stop kills it (graceful, then force). If something already listens on a service's port (e.g. a fileserver started via `start-fileserver.ps1`), the service shows **detached** and **Attach** adopts the external process (finds its pid on the port) so Stop can control it — services can run independently yet still be managed. **Detach** releases it.
+- **Health + auto-start**: per-service `healthUrl` is probed for "healthy"; the **autoStart** flag starts the service on dashboard boot (skipping already-running/port-held ones — no double spawn).
+- API: `GET /api/servers` (all, any signed-in) · `GET /api/servers/:name` · `POST /:name/start|stop|restart|attach|detach` · `GET /:name/log?lines=` · `POST /:name/log/clear` · `GET /api/servers/config` · `POST /api/servers/config` · `PUT|DELETE /api/servers/config/:name` (config + control require `services.manage`).
 
 ---
 

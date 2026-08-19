@@ -127,7 +127,7 @@ async function boot() {
     }
   } catch { /* keep legacy fixed ports */ }
   child = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: String(HTTP_PORT), HTTPS_PORT: String(HTTPS_PORT), SERVER_HOST: '127.0.0.1' },
+    env: { ...process.env, PORT: String(HTTP_PORT), HTTPS_PORT: String(HTTPS_PORT), SERVER_HOST: '127.0.0.1', SMOKE_TEST: '1' },
     stdio: 'ignore',
   });
 }

@@ -37,26 +37,37 @@ async function refresh() {
     const header =
       '<div class="servers-head"><span class="servers-label">Managed servers</span>' +
       '<a class="servers-link" href="pages/servers.html" target="_blank" rel="noopener">servers &#8250;</a></div>';
+    const fmtUptime = (sec) => {
+      if (!Number.isFinite(sec) || sec == null) return '';
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      return `${h ? h + 'h ' : ''}${m}m`;
+    };
     container.innerHTML =
       header +
       servers
       .map((s, i) => {
         const running = !!s.running;
-        const portHeld = !running && !!s.portActive; // external/detached instance on the port
-        const note = portHeld ? 'port in use (detached instance)' : '';
+        const attached = !!s.attached;
+        const portHeld = !running && !attached && !!s.portActive; // external/detached instance
+        const state = running ? 'running' : attached ? 'attached' : portHeld ? 'detached' : 'stopped';
+        const note = portHeld ? 'detached — Attach to control' : attached ? `attached pid ${s.attached}` : '';
+        const meta = [s.pid ? 'pid ' + s.pid : '', s.uptimeSec != null ? fmtUptime(s.uptimeSec) : '', s.healthy === true ? 'healthy' : ''].filter(Boolean).join(' · ');
         const cls = 'mcp-control' + (firstRender ? ' anim-enter' : '');
         const delay = firstRender ? ` style="animation-delay:${i * 0.06}s"` : '';
         return `
       <div class="${cls}" data-name="${esc(s.name)}"${delay}>
         <div class="mcp-title">${esc(s.label)}</div>
         <div class="mcp-status-line">
-          Status: <span class="server-status ${running ? 'running' : 'stopped'}">${running ? 'running' : 'stopped'}</span>
-          <span class="mcp-pid">${s.pid ? 'pid ' + s.pid : ''}</span>
+          Status: <span class="server-status ${state}">${state}</span>
+          <span class="mcp-pid">${meta}</span>
           ${note ? '<span class="server-note">' + note + '</span>' : ''}
         </div>
         <div class="mcp-actions">
           <button type="button" class="server-start" data-name="${esc(s.name)}" ${!canManage || running || portHeld ? 'disabled' : ''}>Start</button>
-          <button type="button" class="server-stop" data-name="${esc(s.name)}" ${!canManage || !running ? 'disabled' : ''}>Stop</button>
+          <button type="button" class="server-stop" data-name="${esc(s.name)}" ${!canManage || (!running && !attached) ? 'disabled' : ''}>Stop</button>
+          <button type="button" class="server-restart" data-name="${esc(s.name)}" ${!canManage || !running ? 'disabled' : ''}>Restart</button>
+          ${portHeld ? `<button type="button" class="server-attach" data-name="${esc(s.name)}" ${!canManage ? 'disabled' : ''}>Attach</button>` : ''}
         </div>
         <p class="mcp-error" data-error="${esc(s.name)}"></p>
       </div>`;
@@ -69,6 +80,12 @@ async function refresh() {
     );
     container.querySelectorAll('.server-stop').forEach((b) =>
       b.addEventListener('click', () => act(b.dataset.name, 'stop'))
+    );
+    container.querySelectorAll('.server-restart').forEach((b) =>
+      b.addEventListener('click', () => act(b.dataset.name, 'restart'))
+    );
+    container.querySelectorAll('.server-attach').forEach((b) =>
+      b.addEventListener('click', () => act(b.dataset.name, 'attach'))
     );
   } catch (err) {
     container.innerHTML =

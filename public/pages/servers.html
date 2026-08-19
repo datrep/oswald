@@ -1,49 +1,197 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Server configuration</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <title>Servers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/css/main.css" />
     <style>
-      body {
-        font-family: var(--font);
-        background: var(--bg);
-        color: var(--text);
+      .servers-header {
         display: flex;
         align-items: center;
-        justify-content: center;
-        min-height: 100vh;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
       }
-      .card {
+      .servers-header h2 { margin: 0; }
+      .servers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+      .server-card {
         background: var(--panel);
         border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 28px 34px;
-        max-width: 480px;
-        text-align: center;
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
-      .card h1 {
-        font-size: 1.2rem;
-        margin: 0 0 8px;
+      .server-card__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
       }
-      .muted {
-        color: var(--muted);
-        font-size: 0.85rem;
+      .server-card__name { margin: 0; font-size: 0.95rem; }
+      .server-card__name code { color: var(--faint); font-size: 0.72rem; margin-left: 6px; }
+      .server-card__desc { font-size: 0.78rem; color: var(--muted); margin: 0; }
+      .server-status-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
       }
-      a {
-        color: var(--accent);
+      .srv-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: none;
+      }
+      .srv-dot.on { background: var(--ok, #4cd1a8); box-shadow: 0 0 6px var(--ok, #4cd1a8); }
+      .srv-dot.attached { background: #fcd34d; box-shadow: 0 0 6px #fcd34d; }
+      .srv-dot.err { background: var(--danger, #f0757e); }
+      .srv-chip {
+        font-size: 0.68rem;
+        font-weight: 700;
+        border-radius: 999px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+      }
+      .srv-chip.running { background: rgba(52,211,153,0.14); color: #6ee7b7; }
+      .srv-chip.attached { background: rgba(252,211,77,0.14); color: #fcd34d; }
+      .srv-chip.stopped { background: var(--panel-3); color: var(--muted); }
+      .srv-chip.detached { background: rgba(240,117,126,0.14); color: #f0757e; }
+      .srv-meta { font-size: 0.74rem; color: var(--muted); }
+      .server-card__actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 2px;
+      }
+      .server-card__actions .spacer { flex: 1; }
+      .srv-log {
+        background: #0a0c11;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+        font-family: var(--mono, Consolas, monospace);
+        font-size: 11px;
+        max-height: 160px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        display: none;
+      }
+      .srv-log.open { display: block; }
+      .srv-log-err { color: var(--danger, #f0757e); }
+      #servers-status { font-size: 0.8rem; min-height: 1em; margin: 10px 0 0; }
+      .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.76rem; color: var(--muted); }
+      .form-grid input[type='text'],
+      .form-grid input[type='number'],
+      .form-grid textarea {
+        background: var(--bg-soft);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 7px 9px;
+        font-size: 0.82rem;
+      }
+      .form-grid textarea { resize: vertical; min-height: 60px; }
+      .form-check { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
+      @media (max-width: 720px) {
+        .servers-grid { grid-template-columns: 1fr; }
       }
     </style>
   </head>
   <body>
-    <div class="card">
-      <h1>Server configuration</h1>
-      <p class="muted">
-        Coming soon — central settings for the managed servers (MCP filesystem server, Oswald
-        fileserver, and future services) will live here.
-      </p>
-      <p><a href="/index.html">← Back to dashboard</a></p>
+    <header>
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="sidebar-block" id="nav-section">
+            <h3 class="sidebar-section">Navigation</h3>
+            <div class="sidebar-panel sidebar-links" id="admin-nav">
+              <a href="/index.html">Dashboard</a>
+              <a href="/pages/policy.html">Policy workspace</a>
+              <a href="https://localhost:8090" data-fileserver target="_blank" rel="noopener">Fileserver</a>
+            </div>
+          </section>
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Career</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/pages/jobs.html">Job Applications</a>
+              <a href="/pages/career-files.html">Career Files</a>
+              <a href="/pages/certs.html">Certificates</a>
+            </div>
+          </section>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div style="color: #7279db">Servers</div>
+            <div class="topbar-right"><div id="auth-control"></div></div>
+          </div>
+
+          <div class="content">
+            <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb"></nav>
+
+            <div id="servers-gate" class="hidden">
+              <h2>Sign in required</h2>
+              <p class="muted">Sign in to view the managed servers.</p>
+            </div>
+
+            <div id="servers-content" class="hidden">
+              <div class="servers-header">
+                <h2>Managed servers</h2>
+                <button type="button" class="btn btn--sm btn--primary" id="add-server" data-manage>+ New server</button>
+              </div>
+              <p class="muted" id="servers-status"></p>
+              <div class="servers-grid" id="servers-grid"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </header>
+
+    <!-- Add / edit server modal -->
+    <div class="modal-overlay" id="server-modal">
+      <div class="modal-card">
+        <div class="modal__head">
+          <h3 id="server-modal-title">New server</h3>
+          <button type="button" class="modal__close" id="server-modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="modal__body">
+          <div class="form-grid">
+            <label>Name <input type="text" id="sv-name" placeholder="e.g. listings (letters, numbers, _ -)" /></label>
+            <label>Label <input type="text" id="sv-label" placeholder="Display name" /></label>
+            <label>Description <input type="text" id="sv-desc" placeholder="Short description" /></label>
+            <label>Command <input type="text" id="sv-command" placeholder="node / path/to/exe" /></label>
+            <label class="field--full">Args (one per line) <textarea id="sv-args" placeholder="--port 4100&#10;server.js"></textarea></label>
+            <label>Working dir <input type="text" id="sv-cwd" placeholder="Defaults to project root" /></label>
+            <label>Port <input type="number" id="sv-port" placeholder="Optional — for attach/port checks" /></label>
+            <label>Log file <input type="text" id="sv-logfile" placeholder="e.g. listings/logs/server.log" /></label>
+            <label>Health URL <input type="text" id="sv-health" placeholder="http://127.0.0.1:PORT/healthz (optional)" /></label>
+            <label class="form-check field--full"><input type="checkbox" id="sv-autostart" /> Auto-start when the dashboard boots</label>
+          </div>
+        </div>
+        <div class="modal__actions">
+          <span class="muted" id="server-modal-status" style="flex:1;font-size:0.76rem"></span>
+          <button type="button" class="btn btn--sm" id="server-modal-cancel">Cancel</button>
+          <button type="button" class="btn btn--sm btn--primary" id="server-modal-save">Save</button>
+        </div>
+      </div>
     </div>
+
+    <script type="module" src="/js/pages/servers.js"></script>
   </body>
 </html>
