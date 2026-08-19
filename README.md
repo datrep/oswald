@@ -327,4 +327,5 @@ node scripts/smoke-test.js        # 96 regression checks
 ```
 Sign in at `https://172.22.160.3:8443` — Dashboard, Policy workspace, and the **Career** module pages (Job Applications / Career Files / Certificates) are in the sidebar; the fileserver runs at `:8090`.
 
+<img width="480" height="270" alt="giphy" src="https://github.com/user-attachments/assets/8f3f0f3e-d1e0-4b04-904d-1f6c5099d38a" />
 
