@@ -13,8 +13,9 @@ async function nextOrder(edictId) {
 
 async function createResource(edictId, description, filePath) {
   const sortOrder = await nextOrder(edictId);
-  await repo.query(
+  const rows = await repo.query(
     `INSERT INTO EdictResources (edictId, resourcePath, description, sortOrder)
+     OUTPUT INSERTED.id AS id
      VALUES (@edictId, @resourcePath, @description, @sortOrder)`,
     (req) => req
       .input('edictId', sql.Int, edictId)
@@ -22,6 +23,7 @@ async function createResource(edictId, description, filePath) {
       .input('description', sql.NVarChar, description)
       .input('sortOrder', sql.Int, sortOrder)
   );
+  return rows[0]?.id ?? null;
 }
 
 async function getResourcesByEdict(edictId) {

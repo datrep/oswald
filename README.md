@@ -125,6 +125,16 @@ The dashboard has a users & roles admin page at `pages/users.html` — linked fr
 ### UAC-5: live presence (heartbeat)
 While signed in, every dashboard page heartbeats its session row every ~60s (`POST /api/users/heartbeat` with the `sessionId` handed back at login; also fires on tab-visible). A session seen within the last 3 minutes counts as **online**: the top-right user pop shows a green "you are online" dot, and the users page shows an **online** stat + a green dot per row, refreshed every 30s (`GET /api/users/online?minutes=3`, `users.manage`). Schema: `UserSessions.lastSeenAt` (migration 016).
 
+## Dashboard media panel (image / GIF / video)
+
+The completion-trends section on the index page is split in two: the charts on the left and a **media panel** on the right that shows a single image, GIF, or video (muted — "no audio"). It scales proportionally with the dashboard.
+
+- **Set media** two ways: **drag-drop** a file onto the panel (it highlights during drag and lists what's supported — image/GIF/video, no audio) or the **▾ arrow** (top-right of the panel) opens the **Attach existing resource** picker (media-only).
+- Media is **saved as a resource** under the **"Dashboard Media" policy** (`POST /api/resources/media` — image/GIF/video, up to 200 MB; audio rejected) so it shows up in every attach-existing picker.
+- The current selection is persisted **server-wide** in `settings.json` → `dashboardMedia` (`PUT /api/settings`, admin-only): title, description, `resourcePath`, and video tweaks (`loop`, `controls`).
+- **Settings modal → Dashboard → Dashboard Media**: admin editor with title/description, dropzone + attach + preview, Remove, and the video toggles (loop / controls).
+- Changing media requires `resources.manage` (admin); everyone sees the same server-wide media.
+
 ## Task & resource ordering
 
 Tasks and resources on the policy workspace (`pages/policy.html?id=…`) can be **drag-reordered** — grab any card (requires `tasks.manage` / `resources.manage`) and drop it where you want it. The order persists via `Tasks.sortOrder` / `EdictResources.sortOrder` (`PUT /api/tasks/reorder`, `PUT /api/resources/reorder` — both transactional and scoped to the policy). New items append to the end.

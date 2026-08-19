@@ -8,6 +8,7 @@ import { getSetting, setSetting, loadSettings } from '../utils/settingsStore.js'
 // components
 //import "../components/policyRow.js"; // not currently used, but may be useful for future refactor to make code more modular
 import '../components/servicesTray.js'; // the services tray in the top right corner
+import { initDashboardMedia } from '../components/dashboardMedia.js'; // dashboard media panel (image/GIF/video)
 
 const policyCountEl = document.getElementById('policy-count');
 const policyListEl = document.getElementById('policy-list');
@@ -988,6 +989,8 @@ initPolicies();
 loadTrends();
 
 initTrendsCollapse();
+
+initDashboardMedia();
 
 // Topbar/bottombar quotes — editable in Settings (General > Quotes).
 async function initQuotes() {

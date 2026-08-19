@@ -31,6 +31,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'quotes', title: 'Quotes', category: 'general' },
   { id: 'panels', title: 'Sidebar Panels', category: 'dashboard' },
   { id: 'trends', title: 'Trends', category: 'dashboard' },
+  { id: 'dashboardmedia', title: 'Dashboard Media', category: 'dashboard' },
   { id: 'statusstrip', title: 'Status Strip', category: 'dashboard' },
   { id: 'rails', title: 'Side Rails', category: 'workspace' },
   { id: 'forms', title: 'Form Defaults', category: 'workspace' },

@@ -257,18 +257,36 @@
                 <span class="trends-chevron" id="trends-chevron">▾</span>
               </div>
               <div class="trends-body" id="trends-body">
-              <div class="trends-grid">
-                <div class="trend-card">
-                  <h3>Policies Completed</h3>
-                  <div class="chart-wrap"><canvas id="policy-trend-chart"></canvas></div>
-                  <p class="trend-summary" id="policy-trend-summary"></p>
+                <div class="trends-split">
+                  <div class="trends-grid">
+                    <div class="trend-card">
+                      <h3>Policies Completed</h3>
+                      <div class="chart-wrap"><canvas id="policy-trend-chart"></canvas></div>
+                      <p class="trend-summary" id="policy-trend-summary"></p>
+                    </div>
+                    <div class="trend-card">
+                      <h3>Tasks Completed</h3>
+                      <div class="chart-wrap"><canvas id="task-trend-chart"></canvas></div>
+                      <p class="trend-summary" id="task-trend-summary"></p>
+                    </div>
+                  </div>
+                  <div class="media-panel" id="media-panel">
+                    <div class="media-head">
+                      <div class="media-titles">
+                        <h3 class="media-title" id="media-title">Dashboard Media</h3>
+                        <p class="media-desc muted" id="media-desc"></p>
+                      </div>
+                      <button type="button" class="media-attach hidden" id="media-attach" title="Attach media from resources" aria-label="Attach media from resources">▾</button>
+                    </div>
+                    <div class="media-stage" id="media-stage" title="Drag an image, GIF, or video here">
+                      <div class="media-empty" id="media-empty">Drag an image, GIF, or video here<br /><span class="muted">or use the ▾ button to attach from resources</span></div>
+                      <div class="media-drophint" id="media-drophint">Drop image / GIF / video (mp4 · webm)</div>
+                      <img id="media-img" class="media-el hidden" alt="" />
+                      <video id="media-video" class="media-el hidden" muted playsinline></video>
+                    </div>
+                    <p class="media-msg muted" id="media-msg"></p>
+                  </div>
                 </div>
-                <div class="trend-card">
-                  <h3>Tasks Completed</h3>
-                  <div class="chart-wrap"><canvas id="task-trend-chart"></canvas></div>
-                  <p class="trend-summary" id="task-trend-summary"></p>
-                </div>
-              </div>
               </div>
             </div>
 

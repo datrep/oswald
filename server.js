@@ -90,12 +90,21 @@ app.get('/api/settings', (req, res) => {
   res.json(readDashboardSettings());
 });
 
-// Admin-only: persist server settings (e.g. the resources storage directory).
+// Admin-only: persist server settings (e.g. the resources storage directory and
+// the dashboard media panel config).
 app.put('/api/settings', authenticateToken, requirePermission('users.manage'), (req, res) => {
   const body = req.body || {};
   const settings = readDashboardSettings();
   if (typeof body.resourcesDir === 'string' && body.resourcesDir.trim()) {
     settings.resourcesDir = body.resourcesDir.trim();
+  }
+  if (body.dashboardMedia && typeof body.dashboardMedia === 'object') {
+    const dm = settings.dashboardMedia && typeof settings.dashboardMedia === 'object' ? settings.dashboardMedia : {};
+    if (typeof body.dashboardMedia.title === 'string') dm.title = body.dashboardMedia.title;
+    if (typeof body.dashboardMedia.description === 'string') dm.description = body.dashboardMedia.description;
+    if (typeof body.dashboardMedia.resourcePath === 'string') dm.resourcePath = body.dashboardMedia.resourcePath;
+    dm.video = { ...(dm.video || {}), ...(body.dashboardMedia.video || {}) };
+    settings.dashboardMedia = dm;
   }
   writeDashboardSettings(settings);
   res.json(readDashboardSettings());

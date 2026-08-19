@@ -38,8 +38,8 @@ const createResource = asyncHandler(async (req, res) => {
   }
   storedPath = storedPath.replace(/\\/g, '/');
 
-  await modelCreateResource(edictId, description, storedPath);
-  res.json({ success: true, message: 'Resource created' });
+  const id = await modelCreateResource(edictId, description, storedPath);
+  res.json({ success: true, message: 'Resource created', resourcePath: storedPath, id });
 });
 
 // GET /api/resources/:edictId

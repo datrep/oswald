@@ -7,6 +7,9 @@ const path = require('path');
 // Allowed document/image types (no HTML/SVG/JS -> stored XSS).
 const ALLOWED_EXT = /\.(png|jpe?g|gif|webp|pdf|txt|md|json|docx?|xlsx?|zip)$/i;
 
+// Media types for the dashboard media panel: images/GIFs + video, NO audio.
+const ALLOWED_MEDIA_EXT = /\.(png|jpe?g|gif|webp|bmp|avif|mp4|webm|ogv|mov|m4v)$/i;
+
 const DOCUMENT_MIME = new Set([
   'application/pdf',
   'text/plain',
@@ -29,10 +32,19 @@ function isAllowedMime(mimetype) {
   );
 }
 
+function isAllowedMediaExtension(originalname) {
+  return ALLOWED_MEDIA_EXT.test(path.extname(originalname || ''));
+}
+
+// image/* + video/* only — audio-only files (mp3/wav/etc.) are rejected.
+function isAllowedMediaMime(mimetype) {
+  return !!mimetype && /^(image\/|video\/)/.test(mimetype);
+}
+
 // Unique on-disk filename: timestamp-random-original, with path separators
 // neutralized so a crafted name can't escape the destination directory.
 function uniqueFilename(file) {
   return `${Date.now()}-${Math.round(Math.random() * 1e9)}-${(file.originalname || 'file').replace(/[\\/]/g, '_')}`;
 }
 
-module.exports = { ALLOWED_EXT, isAllowedExtension, isAllowedMime, uniqueFilename };
+module.exports = { ALLOWED_EXT, ALLOWED_MEDIA_EXT, isAllowedExtension, isAllowedMime, isAllowedMediaExtension, isAllowedMediaMime, uniqueFilename };

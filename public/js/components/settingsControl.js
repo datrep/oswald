@@ -6,6 +6,7 @@
 // changes to the page (dashboard panels + global theme/accent + session).
 
 import { clearToken } from '../api/api.js';
+import { renderMediaEditor, canEditMedia } from './dashboardMedia.js';
 import {
   loadSettings,
   getSetting,
@@ -140,6 +141,15 @@ function actionHtml(sectionId) {
 }
 
 function renderSection(section) {
+  // Dashboard Media is a custom editor (not a flat schema control) — admin only.
+  if (section.id === 'dashboardmedia') {
+    if (!canEditMedia()) return '';
+    return `
+      <div class="settings-section">
+        <h4 class="settings-section-title">${section.title}</h4>
+        <div class="settings-section-body"><div data-dashboard-media-editor></div></div>
+      </div>`;
+  }
   const defs = SETTINGS_SCHEMA.filter((s) => s.section === section.id);
   const rows = defs.map((s) => controlHtml(s, getSetting(s.key))).join('');
   const actions = actionHtml(section.id);
@@ -215,6 +225,10 @@ function renderForm() {
   });
 
   wireActions();
+
+  // Dashboard Media custom editor (built once per modal session).
+  const mediaSlot = formEl.querySelector('[data-dashboard-media-editor]');
+  if (mediaSlot) renderMediaEditor(mediaSlot);
 }
 
 function wireActions() {

@@ -5,6 +5,15 @@
   "enableStatusStrip": true,
   "removeCSS": false,
   "resourcesDir": "public/resources",
+  "dashboardMedia": {
+    "resourcePath": "",
+    "title": "Dashboard Media",
+    "description": "",
+    "video": {
+      "loop": true,
+      "controls": false
+    }
+  },
   "pricing": {
     "model": "deepseek-v4-pro",
     "effectiveFrom": "2026-08-16T16:00:00Z",
