@@ -122,7 +122,16 @@ const POLICY_FREEZE = {
   // `desk-singleton-guard` (boot refuses when another desk already serves /healthz; named bind failures) and
   // `capture-rotation-backoff` (a closed venue stops costing 40 s of tab time per wake). No decision input,
   // no settings write; the desk restart below loads both.
-  at: '2026-10-17T20:50:00Z',
+  // RE-DECLARED A SEVENTEENTH TIME 2026-10-18T08:15:00Z - CRYPTO 24/7 SESSIONS (owner: "dont gate. any 24/7
+  // stocks are available to be used"): a 24/7 instrument is no longer closed by the stock-CFD weekend
+  // calendar while the venue feed is silent (an explicit venue close still wins; the class is curated in
+  // trading/lib/instrumentClass.js). Registered as `crypto-24-7-sessions`. No threshold, strategy or
+  // instrument-set change; weekend DATA is excluded from modification analyses per the same instruction.
+  // BOUNDARY MOVED 2026-10-18T11:42:00Z - the crypto-24-7-sessions edits landed AFTER the 08:15Z instant
+  // that had been declared for them (the deploy and its live proof came later), so the guard correctly saw
+  // three unaccounted files. Same registered feature, boundary moved past the edits; no policy key, no
+  // threshold, no instrument-set change.
+  at: '2026-10-18T11:42:00Z',
   note: 'The owner froze the policy set so a forward sample can accumulate under ONE rule set. Any change after '
       + 'this instant invalidates the window that follows it — including changes that look like improvements, '
       + 'which is the whole difficulty: every one of the seven boundaries above looked like an improvement. '
@@ -584,6 +593,13 @@ const FEATURES = [
     row: 1506,
     title: 'CHART ROTATION BACKOFF for a closed venue (night shift, 2026-10-18): after 2 consecutive rotations that complete but bank ZERO bars, the next 2 wakes skip the rotation and the 3rd tries again — so a weekend venue stops costing up to 40 s of shared-tab budget per wake (measured weekend capture 61.3 s vs ~15-20 s without rotation) and a venue REOPEN is still picked up within ~20 min (quant BAR_FRESH_MS = 4 h). Telemetry stays signal-only: the zero-bank event now carries zeroStreak + skipNextWakes, and a rotation that banks bars after a streak logs `chart_rotation resumed` once, so the weekend-to-Monday transition is visible instead of inferred. Backoff state is module memory (resets on restart — a restart simply tries once).',
     invalidates: '⚠ OPERATOR-SCOPE with a BEHAVIOUR NOTE: chart-bar coverage is unchanged while the venue serves bars (rotation runs exactly as before and clears the streak on the first banking run); ONLY a venue that banks nothing is backed off, and bars are supplementary (structure venue, 4 h SLA) — no quote ever depends on a chart visit. No settings write, no scope change, era clock untouched.',
+  },
+  {
+    id: 'crypto-24-7-sessions',
+    landedAt: '2026-10-18',
+    row: 1506,
+    title: 'CRYPTO 24/7 SESSIONS (owner: "dont gate. any 24/7 stocks are available to be used"): sessionState no longer closes a 24/7 instrument with the STOCK-CFD weekend calendar. Measured failure: the venue feed was SILENT (sessionFeed.get() null for every symbol while the shared tab sat on the watchlist page), so the calendar decided, and every weekend wake skipped as market_closed while the venue traded crypto - trade #1319 Ethereum was closed by the VENUE take-profit for +S$22.98 during one of those skipped wakes. The bypass is scoped: it applies ONLY to the calendar step, only while the venue is silent, and ONLY to the curated class in trading/lib/instrumentClass.js (Bitcoin, Ethereum). The venue still outranks the class (explicit isTraded=false closes); halts still close on non-weekend days; the stock observation lock is untouched for stocks. Wake aggregation therefore reads open when crypto is open, so entries are possible for in-scope crypto (Ethereum) while Bitcoin remains scope-pruned.',
+    invalidates: 'SCOPE NOTE: this changes WHEN the desk may act (weekend crypto management is now possible) without changing the instrument set, any strategy, or any threshold. Per owner instruction (2026-10-18) weekend-generated DATA must be excluded from any MODIFICATION analysis (studies, pre-reg decisions, retunes) - trading decisions on live weekend quotes are allowed; weekend data used to justify a rule change is not. Era clock: boundary recorded; owner to confirm whether the era re-anchors (weekend trades form a new class of sample).',
   },
 ];
 
