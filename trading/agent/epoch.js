@@ -136,7 +136,10 @@ const POLICY_FREEZE = {
   // Registered as `weekend-session-class`. Provenance only; no decision input changes.
   // RE-DECLARED 2026-10-18T15:45:00Z - TRD-TRL-12b, the engage verification anchored to the trade entry.
   // Registered as `trail-engage-entry-anchored-verify`; the engage flag stays FALSE (inert at deploy).
-  at: '2026-10-18T15:45:00Z',
+  // RE-DECLARED 2026-10-18T16:30:00Z - SOYBEANS ENTRY PAUSE (owner: pause entries for now). A scope write
+  // (symbolScope.Soybeans = []), journal #269255; registered as `pru-soybeans-pause`. Reversible; re-entry
+  // needs its own registered change after the external review.
+  at: '2026-10-18T16:30:00Z',
   note: 'The owner froze the policy set so a forward sample can accumulate under ONE rule set. Any change after '
       + 'this instant invalidates the window that follows it — including changes that look like improvements, '
       + 'which is the whole difficulty: every one of the seven boundaries above looked like an improvement. '
@@ -619,6 +622,13 @@ const FEATURES = [
     row: 1506,
     title: 'TRD-TRL-12b - THE ENGAGE VERIFICATION NOW ANCHORS TO THE TRADE ENTRY (owner: "promote the trail"): the Edit card percent is anchored to the ENTRY price, measured live in five readings on 2026-10-08 - its readDistance = |entry - (price + D_venue)|, i.e. |D - excursion| when favourable and D + excursion when adverse, never plain D. setPositionTrail passed the CURRENT price as `entry`, so the pre-commit check compared the wrong quantity against D and would have refused every engage more than a rounding band from break-even (`trail_not_verified_before_commit`) - the exact reason promotion was held on 10-08. The function now takes the entry rate from the TRADE ROW, REFUSES with `entry_rate_unknown` when it has none, computes the distance with it, and records `entryUsed` in the reading. Pins: test/trail-engage-verify.test.js (5) - including an arithmetic pin that reproduces the old defect (a favourable sell reads |entry - level| = 8 where D = 2).',
     invalidates: 'INERT AT DEPLOY: `risk.trailingStop.engageOnTouch.enabled` stays FALSE and `trailingStop.enabled` stays false - the fixed verification is reachable only in commit:false mode (the read-only probe route) until the watched engage. No decision input, no threshold, no scope change. This is the gate the trail promotion was waiting on, not the promotion itself.',
+  },
+  {
+    id: 'pru-soybeans-pause',
+    landedAt: '2026-10-18',
+    row: 1506,
+    title: 'SOYBEANS ENTRY PAUSE (owner: "pause entries, for now"): strategies.symbolScope.Soybeans = [] - PRU-1 shape, a scope write and nothing else. Evidence: 1 win in 9 closed trades, mean R -0.597, PF 0.15, net -23.99 SGD; both replicas lose (variant -11.28, control -9.36) so this is the shared signal, not a variant bug; round-trip cost 0.20-0.31R against stops of 0.29-0.47 pct of price; 5 of 9 never reached +0.3R and 2 reached ~1R then lost; fills 13-28 s with one -0.466 pct slippage. Journal #269255 records before ["survasoybeans","survcsoybeans"] -> after []. A detailed investigation brief for an external reviewer lives at trading/docs/soybeans-review-brief-2026-10-18.md; the pause is reversible and re-entry needs its own registered change.',
+    invalidates: 'SCOPE CHANGE, DECLARED: one symbol removed from the tradable set. No strategy, threshold, sizing or exit changed; the OPEN Soybeans position (if any) is untouched - the review loop still manages positions, this gates NEW ENTRIES only. Instrument set changed, so trades opened after this boundary are not poolable with the same set as before it for per-symbol questions - noted for the era tracker as a MAJOR boundary.',
   },
 ];
 
