@@ -116,6 +116,7 @@ function calendarState(now, calendar = DEFAULT_CALENDAR) {
 // second clock to be wrong about, and twelve small reads every ten minutes is not a load worth that.
 async function sessionState(userId, symbol, venue = 'plus500', now = new Date()) {
   const feed = require('../plus500/sessionFeed');
+  const { isTwentyFourSeven } = require('../lib/instrumentClass');
   const v = feed.get(symbol);
   const ev = await eventsForToday(userId, symbol, venue, now).catch(() => null);
 
@@ -141,6 +142,20 @@ async function sessionState(userId, symbol, venue = 'plus500', now = new Date())
   }
   // 2. The weekend.
   const cal = calendarState(now);
+  // 2026-10-18 (owner: "dont gate. any 24/7 stocks are available to be used"): a 24/7 instrument is NOT
+  // closed by the STOCK-CFD weekend calendar. Both of that calendar's answers exist to protect stock
+  // positions — the close and its observation window — and neither applies to an instrument the venue
+  // trades around the clock. The venue stays the authority above: an explicit `isTraded === false` still
+  // closes it (rule 1), and the class is only consulted while the feed is SILENT (measured: feed.get()
+  // returned null for every symbol on 2026-10-18 while the tab sat away from the trading-hours view).
+  if ((cal === 'closed' || cal === 'observation') && isTwentyFourSeven(symbol)) {
+    return done({
+      state: 'open',
+      detail: '24/7 instrument — the plus500 weekend calendar does not close it (venue feed silent)',
+      source: 'always_open_class',
+      now: now.toISOString(),
+    });
+  }
   if (cal === 'closed' || cal === 'observation') {
     return done({ state: cal, detail: 'plus500 calendar (Fri 21:00-Sun 21:00 UTC)', source: 'calendar', now: now.toISOString() });
   }
