@@ -1,0 +1,179 @@
+{
+  "description": "Vendor tool hooks (manifest-driven - add a vendor by editing JSON, no code change). 'match' = case-insensitive substrings matched against hardware names; FIRST entry wins. 'displayName' = keyword matched against installed-program names (registry) to locate the real exe when the default path drifts. 'installPaths' = fast exact hints (${env:...} expanded). 'infoUrl' opens in the browser (patch mode) when the tool is missing. 'note' is shown to the user.",
+  "ssd": [
+    {
+      "vendor": "Kingston",
+      "match": ["kingston"],
+      "displayName": "Kingston SSD Manager",
+      "tool": "Kingston SSD Manager",
+      "installPaths": ["${env:ProgramFiles(x86)}\\Kingston\\KSM\\KSM.exe"],
+      "infoUrl": "https://www.kingston.com/en/support/technical/ksm",
+      "note": "Firmware update is in the app's Firmware Update tab."
+    },
+    {
+      "vendor": "Samsung",
+      "match": ["samsung"],
+      "displayName": "Samsung Magician",
+      "tool": "Samsung Magician",
+      "installPaths": ["${env:ProgramFiles(x86)}\\Samsung\\Samsung Magician\\SamsungMagician.exe"],
+      "infoUrl": "https://semiconductor.samsung.com/consumer-storage/magician/",
+      "note": "Update firmware via Samsung Magician."
+    },
+    {
+      "vendor": "Crucial",
+      "match": ["crucial", "ct"],
+      "displayName": "Crucial Storage Executive",
+      "tool": "Crucial Storage Executive",
+      "installPaths": ["${env:ProgramFiles}\\Crucial\\Crucial Storage Executive\\CrucialStorageExecutive.exe"],
+      "infoUrl": "https://www.crucial.com/support/storage-executive",
+      "note": "Drive Details -> Firmware Update."
+    },
+    {
+      "vendor": "Western Digital",
+      "match": ["western digital", "wdc", "wd "],
+      "displayName": "WD Dashboard",
+      "tool": "WD Dashboard",
+      "installPaths": ["${env:ProgramFiles(x86)}\\Western Digital\\WD Dashboard\\WD Dashboard.exe"],
+      "infoUrl": "https://support-en.wd.com/",
+      "note": "Firmware updates via WD Dashboard."
+    },
+    {
+      "vendor": "Seagate",
+      "match": ["seagate", "st"],
+      "displayName": "SeaTools",
+      "tool": "SeaTools",
+      "installPaths": ["${env:ProgramFiles(x86)}\\Seagate\\SeaTools for Windows\\SeaToolsforWindows.exe"],
+      "infoUrl": "https://www.seagate.com/support/downloads/seatools/",
+      "note": "Firmware updates via SeaTools (very old drives may need SeaTools Bootable)."
+    },
+    {
+      "vendor": "Intel",
+      "match": ["intel"],
+      "displayName": "Memory and Storage Tool",
+      "tool": "Intel Memory and Storage Tool",
+      "installPaths": ["${env:ProgramFiles}\\Intel\\Intel(R) Memory and Storage Tool\\intelmas.exe"],
+      "infoUrl": "https://www.intel.com/content/www/us/en/support/detect.html",
+      "note": "Intel MAS updates Intel SSD firmware."
+    }
+  ],
+  "gpu": [
+    {
+      "vendor": "NVIDIA",
+      "match": ["nvidia"],
+      "displayName": "NVIDIA App",
+      "tool": "NVIDIA App / GeForce Experience",
+      "installPaths": [
+        "${env:ProgramFiles}\\NVIDIA Corporation\\NVIDIA App\\CEF\\NVIDIA App.exe",
+        "${env:ProgramFiles(x86)}\\NVIDIA Corporation\\NVIDIA GeForce Experience\\NVIDIA GeForce Experience.exe"
+      ],
+      "infoUrl": "https://www.nvidia.com/en-us/geforce/geforce-experience/",
+      "note": "Driver + VBIOS updates come through NVIDIA App."
+    },
+    {
+      "vendor": "AMD",
+      "match": ["amd", "radeon"],
+      "displayName": "AMD Software",
+      "tool": "AMD Software: Adrenalin Edition",
+      "installPaths": ["${env:ProgramFiles}\\AMD\\CNext\\CNext\\AMDSoftware.exe"],
+      "infoUrl": "https://www.amd.com/en/support",
+      "note": "Adrenalin handles driver + VBIOS updates."
+    },
+    {
+      "vendor": "Intel",
+      "match": ["intel"],
+      "displayName": "Driver and Support Assistant",
+      "tool": "Intel Driver & Support Assistant",
+      "installPaths": ["${env:ProgramFiles(x86)}\\Intel\\Driver and Support Assistant\\DSATray.exe"],
+      "infoUrl": "https://www.intel.com/content/www/us/en/support/detect.html",
+      "note": "DSA updates Intel graphics drivers."
+    }
+  ],
+  "board": [
+    {
+      "vendor": "ASUS",
+      "match": ["asus", "asustek"],
+      "displayName": "Armoury Crate",
+      "tool": "Armoury Crate / AI Suite 3",
+      "installPaths": ["${env:ProgramFiles}\\ASUS\\Armoury Crate Service\\ArmouryCrate.UserSessionHelper.exe"],
+      "infoUrl": "https://www.asus.com/support/download-center/",
+      "note": "BIOS via EZ Flash (USB) or the ASUS in-Windows tool."
+    },
+    {
+      "vendor": "Gigabyte",
+      "match": ["gigabyte"],
+      "displayName": "APP Center",
+      "tool": "@BIOS / APP Center",
+      "installPaths": [],
+      "infoUrl": "https://www.gigabyte.com/Support/Utility",
+      "note": "BIOS via @BIOS or Q-Flash (USB)."
+    },
+    {
+      "vendor": "MSI",
+      "match": ["msi", "micro-star"],
+      "displayName": "MSI Center",
+      "tool": "MSI Center",
+      "installPaths": ["${env:ProgramFiles(x86)}\\MSI\\MSI Center\\MSI.CentralServer.exe"],
+      "infoUrl": "https://www.msi.com/support",
+      "note": "BIOS via M-Flash (USB) or MSI Center."
+    },
+    {
+      "vendor": "ASRock",
+      "match": ["asrock"],
+      "displayName": "ASRock",
+      "tool": "APP Shop / Instant Flash",
+      "installPaths": [],
+      "infoUrl": "https://www.asrock.com/support/",
+      "note": "BIOS via Instant Flash (USB)."
+    },
+    {
+      "vendor": "Dell",
+      "match": ["dell"],
+      "displayName": "Dell Command",
+      "tool": "Dell Command Update",
+      "installPaths": [
+        "${env:ProgramFiles}\\Dell\\CommandUpdate\\dcu-cli.exe",
+        "${env:ProgramFiles(x86)}\\Dell\\CommandUpdate\\dcu-cli.exe"
+      ],
+      "infoUrl": "https://www.dell.com/support/kbdoc/000177325",
+      "note": "Handled by this script's Dell path."
+    },
+    {
+      "vendor": "HP",
+      "match": ["hewlett", "hp "],
+      "displayName": "HP Support",
+      "tool": "HP Support Assistant",
+      "installPaths": [],
+      "infoUrl": "https://support.hp.com/us-en/drivers",
+      "note": "Use HP Support Assistant or the driver page."
+    },
+    {
+      "vendor": "Lenovo",
+      "match": ["lenovo"],
+      "displayName": "Lenovo",
+      "tool": "Lenovo System Update / Vantage",
+      "installPaths": [],
+      "infoUrl": "https://support.lenovo.com/",
+      "note": "Use Lenovo System Update (commercial) or Vantage."
+    }
+  ],
+  "nic": [
+    {
+      "vendor": "Intel",
+      "match": ["intel"],
+      "displayName": "Driver and Support Assistant",
+      "tool": "Intel Driver & Support Assistant",
+      "installPaths": ["${env:ProgramFiles(x86)}\\Intel\\Driver and Support Assistant\\DSATray.exe"],
+      "infoUrl": "https://www.intel.com/content/www/us/en/support/detect.html",
+      "note": "DSA updates Intel NIC/Wi-Fi drivers and firmware."
+    },
+    {
+      "vendor": "Realtek",
+      "match": ["realtek"],
+      "displayName": "Realtek",
+      "tool": "Realtek driver (no standalone firmware updater)",
+      "installPaths": [],
+      "infoUrl": "https://www.realtek.com/en/downloads",
+      "note": "Realtek NIC firmware ships via Windows Update / board vendor."
+    }
+  ]
+}

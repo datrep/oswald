@@ -1,0 +1,16 @@
+{
+  "name": "oswald-expenses",
+  "version": "0.1.0",
+  "private": true,
+  "description": "General Expense Sheet: personal expenses across computer / investing / school / other (separate service, same repo).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1"
+  }
+}

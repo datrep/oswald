@@ -1,0 +1,182 @@
+Archive + cleanup report 08/16/2026 01:10:54
+  archived: diag-sql.ps1
+  archived: repair-sql.ps1
+  archived: reinstall-sql.ps1
+  archived: install-mssqlserver-2022.ps1
+  archived: install-mssqlserver.ps1
+  archived: install-sql-default.ps1
+  archived: install-sql-default2.ps1
+  archived: install-sql-express.ps1
+  archived: install-sql2022.ps1
+  archived: experiment-protocol.ps1
+  archived: test-localdb-tcp.ps1
+  archived: test-sql-restart.ps1
+  archived: sql-decisive-test.ps1
+  archived: sqlexpress-start-diag.ps1
+  archived: etw-registry-capture.ps1
+  archived: etw-sqlservr-capture.ps1
+  archived: etw-sqlservr-capture2.ps1
+  archived: fix-port-conflict.ps1
+  archived: manual-sql-repair.ps1
+  archived: sql-repair-2022.ps1
+  archived: download-fullres-images.js
+  archived: download-har-images.js
+  archived: extract-har-images.js
+  temp removed: acl-recheck.ps1
+  temp removed: acl-recheck.txt
+  temp removed: binhash-check.ps1
+  temp removed: binhash-check.txt
+  temp removed: check-codes.ps1
+  temp removed: check-tables.ps1
+  temp removed: check-tables.txt
+  temp removed: check2022.ps1
+  temp removed: check2022.txt
+  temp removed: clean-master.sql
+  temp removed: cv-check.ps1
+  temp removed: cv-check.txt
+  temp removed: dec_err.txt
+  temp removed: dec_out.txt
+  temp removed: dll-check.ps1
+  temp removed: dll-check.txt
+  temp removed: dump-mssqlserver.ps1
+  temp removed: dump-sqlevents.ps1
+  temp removed: env-render.ps1
+  temp removed: env-render.txt
+  temp removed: etw-registry.log
+  temp removed: etw-sqlservr.log
+  temp removed: etw-sqlservr2.log
+  temp removed: ev-after-fix.ps1
+  temp removed: ev-after-fix.txt
+  temp removed: events-1247.ps1
+  temp removed: events-1247.txt
+  temp removed: events-1905.ps1
+  temp removed: events-1905.txt
+  temp removed: fileserver-check.ps1
+  temp removed: fileserver-check.txt
+  temp removed: filetrace-trace.csv
+  temp removed: filetrace.etl
+  temp removed: final-status.ps1
+  temp removed: final-status.txt
+  temp removed: find-sqlpid.ps1
+  temp removed: find-sqlpid.txt
+  temp removed: fix-port-conflict.log
+  temp removed: fix-sqlexpress-cv.log
+  temp removed: fix-sqlexpress-netlib.log
+  temp removed: fsrv_err.txt
+  temp removed: fsrv_out.txt
+  temp removed: instnames-check.ps1
+  temp removed: instnames-check.txt
+  temp removed: localdb-bootstrap.ps1
+  temp removed: localdb-bootstrap.txt
+  temp removed: localdb-tcp-test.log
+  temp removed: manual-sql-repair.log
+  temp removed: msnode-check.ps1
+  temp removed: msnode-check.txt
+  temp removed: mssqlserver-events.txt
+  temp removed: mssqlserver-netlib.ps1
+  temp removed: mssqlserver-netlib.txt
+  temp removed: params-check.ps1
+  temp removed: params-check.txt
+  temp removed: parsecheck.ps1
+  temp removed: parsecheck10.ps1
+  temp removed: parsecheck10.txt
+  temp removed: parsecheck11.ps1
+  temp removed: parsecheck11.txt
+  temp removed: parsecheck12.ps1
+  temp removed: parsecheck12.txt
+  temp removed: parsecheck13.ps1
+  temp removed: parsecheck13.txt
+  temp removed: parsecheck14.ps1
+  temp removed: parsecheck14.txt
+  temp removed: parsecheck2.ps1
+  temp removed: parsecheck2.txt
+  temp removed: parsecheck3.ps1
+  temp removed: parsecheck3.txt
+  temp removed: parsecheck4.ps1
+  temp removed: parsecheck4.txt
+  temp removed: parsecheck5.ps1
+  temp removed: parsecheck5.txt
+  temp removed: parsecheck6.ps1
+  temp removed: parsecheck6.txt
+  temp removed: parsecheck7.ps1
+  temp removed: parsecheck7.txt
+  temp removed: parsecheck8.ps1
+  temp removed: parsecheck8.txt
+  temp removed: parsecheck9.ps1
+  temp removed: parsecheck9.txt
+  temp removed: popup-events.ps1
+  temp removed: popup-events.txt
+  temp removed: post-test.ps1
+  temp removed: post-test.txt
+  temp removed: pre-reboot-check.ps1
+  temp removed: pre-reboot-check.txt
+  temp removed: Procmon.exe
+  temp removed: proto-exp.log
+  temp removed: recheck.ps1
+  temp removed: recheck.txt
+  temp removed: reg-acl.ps1
+  temp removed: reg-acl.txt
+  temp removed: regdiff.ps1
+  temp removed: regdiff.txt
+  temp removed: regtrace-trace.csv
+  temp removed: regtrace.etl
+  temp removed: repair-hang-diag.ps1
+  temp removed: repair-hang-diag.txt
+  temp removed: restart-oswald.ps1
+  temp removed: restart-oswald.txt
+  temp removed: server-check.ps1
+  temp removed: server-check.txt
+  temp removed: setup-sqlexpress-db.log
+  temp removed: setup-state.ps1
+  temp removed: setup-state.txt
+  temp removed: sql-decisive.log
+  temp removed: sql-default.log
+  temp removed: sql-default2.log
+  temp removed: sql-diag.log
+  temp removed: sql-install.log
+  temp removed: sql-mssqlserver-2022.log
+  temp removed: sql-mssqlserver.log
+  temp removed: sql-reinstall.log
+  temp removed: sql-repair-2022.log
+  temp removed: sql-repair.log
+  temp removed: sql-starttest.log
+  temp removed: sql2022.log
+  temp removed: sqlcmd-bootstrap.ps1
+  temp removed: sqlcmd-bootstrap.txt
+  temp removed: sqlevents.txt
+  temp removed: sqlexpress-diag.ps1
+  temp removed: sqlexpress-diag.txt
+  temp removed: sqlexpress-start-diag.log
+  temp removed: sqlex_diag_err.txt
+  temp removed: sqlex_diag_out.txt
+  temp removed: sqlpid-analysis.ps1
+  temp removed: sqlpid-analysis.txt
+  temp removed: sqltrace.wprp
+  temp removed: state-0816.ps1
+  temp removed: state-0816.txt
+  temp removed: state2.ps1
+  temp removed: state2.txt
+  temp removed: status-check.ps1
+  temp removed: stripper-hunt.ps1
+  temp removed: stripper-hunt.txt
+  temp removed: svc-after-fix.ps1
+  temp removed: svc-after-fix.txt
+  temp removed: svc-config.ps1
+  temp removed: svc-config.txt
+  temp removed: test-appdb.js
+  temp removed: test-fsdb.js
+  temp removed: test-invokesqlscript.ps1
+  temp removed: test-invokesqlscript.txt
+  temp removed: test-msnode-raw.js
+  temp removed: test-msnode-wrapper.js
+  temp removed: test-msnode.js
+  temp removed: trace-analysis.ps1
+  temp removed: trace-analysis.txt
+  temp removed: trace-sqlservr.ps1
+  temp removed: trace-sqlservr.txt
+  temp removed: verify-sqlexpress.ps1
+  temp removed: verify-sqlexpress.txt
+  temp removed: verify.sql
+  temp removed: winre-check.ps1
+  temp removed: winre-check.txt
+  temp removed: write-env.js

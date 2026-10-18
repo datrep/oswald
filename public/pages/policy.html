@@ -1,0 +1,384 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Policy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/main.css" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
+  </head>
+
+  <body>
+    <div class="content">
+      <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb"></nav>
+      <div class="layout layout--policy">
+        <div class="topbar">
+          <a href="/index.html" class="back-link">
+            <img src="/images/arrow.jpg" alt="Dashboard" width="15px" />
+          </a>
+          <div class="topbar-title">Policy Workspace</div>
+          <div id="auth-control"></div>
+        </div>
+
+        <div class="policy-body">
+          <aside class="policy-rail policy-rail--left">
+            <div class="rail-section">
+              <h3 class="rail-title">Policies</h3>
+              <select id="policy-nav-select" class="rail-select" aria-label="Policies"></select>
+              <label class="archive-toggle" title="Archived (state 3) policies are hidden from this list by default">
+                <input type="checkbox" id="toggle-archived-policies" />
+                <span>Show archived</span>
+              </label>
+            </div>
+            <div class="rail-section">
+              <h3 class="rail-title">Progress</h3>
+              <div id="rail-progress" class="rail-progress"></div>
+            </div>
+          </aside>
+          <div class="policy-center">
+        <div class="policy-scroll">
+        <div class="policy-topbar">
+        <div class="policy-topbar-title">
+          <h2 id="policy-title">Policy</h2>
+          <span id="policy-title-id" class="policy-id"></span>
+        </div>
+        <div class="policy-actions">
+          <button type="button" id="action-edit-policy" class="policy-action-btn" title="Edit this policy"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><span>Edit</span></button>
+          <button type="button" id="action-add-task" class="policy-action-btn primary" title="Add a task"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add Task</span></button>
+          <button type="button" id="action-add-resource" class="policy-action-btn primary" title="Add a resource"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Add Resource</span></button>
+        </div>
+        </div>
+
+        <div class="policy-columns">
+
+        <!-- POLICY DETAILS -->
+
+        <div class="policy-section">
+          <div class="section-header">
+            <h2>Policy Details</h2>
+          </div>
+          <div id="policy-list"></div>
+        </div>
+
+        <!-- TASKS -->
+
+        <div class="policy-section">
+          <div class="section-header">
+            <h2>Tasks</h2>
+            <label class="archive-toggle" title="Archived (state 3) tasks are hidden by default">
+              <input type="checkbox" id="toggle-archived" />
+              <span>Show archived</span>
+            </label>
+          </div>
+
+          <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when tasks are selected -->
+          <div id="task-context-toolbar" class="task-context-toolbar hidden">
+            <span id="task-selected-count">0 selected</span>
+            <button id="edit-task">Edit</button>
+            <button id="complete-task" title="Set the selected tasks to Complete (state 3) and stamp completedAt">Mark completed</button>
+            <button id="delete-task">Delete</button>
+          </div>
+
+          <div id="task-list"></div>
+        </div>
+        </div>
+
+        <div class="task-ender"></div>
+        <!-- just a line to separate the sections, not an actual header -->
+
+        <!-- RESOURCES -->
+
+        <div class="policy-section">
+          <div class="section-header">
+            <h2>Resources</h2>
+          </div>
+
+          <!-- CONTEXTUAL TOOLBAR (LLM-assisted): Appears when resources are selected -->
+          <div id="resource-context-toolbar" class="resource-context-toolbar hidden">
+            <span id="resource-selected-count">0 selected</span>
+            <button id="edit-resource">Edit</button>
+            <button id="delete-resource">Delete</button>
+          </div>
+
+          <div id="resource-modal" style="display: none">
+            <div class="modal-resource-content">
+              <h3 id="resource-modal-title">Add Resource</h3>
+
+              <label for="resource-file">Choose File</label>
+              <input type="file" id="resource-file" />              <label class="resource-replace-toggle" id="resource-replace-wrap" style="display:none">
+                <input type="checkbox" id="resource-replace-file" />
+                <span>Replace the file</span>
+              </label>
+              <label for="resource-description">Description</label>
+              <textarea id="resource-description"></textarea>
+
+              <div class="modal-actions">
+                <button id="attach-existing-resource">Attach existing…</button>
+                <button id="save-resource">Save</button>
+                <button id="cancel-resource">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="resource-picker" style="display: none">
+            <div class="modal-resource-content">
+              <h3>Attach existing resource</h3>
+              <input type="search" id="resource-picker-search" placeholder="Search resources…" autocomplete="off" />
+              <div id="resource-picker-list" class="resource-picker-list"></div>
+              <p id="resource-picker-status" class="picker-status muted"></p>
+              <div class="modal-actions">
+                <button id="resource-picker-close">Close</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="module-picker" style="display: none">
+            <div class="modal-resource-content">
+              <h3>Add a module</h3>
+              <p class="muted" style="font-size: 12px; margin-bottom: 10px">Attach a tool to this policy — each module renders its own panel here.</p>
+              <div id="module-picker-list" class="resource-picker-list"></div>
+              <p id="module-picker-status" class="picker-status muted"></p>
+              <div class="modal-actions">
+                <button id="module-picker-close">Close</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="resource-preview-list"></div>
+        </div>
+
+        <!-- MODULES (module-attachment framework) -->
+        <div class="policy-section">
+          <div class="section-header">
+            <h2>Modules</h2>
+            <button type="button" id="action-add-module" class="module-add-btn" title="Attach a module to this policy">+ Add module</button>
+          </div>
+          <div id="policy-modules"></div>
+        </div>
+        </div>
+
+        <div class="policy-controls">
+          <button id="save-policy">Save Policy</button>
+          <button id="delete-policy">Delete Policy</button>
+        </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div id="policy-modal" class="modal">
+      <div class="modal-content">
+        <h2 id="policy-modal-title">Edit Policy</h2>
+        <form id="policy-form" class="policy-form" novalidate>
+          <!-- BASIC FIELDS — always visible -->
+          <div class="form-field">
+            <div class="label-with-help">
+              <label for="policy-name">Name</label>
+              <button
+                type="button"
+                class="help-btn"
+                id="help-policy-name"
+                aria-label="More info about policy name"
+              >
+                ?
+              </button>
+            </div>
+            <input id="policy-name" name="name" type="text" placeholder="Policy name" required />
+            <div class="field-error"></div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label for="policy-start">Planned Start</label>
+              <input id="policy-start" name="plannedStart" type="datetime-local" required />
+              <div class="field-error"></div>
+            </div>
+            <div class="form-field">
+              <label for="policy-end">Planned End</label>
+              <input id="policy-end" name="plannedEnd" type="datetime-local" />
+              <div class="input-actions">
+                <button type="button" id="policy-end-now">Now</button>
+                <button type="button" id="policy-end-clear">Leave blank</button>
+              </div>
+              <div class="field-error"></div>
+            </div>
+          </div>
+
+          <!-- ADVANCED FIELDS — collapsed by default -->
+          <button type="button" id="policy-advanced-toggle" class="advanced-toggle">
+            <span class="toggle-arrow">▶</span> Advanced
+          </button>
+
+          <div id="policy-advanced-fields" class="advanced-fields hidden">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="policy-priority">Priority</label>
+                <select id="policy-priority" name="priority">
+                  <option value="">-</option>
+                  <option value="0">P0 Critical</option>
+                  <option value="1">P1 High</option>
+                  <option value="2">P2 Medium</option>
+                  <option value="3">P3 Low</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="policy-state">State</label>
+                <select id="policy-state" name="state"></select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="policy-info">Description</label>
+              <textarea id="policy-info" name="info" placeholder="Optional description"></textarea>
+            </div>
+          </div>
+
+          <p class="form-feedback hidden" id="policy-form-feedback"></p>
+
+          <div class="modal-buttons">
+            <button type="submit" id="modal-save-policy">Save</button>
+            <button type="button" id="modal-delete-policy">Delete</button>
+            <button type="button" id="cancel-policy">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="task-modal" class="modal">
+      <div class="modal-content">
+        <h2 id="task-modal-title">Add Task</h2>
+
+        <form id="task-form" class="task-form" novalidate>
+          <!-- BASIC FIELDS — always visible -->
+          <div class="form-field">
+            <div class="label-with-help">
+              <label for="task-name">Name</label>
+              <button
+                type="button"
+                class="help-btn"
+                id="help-task-name"
+                aria-label="More info about task name"
+              >
+                ?
+              </button>
+            </div>
+            <input id="task-name" name="name" type="text" placeholder="Task name" required />
+            <div class="field-error"></div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label for="task-start">Planned Start</label>
+              <input id="task-start" name="plannedStart" type="datetime-local" required />
+              <div class="field-error"></div>
+            </div>
+            <div class="form-field">
+              <label for="task-end">Planned End</label>
+              <input id="task-end" name="plannedEnd" type="datetime-local" />
+              <div class="input-actions">
+                <button type="button" id="task-end-now">Now</button>
+                <button type="button" id="task-end-clear">Leave blank</button>
+              </div>
+              <div class="field-error"></div>
+            </div>
+          </div>
+
+          <!-- ADVANCED FIELDS — collapsed by default -->
+          <button type="button" id="task-advanced-toggle" class="advanced-toggle">
+            <span class="toggle-arrow">▶</span> Advanced
+          </button>
+
+          <div id="task-advanced-fields" class="advanced-fields hidden">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="task-priority">Priority</label>
+                <select id="task-priority" name="priority">
+                  <option value="">- (inherit from policy)</option>
+                  <option value="0">P0 Critical</option>
+                  <option value="1">P1 High</option>
+                  <option value="2">P2 Medium</option>
+                  <option value="3">P3 Low</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="task-state">State</label>
+                <select id="task-state" name="state"></select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="task-info">Description</label>
+              <textarea id="task-info" name="info" placeholder="Optional description"></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="task-user">Assigned User</label>
+              <input id="task-user" name="assignedToUserId" type="number" placeholder="User ID (optional)" />
+            </div>
+          </div>
+
+          <div class="modal-buttons">
+            <button type="submit" id="create-task">Create Task</button>
+            <button type="button" id="cancel-task">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Task Viewer Modal (read-only FULL view — task #27; not an editor) -->
+    <div
+      id="task-viewer"
+      class="resource-viewer"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-viewer-title"
+    >
+      <div class="resource-viewer-content">
+        <div class="resource-viewer-header">
+          <h3 id="task-viewer-title">Task</h3>
+          <button type="button" id="task-viewer-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="resource-viewer-body" id="task-viewer-body"></div>
+        <div class="resource-viewer-footer">
+          <button type="button" id="task-viewer-dismiss" class="task-viewer-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resource Viewer Modal (type-aware: image/pdf/text/audio/video/office) -->
+    <div
+      id="resource-viewer"
+      class="resource-viewer"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="resource-viewer-title"
+    >
+      <div class="resource-viewer-content">
+        <div class="resource-viewer-header">
+          <h3 id="resource-viewer-title">View</h3>
+          <button type="button" id="resource-viewer-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="resource-viewer-body" id="resource-viewer-body"></div>
+        <div class="resource-viewer-footer">
+          <a id="resource-viewer-download" href="#" target="_blank" rel="noopener noreferrer">
+            Download
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- TODO:// client specific flags -->
+  </body>
+
+  <!-- helpers.js is a classic script: load it before the modules so its globals are available -->
+  <script src="/js/utils/helpers.js"></script>
+  <script type="module" src="/js/pages/policy.js"></script>
+  <script type="module" src="/js/components/auth.js"></script>
+</html>

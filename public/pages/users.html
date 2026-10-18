@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <title>Users &amp; Permissions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/main.css" />
+    <style>
+      /* Two-pane UAC dashboard */
+      .uac-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+      .uac-header h2 { margin: 0; }
+      .uac-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+      .uac-stat { font-size: 0.72rem; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+      .uac-stat b { color: inherit; }
+      .uac-stat.users { color: #7dd3fc; border-color: rgba(125,211,252,0.32); background: rgba(125,211,252,0.08); }
+      .uac-stat.active { color: #6ee7b7; border-color: rgba(110,231,183,0.32); background: rgba(110,231,183,0.08); }
+      .uac-stat.disabled { color: #fda4af; border-color: rgba(253,164,175,0.32); background: rgba(253,164,175,0.08); }
+      .uac-stat.online { color: #34d399; border-color: rgba(52,211,153,0.55); background: rgba(52,211,153,0.14); }
+      .uac-stat.roles { color: #fcd34d; border-color: rgba(252,211,77,0.32); background: rgba(252,211,77,0.08); }
+      .uac-stat.perms { color: #c4b5fd; border-color: rgba(196,181,253,0.32); background: rgba(196,181,253,0.08); }
+      /* UAC-5 live presence: green presence dot in the users table */
+      .udot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border); margin-right: 6px; vertical-align: middle; }
+      .udot.on { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.8); }
+      #users-content { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+      .uac-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: stretch; flex: 1 1 auto; min-height: 0; margin-top: 14px; }
+      .uac-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+      .uac-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+      .uac-panel__head h3 { margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      .uac-panel__body { flex: 1; min-height: 0; padding: 12px 14px 14px; overflow-y: auto; }
+      #user-search { width: 210px; background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; }
+
+      .admin-table { width: 100%; border-collapse: collapse; }
+      .admin-table th, .admin-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+      .admin-table th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .admin-table td.actions { text-align: right; white-space: nowrap; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+      .row-menu { position: relative; display: inline-flex; }
+      .menu-trigger { letter-spacing: 2px; }
+      .menu-pop {
+        position: absolute; right: 0; top: calc(100% + 6px);
+        display: flex; flex-direction: column; gap: 2px; padding: 4px;
+        background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); z-index: 60; min-width: 112px;
+      }
+      .menu-pop .btn { justify-content: flex-start; width: 100%; }
+
+      .role-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); font-size: 0.75rem; margin-right: 4px; }
+      .role-chip.admin { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+      .status-chip { font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; text-transform: uppercase; }
+      .status-chip.active { background: rgba(52,211,153,0.14); color: #6ee7b7; }
+      .status-chip.disabled { background: var(--panel-3); color: var(--muted); }
+
+      /* Roles stack (inside the right panel) */
+      .roles-list { display: flex; flex-direction: column; gap: 12px; }
+      .role-card { display: flex; flex-direction: column; gap: 8px; }
+      .role-card__head { display: flex; align-items: center; justify-content: space-between; }
+      .role-card input[type='text'] { width: 100%; background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 0.8rem; }
+      .perm-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; font-size: 0.74rem; }
+      .perm-grid label { display: flex; align-items: center; gap: 6px; line-height: 1.2; color: var(--muted); cursor: pointer; min-width: 0; }
+      .perm-grid label .perm-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .perm-grid input[type='checkbox'] { margin: 0; flex: none; width: 15px; height: 15px; accent-color: var(--accent); }
+      .role-assign { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); font-size: 0.85rem; cursor: pointer; min-width: 0; width: 100%; }
+      .role-assign input[type='checkbox'] { margin: 0; flex: none; width: 15px; height: 15px; accent-color: var(--accent); }
+      .role-assign__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+      .role-assign__text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .role-assign__desc { font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #user-roles-body { display: flex; flex-direction: column; gap: 8px; }
+      .role-card-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+      /* Compact last-login / device cells (row height unchanged) */
+      .admin-table td.last, .admin-table td.device { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+      .admin-table td.device { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+
+      @media (max-width: 900px) {
+        .uac-grid { grid-template-columns: 1fr; }
+        #user-search { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="sidebar-block" id="nav-section">
+            <h3 class="sidebar-section">Navigation</h3>
+            <div class="sidebar-panel sidebar-links" id="admin-nav">
+              <a href="/index.html">Dashboard</a>
+              <a href="/pages/policy.html">Policy workspace</a>
+              <a href="https://localhost:8090" data-fileserver target="_blank" rel="noopener">Fileserver</a>
+            </div>
+          </section>
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Career</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/pages/jobs.html">Job Applications</a>
+              <a href="/pages/career-files.html">Career Files</a>
+              <a href="/pages/certs.html">Certificates</a>
+            </div>
+          </section>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div style="color: #7279db">Users &amp; Permissions</div>
+            <div class="topbar-right"><div id="auth-control"></div></div>
+          </div>
+
+          <div class="content">
+            <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb"></nav>
+            <div id="users-gate" class="hidden">
+              <h2>Access restricted</h2>
+              <p class="muted">
+                Sign in with an account that has the <code>users.manage</code> permission (e.g.
+                <code>oswald_admin</code>).
+              </p>
+            </div>
+
+            <div id="users-content">
+              <div class="uac-header">
+                <h2>Users &amp; Roles</h2>
+                <div class="uac-stats" id="uac-stats"></div>
+              </div>
+              <p class="muted" id="users-status"></p>
+
+              <div class="uac-grid">
+                <section class="uac-panel">
+                  <div class="uac-panel__head">
+                    <h3>Users</h3>
+                    <input type="search" id="user-search" placeholder="Search users…" autocomplete="off" />
+                  </div>
+                  <div class="uac-panel__body">
+                    <table class="admin-table" id="users-table">
+                      <thead>
+                        <tr><th>Username</th><th>Roles</th><th>Status</th><th>Last login</th><th>Device</th><th></th></tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section class="uac-panel">
+                  <div class="uac-panel__head">
+                    <h3>Roles &amp; Permissions</h3>
+                    <button type="button" id="role-add" class="btn btn--primary btn--sm">+ New role</button>
+                  </div>
+                  <div class="uac-panel__body">
+                    <p class="muted" style="font-size:0.78rem">Edit a role and save — its holders are logged out so changes apply immediately.</p>
+                    <div id="roles-list" class="roles-list"></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </header>
+
+    <!-- User roles modal -->
+    <div id="user-roles-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 class="modal__head" id="user-roles-title">Set roles</h3>
+        <div class="form-grid" id="user-roles-body"></div>
+        <div class="modal__actions">
+          <button id="user-roles-save" class="btn btn--primary">Save</button>
+          <button id="user-roles-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset password modal -->
+    <div id="reset-pw-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 class="modal__head" id="reset-pw-title">Reset password</h3>
+        <div class="form-grid">
+          <div class="field field--full"><label>New password</label><input type="password" id="reset-pw-input" autocomplete="new-password" /></div>
+        </div>
+        <div class="modal__actions">
+          <button id="reset-pw-save" class="btn btn--primary">Reset &amp; revoke sessions</button>
+          <button id="reset-pw-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New role modal -->
+    <div id="role-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3 class="modal__head">New role</h3>
+        <div class="form-grid">
+          <div class="field"><label>Name</label><input id="role-name" /></div>
+          <div class="field"><label>Description</label><input id="role-desc" /></div>
+        </div>
+        <div class="modal__actions">
+          <button id="role-save" class="btn btn--primary">Create</button>
+          <button id="role-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/js/pages/users.js"></script>
+    <script type="module" src="/js/components/auth.js"></script>
+  </body>
+</html>

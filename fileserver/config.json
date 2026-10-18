@@ -1,0 +1,46 @@
+{
+  "port": 8090,
+  "host": "0.0.0.0",
+  "dashboardBase": "http://172.22.160.3:8080",
+  "tls": {
+    "enabled": true,
+    "host": "172.22.160.3",
+    "healthPort": 8091
+  },
+  "mode": "fileserver",
+  "allowSignup": true,
+  "mirror": {
+    "sourceRootId": "resources",
+    "mirrorPath": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area",
+    "readOnly": true
+  },
+  "sync": {
+    "source": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources",
+    "destination": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area",
+    "deleteExtraneous": false,
+    "intervalMinutes": 0
+  },
+  "roots": [
+    {
+      "id": "resources",
+      "name": "Resources",
+      "path": "C:\\Users\\datrep\\Desktop\\oswald\\public\\resources"
+    },
+    {
+      "id": "sync",
+      "name": "Sync area",
+      "path": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-sync-area"
+    }
+  ],
+  "search": {
+    "maxDepth": 6,
+    "maxResults": 200
+  },
+  "thumbnails": {
+    "size": 256,
+    "cacheDir": "C:\\Users\\datrep\\Desktop\\oswald\\temp\\fs-thumbs"
+  },
+  "textEdit": {
+    "maxBytes": 5242880
+  }
+}

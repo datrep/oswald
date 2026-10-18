@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Listing Workbench</title>
+    <link rel="stylesheet" href="/css/main.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Listing Workbench</div>
+      <div class="topbar-right"><input class="global-search" id="global-search" placeholder="Search all fields…" title="Searches every field on the current tab" /><button class="btn" id="btn-notepad">Notepad</button><button id="signout" class="btn hidden">Sign out</button></div>
+    </header>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="listings">Listings</button>
+      <button class="tab" data-tab="inventory">Inventory</button>
+      <button class="tab" data-tab="prices">Prices</button>
+      <button class="tab" data-tab="ledger">Ledger</button>
+      <button class="tab" data-tab="comps">Comps</button>
+      <button class="tab" data-tab="parts">Parts</button>
+      <button class="tab" data-tab="settings">Settings</button>
+      <button class="tab" data-tab="insights">Insights</button>
+    </nav>
+
+    <main class="content">
+      <section class="tab-panel active" id="tab-listings"></section>
+      <section class="tab-panel" id="tab-inventory"></section>
+      <section class="tab-panel" id="tab-prices"></section>
+      <section class="tab-panel" id="tab-ledger"></section>
+      <section class="tab-panel" id="tab-comps"></section>
+      <section class="tab-panel" id="tab-parts"></section>
+      <section class="tab-panel" id="tab-settings"></section>
+      <section class="tab-panel" id="tab-insights"></section>
+    </main>
+
+    <!-- login -->
+    <div class="overlay" id="login-modal">
+      <div class="modal-card narrow">
+        <div class="modal-head"><h3>Sign in</h3></div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <label>Username<input id="login-user" autocomplete="username" /></label>
+            <label>Password<input id="login-pass" type="password" autocomplete="current-password" /></label>
+          </div>
+          <p class="err" id="login-err"></p>
+        </div>
+        <div class="modal-actions">
+          <span class="spacer"></span>
+          <button class="btn primary" id="login-btn">Sign in</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- generic edit modal -->
+    <div class="overlay hidden" id="edit-modal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 id="edit-title">Edit</h3>
+          <button class="close" id="edit-close">×</button>
+        </div>
+        <div class="modal-body" id="edit-body"></div>
+        <div class="modal-actions">
+          <span class="feedback" id="edit-status"></span>
+          <span class="spacer"></span>
+          <button class="btn" id="edit-cancel">Cancel</button>
+          <button class="btn primary" id="edit-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Carousell paste-parse modal -->
+    <div class="overlay hidden" id="paste-modal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 id="paste-title">Paste Carousell listing</h3>
+          <button class="close" id="paste-close">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted" id="paste-hint">Paste the full listing text. Own listings keep the description; comps store facts only.</p>
+          <textarea id="paste-text" style="min-height:200px" placeholder="Paste the listing text here…"></textarea>
+        </div>
+        <div class="modal-actions">
+          <span class="feedback" id="paste-status"></span>
+          <span class="spacer"></span>
+          <button class="btn" id="paste-cancel">Cancel</button>
+          <button class="btn primary" id="paste-go">Parse</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- hardware discovery modal -->
+    <div class="overlay hidden" id="discover-modal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3>Discovered hardware</h3>
+          <button class="close" id="discover-close">×</button>
+        </div>
+        <div class="modal-body">
+          <pre id="discover-out" style="margin:0;white-space:pre-wrap;font-family:var(--mono,Consolas,monospace);font-size:12px;max-height:60vh;overflow:auto"></pre>
+        </div>
+        <div class="modal-actions">
+          <span class="spacer"></span>
+          <button class="btn" id="discover-done">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- floating notepad -->
+    <div class="notepad-panel hidden" id="notepad-panel">
+      <div class="np-head" id="np-head">
+        <button id="np-toggle" title="Collapse / expand">▾</button>
+        <strong>Notepad</strong>
+        <span class="spacer"></span>
+        <span class="np-count" id="np-count"></span>
+        <button id="np-close" title="Close">×</button>
+      </div>
+      <div class="np-body" id="np-body">
+        <textarea id="np-text" placeholder="Type notes here…"></textarea>
+        <div class="np-actions">
+          <button class="btn sm" id="np-copy">Copy</button>
+          <button class="btn sm danger" id="np-clear">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast hidden" id="toast"></div>
+
+    <script type="module" src="/js/app.v2.js"></script>
+  </body>
+</html>

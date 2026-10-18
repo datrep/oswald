@@ -1,0 +1,29 @@
+const express = require('express');
+const router = express.Router();
+const userController = require('../controllers/userController');
+const authenticateToken = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/auth');
+const { loginLimiter, registerLimiter } = require('../shared/rateLimit');
+const { validateRegister, validateLogin } = require('../middlewares/validators');
+
+router.post('/register', registerLimiter, validateRegister, userController.registerUser);
+router.get('/bootstrap', userController.bootstrapStatus);
+router.post('/login', loginLimiter, validateLogin, userController.loginUser);
+router.put('/:userId', authenticateToken, userController.updateUser);
+router.delete('/:userId', authenticateToken, userController.deleteUser);
+router.get('/me', authenticateToken, userController.getUserInfo);
+router.get('/', authenticateToken, requirePermission('users.manage'), userController.getAllUsers);
+router.get('/sessions', authenticateToken, requirePermission('users.manage'), userController.getSessions);
+router.post('/heartbeat', authenticateToken, userController.heartbeat);
+router.get('/online', authenticateToken, requirePermission('users.manage'), userController.getOnline);
+router.get('/roles', authenticateToken, requirePermission('users.manage'), userController.getRoles);
+router.post('/roles', authenticateToken, requirePermission('users.manage'), userController.createRole);
+router.put('/roles/:roleId', authenticateToken, requirePermission('users.manage'), userController.updateRole);
+router.delete('/roles/:roleId', authenticateToken, requirePermission('users.manage'), userController.deleteRole);
+router.put('/:userId/role', authenticateToken, requirePermission('users.manage'), userController.assignUserRole);
+router.put('/:userId/roles', authenticateToken, requirePermission('users.manage'), userController.setUserRoles);
+router.put('/:userId/active', authenticateToken, requirePermission('users.manage'), userController.setUserActive);
+router.put('/:userId/password', authenticateToken, requirePermission('users.manage'), userController.resetUserPassword);
+router.get('/:userId/sessions', authenticateToken, requirePermission('users.manage'), userController.getUserSessions);
+
+module.exports = router;
