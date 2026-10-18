@@ -16,6 +16,10 @@ const scopeResolution = require('./scopeResolution');
 // TRD-RSK-8: the settings-write diff (pure — no DB, no logger — so the redaction and the no-op rule are
 // testable without a database).
 const settingsDiff = require('./settingsDiff');
+// 2026-10-18 (owner: weekend trades are a separate class inside the same era): every trade is stamped with
+// the session class of its ENTRY here, at the ONE choke point every writer passes through — deriving it at
+// each call site is the fix that gets applied at four of five sites.
+const { sessionClassOf } = require('./lib/sessionClass');
 
 const NVMAX = sql.NVarChar(sql.MAX);
 
@@ -952,9 +956,12 @@ async function createTrade(userId, fields) {
     .input('spreadSubmitSource', sql.NVarChar(32), fields.spreadSubmitSource ?? null)
     .input('signalToFillSec', sql.Int, fields.signalToFillSec ?? null)
     .input('anchorAgeSec', sql.Decimal(18, 3), fields.anchorAgeSec ?? null)
-    .query(`INSERT INTO Trades (userId, venue, symbol, direction, size, units, openPrice, openAt, status, plus500PositionId, decisionId, note, currentRate, floatingPnl, origin, stopPrice, takeProfitPrice, filledAt, rejectReason, fillDelayMs, strategyId, slippagePct, pairId, closeSource, spreadSignalPct, signalTickAgeSec, spreadSubmitPct, spreadSubmitSource, signalToFillSec, anchorAgeSec)
+    // 2026-10-18 (migration 050): 'weekend' | 'weekday' derived from the ENTRY time unless the caller states
+    // it. Nullable column, but this writer never leaves it NULL for a new row.
+    .input('sessionClass', sql.NVarChar(24), fields.sessionClass ?? sessionClassOf(fields.openAt ?? new Date()))
+    .query(`INSERT INTO Trades (userId, venue, symbol, direction, size, units, openPrice, openAt, status, plus500PositionId, decisionId, note, currentRate, floatingPnl, origin, stopPrice, takeProfitPrice, filledAt, rejectReason, fillDelayMs, strategyId, slippagePct, pairId, closeSource, spreadSignalPct, signalTickAgeSec, spreadSubmitPct, spreadSubmitSource, signalToFillSec, anchorAgeSec, sessionClass)
             OUTPUT INSERTED.id
-            VALUES (@userId, @venue, @symbol, @direction, @size, @units, @openPrice, @openAt, @status, @plus500PositionId, @decisionId, @note, @currentRate, @floatingPnl, @origin, @stopPrice, @takeProfitPrice, @filledAt, @rejectReason, @fillDelayMs, @strategyId, @slippagePct, @pairId, @closeSource, @spreadSignalPct, @signalTickAgeSec, @spreadSubmitPct, @spreadSubmitSource, @signalToFillSec, @anchorAgeSec)`);
+            VALUES (@userId, @venue, @symbol, @direction, @size, @units, @openPrice, @openAt, @status, @plus500PositionId, @decisionId, @note, @currentRate, @floatingPnl, @origin, @stopPrice, @takeProfitPrice, @filledAt, @rejectReason, @fillDelayMs, @strategyId, @slippagePct, @pairId, @closeSource, @spreadSignalPct, @signalTickAgeSec, @spreadSubmitPct, @spreadSubmitSource, @signalToFillSec, @anchorAgeSec, @sessionClass)`);
   return Number(r.recordset[0]?.id);
 }
 
