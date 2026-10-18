@@ -134,7 +134,9 @@ const POLICY_FREEZE = {
   // RE-DECLARED 2026-10-18T12:10:00Z - WEEKEND SESSION CLASS (owner: separate class, same era): migration 050
   // adds Trades.sessionClass and store.createTrade stamps it at entry; the era is NOT re-anchored.
   // Registered as `weekend-session-class`. Provenance only; no decision input changes.
-  at: '2026-10-18T12:10:00Z',
+  // RE-DECLARED 2026-10-18T15:45:00Z - TRD-TRL-12b, the engage verification anchored to the trade entry.
+  // Registered as `trail-engage-entry-anchored-verify`; the engage flag stays FALSE (inert at deploy).
+  at: '2026-10-18T15:45:00Z',
   note: 'The owner froze the policy set so a forward sample can accumulate under ONE rule set. Any change after '
       + 'this instant invalidates the window that follows it — including changes that look like improvements, '
       + 'which is the whole difficulty: every one of the seven boundaries above looked like an improvement. '
@@ -610,6 +612,13 @@ const FEATURES = [
     row: 1506,
     title: 'WEEKEND SESSION CLASS (owner: "pooling, it is a separate class, we can separate it, while still being in the same era"): every trade is stamped with the session class of its ENTRY - weekend vs weekday - at the ONE write choke point (store.createTrade -> trading/lib/sessionClass.js), so any study can split cohorts with one GROUP BY while the era is NOT re-anchored. Migration 050 adds Trades.sessionClass NVARCHAR(24) NULL and backfills deterministically from openAt (325 rows: 324 weekday, 1 weekend - a rejected Sunday Gold attempt). The column is deliberately NOT updatable, so a close can never re-stamp a trade into another cohort. 5 pins, including a 7-day agreement sweep against agent/sessions#calendarState using the implication pair that treats the Friday observation lock as WEEKDAY time, which is what it is.',
     invalidates: 'OPERATOR-SCOPE with a DATA NOTE: provenance/additive column only - no decision input, no threshold, no strategy, no instrument set. The era clock is NOT re-anchored (owner decision 2026-10-18): weekend crypto trades pool inside the same era and are separated by sessionClass where a question needs it. Weekend DATA remains excluded from modification analyses per PRU-3 section 9.',
+  },
+  {
+    id: 'trail-engage-entry-anchored-verify',
+    landedAt: '2026-10-18',
+    row: 1506,
+    title: 'TRD-TRL-12b - THE ENGAGE VERIFICATION NOW ANCHORS TO THE TRADE ENTRY (owner: "promote the trail"): the Edit card percent is anchored to the ENTRY price, measured live in five readings on 2026-10-08 - its readDistance = |entry - (price + D_venue)|, i.e. |D - excursion| when favourable and D + excursion when adverse, never plain D. setPositionTrail passed the CURRENT price as `entry`, so the pre-commit check compared the wrong quantity against D and would have refused every engage more than a rounding band from break-even (`trail_not_verified_before_commit`) - the exact reason promotion was held on 10-08. The function now takes the entry rate from the TRADE ROW, REFUSES with `entry_rate_unknown` when it has none, computes the distance with it, and records `entryUsed` in the reading. Pins: test/trail-engage-verify.test.js (5) - including an arithmetic pin that reproduces the old defect (a favourable sell reads |entry - level| = 8 where D = 2).',
+    invalidates: 'INERT AT DEPLOY: `risk.trailingStop.engageOnTouch.enabled` stays FALSE and `trailingStop.enabled` stays false - the fixed verification is reachable only in commit:false mode (the read-only probe route) until the watched engage. No decision input, no threshold, no scope change. This is the gate the trail promotion was waiting on, not the promotion itself.',
   },
 ];
 
