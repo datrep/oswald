@@ -1,0 +1,15 @@
+{
+  "host": "0.0.0.0",
+  "port": 8114,
+  "dashboardBase": "https://172.22.160.3:8443",
+  "tls": {
+    "enabled": true,
+    "host": "172.22.160.3",
+    "healthPort": 8115
+  },
+  "browser": {
+    "executable": "",
+    "profileDir": ".librewolf-profile",
+    "debugPort": 9224
+  }
+}

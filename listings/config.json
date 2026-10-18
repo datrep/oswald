@@ -1,0 +1,10 @@
+{
+  "host": "0.0.0.0",
+  "port": 8110,
+  "dashboardBase": "https://172.22.160.3:8443",
+  "tls": {
+    "enabled": true,
+    "host": "172.22.160.3",
+    "healthPort": 8111
+  }
+}

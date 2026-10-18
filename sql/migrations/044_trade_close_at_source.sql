@@ -1,0 +1,46 @@
+-- 044_trade_close_at_source.sql
+-- TRD-118 (2026-09-24): the CLOSE TIME's provenance as its own column, because `closeAt` on a venue-closed
+-- row is the venue's DISPLAY of the close, rounded to the minute — not an observation of the instant.
+--
+-- WHY. Measured 2026-09-24 on 80 closed rows, and the separation is TOTAL:
+--   closePriceSource = 'venue_rate'  -> 36 of 36 have second = 0 AND millisecond = 0
+--   closePriceSource = '(null)'      ->  0 of 36
+--   closePriceSource = 'fill'        ->  0 of  8
+--   control: `openAt` is minute-bounded on 0 of 94 rows — opens never look like this
+--   by reason: "Loss call" 17/17 · "Profit call" 11/11 · "Market closed" 8/8 · "executor close" 0/44
+-- 45.0% of closed rows (was 24/61 = 39% when TRD-118 was raised on 2026-09-22 — the share grew with the data).
+--
+-- CONSEQUENCE THIS REMOVES. The excursion window IS `[openAt, closeAt]`: `agent/autopsy.js` reads it for
+-- `mfePct`/`maePct`, and every window-based replay inherits it. A window closed by a rounded instant samples
+-- the price path against a guessed end with up to 60s (mean 30s) of error where a capture is sub-second.
+-- Metrics derived from `grossPnl` are NOT affected (`expectancy.rMultiple` uses openPrice/stopPrice/pnl),
+-- which is why the counterfactuals do not inherit the error — but anything reading the PATH does.
+--
+-- ⚠ AND WHAT THIS ROW IS *NOT*. TRD-118's original headline — "the captured tick path is OFFSET from the price
+-- plus500 reports" — was REFUTED the same day by the two-independent-paths test (Gold 65 matched pairs, mean
+-- |diff| 0.0285%, max 0.1084%). The tick path is NOT offset and must not be re-investigated. What was
+-- actually wrong was the CLOCK: a path-versus-venue comparison sampled a price at time T against a close whose
+-- time was uncertain, and reported the difference as a defect in the data.
+--
+-- THE TWO FACTS, AND THE INVARIANT THEY CARRY:
+--   closeAt        unchanged — whatever the closer supplied, so no history is rewritten here.
+--   closeAtSource  WHICH KIND of time it is, from `agent/closeTime.js`'s CLOSE_AT_SOURCE:
+--                    venue_ui_minute  the venue's closed-positions display, MINUTE resolution (the measured case)
+--                    venue_schedule   a session/settlement boundary, not a fill ("market closed")
+--                    venue_event      a venue timestamp at second-or-better resolution
+--                    desk_observed    the desk closed it and stamped its own clock
+--                    reconcile        assigned by a reconciler rather than observed
+--                    synthesised      derived from something else; nothing observed
+--                  NULL means UNKNOWN, never "observed". Written EVERY TIME `closeAt` is written — the same
+--                  discipline migration 041 imposed on the price pair, one column over.
+--
+-- NO BACKFILL HERE. The existing rows are labelled ONCE, explicitly, by
+-- `scripts/backfill-close-at-source.js`, so a schema change never silently reinterprets history — and because
+-- that labelling is itself an INFERENCE from the timestamp's shape, it is recorded with its reasoning rather
+-- than applied inside a migration.
+--
+-- SAFE TO APPLY LIVE: one NULLable additive column, no default, no data movement inside the migration.
+
+IF COL_LENGTH('dbo.Trades', 'closeAtSource') IS NULL
+  ALTER TABLE dbo.Trades ADD closeAtSource NVARCHAR(24) NULL;
+GO

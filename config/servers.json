@@ -1,0 +1,27 @@
+{
+  "_note": [
+    "CONTINUITY 2026-10-11 (merge note): 'expenses' was added to _builtinOverrides.",
+    "It was found dead and unregistered, so the dashboard never restarted it after a",
+    "crash; registering it makes the dashboard start and manage it like the others.",
+    "Confirmed by test: the dashboard starts children on boot but does NOT respawn a",
+    "child that dies mid-run, so a dead service stays dead until the dashboard restarts.",
+    "Purely additive - safe to keep after merging the desk's unpushed Oct-8 work."
+  ],
+  "_builtinOverrides": {
+    "trading": {
+      "autoStart": true
+    },
+    "fileserver": {
+      "autoStart": true
+    },
+    "listings": {
+      "autoStart": true
+    },
+    "expenses": {
+      "autoStart": true
+    },
+    "dswatch": {
+      "autoStart": true
+    }
+  }
+}

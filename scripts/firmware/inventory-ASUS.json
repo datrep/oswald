@@ -1,0 +1,120 @@
+﻿{
+    "Manufacturer":  "ASUS",
+    "Model":  "System Product Name",
+    "Board":  "ASUSTeK COMPUTER INC. TUF GAMING B760M-PLUS WIFI D4",
+    "BoardVersion":  "Rev 1.xx",
+    "BiosVersion":  "1220",
+    "Cpu":  "13th Gen Intel(R) Core(TM) i5-13500",
+    "Gpus":  [
+                 {
+                     "Name":  "Parsec Virtual Display Adapter",
+                     "DriverVersion":  "0.45.0.0",
+                     "DriverDate":  "\/Date(1706140800000)\/"
+                 },
+                 {
+                     "Name":  "NVIDIA GeForce RTX 3060",
+                     "DriverVersion":  "32.0.16.1088",
+                     "DriverDate":  "\/Date(1784678400000)\/"
+                 }
+             ],
+    "Disks":  [
+                  {
+                      "FriendlyName":  "CT2000P3PSSD8",
+                      "MediaType":  "SSD",
+                      "FirmwareVersion":  "P9CR420",
+                      "HealthStatus":  "Healthy"
+                  },
+                  {
+                      "FriendlyName":  "TOSHIBA HDWD320",
+                      "MediaType":  "HDD",
+                      "FirmwareVersion":  "KS002A",
+                      "HealthStatus":  "Healthy"
+                  },
+                  {
+                      "FriendlyName":  "Lexar USB Flash Drive",
+                      "MediaType":  "Unspecified",
+                      "FirmwareVersion":  "PMAP",
+                      "HealthStatus":  "Healthy"
+                  },
+                  {
+                      "FriendlyName":  "CT1000P3SSD8",
+                      "MediaType":  "SSD",
+                      "FirmwareVersion":  "P9CR311",
+                      "HealthStatus":  "Healthy"
+                  },
+                  {
+                      "FriendlyName":  "ST2000DM008-2FR102",
+                      "MediaType":  "HDD",
+                      "FirmwareVersion":  "0001",
+                      "HealthStatus":  "Healthy"
+                  },
+                  {
+                      "FriendlyName":  "TOSHIBA HDWD120",
+                      "MediaType":  "HDD",
+                      "FirmwareVersion":  "MX4OACF0",
+                      "HealthStatus":  "Healthy"
+                  }
+              ],
+    "Nics":  [
+                 {
+                     "Name":  "Wi-Fi",
+                     "Description":  "Intel(R) Wi-Fi 6 AX201 160MHz",
+                     "DriverVersion":  "23.150.0.4"
+                 },
+                 {
+                     "Name":  "ZeroTier One [cf719fd5408a8c4b]",
+                     "Description":  "ZeroTier Virtual Port #3",
+                     "DriverVersion":  "3.0.0.1"
+                 },
+                 {
+                     "Name":  "ZeroTier One [565799d8f6de4c4e]",
+                     "Description":  "ZeroTier Virtual Port",
+                     "DriverVersion":  "3.0.0.1"
+                 },
+                 {
+                     "Name":  "Wintun",
+                     "Description":  "PolarBear Tunnel",
+                     "DriverVersion":  "0.13.0.0"
+                 },
+                 {
+                     "Name":  "Ethernet",
+                     "Description":  "Realtek Gaming 2.5GbE Family Controller",
+                     "DriverVersion":  "10.72.524.2024"
+                 },
+                 {
+                     "Name":  "Bluetooth Network Connection",
+                     "Description":  "Bluetooth Device (Personal Area Network)",
+                     "DriverVersion":  "10.0.19041.5848"
+                 },
+                 {
+                     "Name":  "Ethernet 2",
+                     "Description":  "TunnelBear Adapter V9",
+                     "DriverVersion":  "9.0.0.9"
+                 },
+                 {
+                     "Name":  "VMware Network Adapter VMnet1",
+                     "Description":  "VMware Virtual Ethernet Adapter for VMnet1",
+                     "DriverVersion":  "17.6.0.0"
+                 },
+                 {
+                     "Name":  "vEthernet (Default Switch)",
+                     "Description":  "Hyper-V Virtual Ethernet Adapter",
+                     "DriverVersion":  "10.0.19041.1"
+                 },
+                 {
+                     "Name":  "ZeroTier One [b15644912eae9aa3]",
+                     "Description":  "ZeroTier Virtual Port #2",
+                     "DriverVersion":  "3.0.0.1"
+                 },
+                 {
+                     "Name":  "VMware Network Adapter VMnet8",
+                     "Description":  "VMware Virtual Ethernet Adapter for VMnet8",
+                     "DriverVersion":  "17.6.0.0"
+                 },
+                 {
+                     "Name":  "Hamachi",
+                     "Description":  "LogMeIn Hamachi Virtual Ethernet Adapter",
+                     "DriverVersion":  "15.28.40.464"
+                 }
+             ]
+}

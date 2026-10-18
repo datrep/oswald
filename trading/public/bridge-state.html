@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oswald — Bridge State Machine (live)</title>
+<style>
+  body { font: 13px/1.5 Consolas, Menlo, monospace; background: #101418; color: #d7dde3; margin: 20px; }
+  h1 { font-size: 15px; font-weight: 600; color: #9fb3c8; margin: 0 0 4px; }
+  .sub { color: #6b7d90; font-size: 12px; margin-bottom: 14px; }
+  .sub a { color: #7fb2d9; }
+  h2 { font-size: 12px; font-weight: 600; color: #9fb3c8; margin: 18px 0 6px; }
+  table { border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+  td, th { text-align: left; padding: 2px 10px 2px 0; vertical-align: top; }
+  th { color: #6b7d90; font-weight: 400; }
+  .k { color: #6b7d90; }
+  .pos { color: #6fce9c; } .neg { color: #e05c5c; } .warn { color: #e0a63c; }
+  #navs div { color: #7b8ea0; font-size: 11.5px; padding: 1px 0; }
+  details { margin-top: 10px; } summary { color: #7b8ea0; cursor: pointer; } pre { background: #161d26; padding: 10px; border-radius: 8px; overflow: auto; max-width: 900px; }
+</style>
+</head>
+<body>
+  <h1>OSWALD — BRIDGE STATE MACHINE (live)</h1>
+  <div class="sub">
+    drawn from <b>trading/plus500/bridgeStateGraph.js</b> (pinned against the reducer by <b>test/bridge-state-graph.test.js</b>) ·
+    live signals from the observer (<b>temp/bridge-state-watch.js</b>, 10 s) ·
+    <a href="./index.html">← dashboard</a> · <a href="./bridge-state-machine.html">static poster</a>
+  </div>
+
+  <div id="bm"></div>
+
+  <h2>WHY THE MACHINE SAYS THIS — live signals</h2>
+  <table id="sig"></table>
+
+  <h2>RECENT NAVIGATIONS (forensic trail)</h2>
+  <div id="navs">—</div>
+
+  <details><summary>raw bridge-state.json</summary><pre id="raw">—</pre></details>
+
+  <script src="/js/bridge-machine.js"></script>
+  <script>
+    // ?mini=1 previews the compact mount that the DASHBOARD card uses (same component, same data).
+    const mini = /[?&]mini/.test(location.search);
+    BridgeMachine.mount(document.getElementById('bm'), { compact: mini });
+    if (mini) [...document.querySelectorAll('h2, #sig, #navs, details')].forEach((el) => { el.style.display = 'none'; });
+
+    function row(k, v, cls) { return '<tr><th>' + k + '</th><td class="' + (cls || '') + '">' + v + '</td></tr>'; }
+    // 2026-10-06: the diagnostics table rides the SAME change-driven stream as the machine (no 5 s ping).
+    function renderSignals(j) {
+      const s = j.signals || {};
+      const m = j.modifiers || {};
+      const esc = (x) => String(x == null ? '—' : x).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+      document.getElementById('sig').innerHTML =
+        row('state / category', '<b>' + esc(j.state) + '</b> / ' + esc(j.category) + ' <span class="k">(' + esc(j.cause) + ')</span>') +
+        row('since / healthySince', esc(j.since) + ' <span class="k">/</span> ' + esc(j.healthySince)) +
+        row('chrome alive · attached', (s.chromeAlive ? '<span class="pos">yes</span>' : '<span class="neg">no</span>') + ' · ' + (s.attached ? '<span class="pos">yes</span>' : '<span class="neg">no</span>')) +
+        row('page url', esc(s.pageUrl)) +
+        row('last nav', esc(s.lastNavAt)) +
+        row('login verdict', esc(s.loginVerdict) + (s.lastLoginCheckAt ? ' <span class="k">@ ' + esc(s.lastLoginCheckAt) + '</span>' : '')) +
+        row('last capture err', s.lastCaptureErr ? '<span class="warn">' + esc(s.lastCaptureErr.kind) + '</span> @ ' + esc(s.lastCaptureErr.at) : '—') +
+        row('feed silent', m.feedSilentForMs != null ? Math.round(m.feedSilentForMs / 1000) + ' s' : '—') +
+        row('parked / paused / recovering', (m.isParked ? '<b class="warn">PARKED</b>' : 'no') + ' / ' + (m.healthPaused ? '<b class="warn">PAUSED</b>' : 'no') + ' / ' + (m.isRecovering ? esc(m.recoveryCause || 'yes') : 'no')) +
+        row('observed at', esc(j.at));
+      document.getElementById('navs').innerHTML = (j.recentNavs || []).map((n) => '<div>' + esc(n) + '</div>').join('') || '—';
+      document.getElementById('raw').textContent = JSON.stringify(j, null, 1);
+    }
+    BridgeMachine.subscribe(renderSignals);
+  </script>
+</body>
+</html>

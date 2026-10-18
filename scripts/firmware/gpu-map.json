@@ -1,0 +1,11 @@
+{
+  "description": "NVIDIA GPU series -> NVIDIA driver-lookup IDs (psid/pfid for their DriverManualLookup API). The DRIVER itself is fetched live from NVIDIA, never listed here. 'pattern' is a regex matched against the GPU name; FIRST match wins. Old cards (Kepler) get the last legacy driver NVIDIA still serves via the API.",
+  "nvidia": [
+    { "pattern": "RTX", "psid": 101, "pfid": 913, "note": "GeForce RTX (unified current driver)" },
+    { "pattern": "GTX 16", "psid": 101, "pfid": 902, "note": "GeForce GTX 16 series (Turing)" },
+    { "pattern": "GTX 10|GT 10", "psid": 101, "pfid": 867, "note": "GeForce GTX 10 / GT 1030 (Pascal - NVIDIA no longer serves this via auto-lookup; falls back to manual page)" },
+    { "pattern": "GTX 9|GT 9", "psid": 101, "pfid": 774, "note": "GeForce 900 series (Maxwell)" },
+    { "pattern": "GTX 7|GT 7", "psid": 101, "pfid": 764, "note": "GeForce 700 series (Kepler - legacy driver)" },
+    { "pattern": "GTX 6|GT 6", "psid": 101, "pfid": 739, "note": "GeForce 600 series (Kepler - legacy driver)" }
+  ]
+}

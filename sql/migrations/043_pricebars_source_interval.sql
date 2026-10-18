@@ -1,0 +1,34 @@
+-- 043_pricebars_source_interval.sql
+-- RECORD THE INTERVAL A BAR WAS BUILT FROM (design doc §4.1 — the interval-provenance defect).
+--
+-- WHAT WAS WRONG. `capture.bankChartBars` mapped {900:'15m', 1800:'1h', 3600:'1h', 14400:'4h', 86400:'1d'}
+-- and FELL THROUGH to '1h' for anything else, so a 30-MINUTE chart was stored as "1h" with two 30m bars
+-- merged into each bucket — and nothing on the row said so. `tfMap` mapped BOTH 1800 and 3600 to '1h', so
+-- the stored `timeframe` ALONE cannot distinguish the two provenances, and neither can any consumer.
+--
+-- The larger half is not the mapping, it is the SOURCE: the capture's interval is whatever the last flow to
+-- navigate the tab left the chart on, and the chart profile is per-symbol — so two symbols in the SAME SWEEP
+-- can produce rows of different provenance under the same timeframe label. A series whose sampling interval
+-- silently changed mid-history is a series whose range statistics are not comparable bar to bar, and this
+-- engine's levels (protected swings, BOS, dealing range) are exactly those range statistics.
+--
+-- SEMANTICS: sourceIntervalSec = the sampling interval, IN SECONDS, of the series the row was built FROM.
+--   tick-built 1h (upsertHourlyBars) -> 3600, the SQL hour bucket            -> native for '1h'
+--   tick-built 1d (upsertDailyBars)  -> 3600, aggregated from 1h rows        -> NOT native for '1d'
+--   aggregated    (upsertAggBars)    -> the SOURCE timeframe's seconds       -> NOT native for the target
+--   chart capture (bankChartBars)    -> readChartBars' own `intervalSec`     -> native iff it matches
+--   backfilled klines (yw/binance/okx) -> the requested timeframe's seconds  -> native
+-- `native` is therefore DERIVABLE (`sourceIntervalSec === seconds(timeframe)`) rather than asserted.
+--
+-- NULL means UNKNOWN — the capture could not read the chart's interval at all (`layout.interval` was null).
+-- NULL is a RECORDED unknown, not a missing value, and the store enforces the difference: `sourceIntervalOf`
+-- THROWS when the key is absent, so a caller cannot forget to declare it, while an explicit `null` is
+-- accepted. That is the deleteOldTicks precedent (TRD-92) and TRD-111's "`undefined` is not `null`" rule,
+-- both of which exist because a silent substitution is indistinguishable from a real value downstream.
+--
+-- Rows written before this migration keep NULL, which is honest: their provenance was never recorded. The
+-- exposure is bounded by `upsertProviderBars`' windowed DELETE+reinsert, so chart rows re-declare themselves
+-- on the next capture.
+IF COL_LENGTH('PriceBars','sourceIntervalSec') IS NULL
+  ALTER TABLE PriceBars ADD sourceIntervalSec INT NULL;
+GO

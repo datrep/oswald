@@ -1,0 +1,42 @@
+{
+  "name": "oswald",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node scripts/smoke-test.js && node scripts/smoke-fileserver.js && node trading/scripts/smoke.js",
+    "test:unit": "node --test test/*.test.js",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "cleanup-resources": "node scripts/cleanup-resources.js",
+    "watch-ds": "node scripts/ds-watch.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "^2026.1.14",
+    "archiver": "^7.0.1",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "msnodesqlv8": "^5.2.3",
+    "mssql": "^11.0.1",
+    "multer": "^2.1.1",
+    "ping": "^0.4.0",
+    "selfsigned": "^5.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.3.0"
+  },
+  "description": "Policy & task management API with a static frontend (SQL Server)."
+}

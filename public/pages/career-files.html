@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon/android-chrome-192x192.png" />
+    <title>Career Files</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/main.css" />
+    <style>
+      /* Career-Files-specific styles only — generic components (btn/toolbar/card/chip/empty/feedback) come from main.css. */
+      .cf-file {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Navigation</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/index.html">Dashboard</a>
+              <a href="/pages/policy.html">Policy workspace</a>
+              <a href="https://localhost:8090" data-fileserver target="_blank" rel="noopener">Fileserver</a>
+            </div>
+          </section>
+          <section class="sidebar-block">
+            <h3 class="sidebar-section">Career</h3>
+            <div class="sidebar-panel sidebar-links">
+              <a href="/pages/jobs.html">Job Applications</a>
+              <a href="/pages/career-files.html">Career Files</a>
+              <a href="/pages/certs.html">Certificates</a>
+            </div>
+          </section>
+        </aside>
+        <main class="main">
+          <div class="topbar">
+            <div style="color: #7279db">Career Files</div>
+            <div class="topbar-right"><div id="auth-control"></div></div>
+          </div>
+          <div class="content">
+            <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb"></nav>
+            <div id="module-tabs"></div>
+            <div style="margin: 10px 0 4px">
+              <button type="button" class="back-link" id="cf-back">← Back</button>
+            </div>
+            <div id="cf-gate" class="hidden">
+              <h2>Sign in required</h2>
+              <p class="muted">Sign in to view and manage your career documents.</p>
+            </div>
+            <div id="cf-app" class="hidden">
+              <div class="toolbar">
+                <input type="file" id="cf-file" class="cf-file" />
+                <select id="cf-kind">
+                  <option value="resume">Resume</option>
+                  <option value="cert">Cert / Credential</option>
+                  <option value="other">Other</option>
+                </select>
+                <input type="text" id="cf-desc" placeholder="Description (optional)" style="flex:1;min-width:160px" />
+                <button type="button" id="cf-upload" class="btn btn--primary">Upload</button>
+                <span class="muted" id="cf-count"></span>
+              </div>
+              <div id="cf-list" class="card-grid"></div>
+              <div class="feedback" id="cf-status"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </header>
+    <script type="module" src="/js/pages/career-files.js"></script>
+    <script type="module" src="/js/components/auth.js"></script>
+  </body>
+</html>

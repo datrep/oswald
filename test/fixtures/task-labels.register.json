@@ -1,0 +1,1620 @@
+{
+ "capturedAt": "2026-09-24T09:11:57.688Z",
+ "note": "Captured from dbo.Tasks by scripts/refresh-task-label-fixture.js. Real strings, deliberately: a re-typed fixture cannot fail. Regenerate when the register changes materially.",
+ "total": 255,
+ "labelled": 208,
+ "unlabelled": 47,
+ "repeats": [
+  {
+   "label": "FS-1",
+   "count": 6,
+   "ids": [
+    41,
+    42,
+    43,
+    44,
+    45,
+    46
+   ],
+   "states": {
+    "3": 6
+   }
+  },
+  {
+   "label": "MOD-1",
+   "count": 19,
+   "ids": [
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110
+   ],
+   "states": {
+    "3": 19
+   }
+  },
+  {
+   "label": "MOD-2",
+   "count": 6,
+   "ids": [
+    81,
+    82,
+    93,
+    94,
+    111,
+    112
+   ],
+   "states": {
+    "3": 6
+   }
+  },
+  {
+   "label": "TRD-12",
+   "count": 11,
+   "ids": [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210
+   ],
+   "states": {
+    "1": 1,
+    "3": 10
+   }
+  }
+ ],
+ "rows": [
+  {
+   "id": 1,
+   "edictId": null,
+   "name": "Task One",
+   "state": 2
+  },
+  {
+   "id": 2,
+   "edictId": null,
+   "name": "Task Two",
+   "state": 1
+  },
+  {
+   "id": 5,
+   "edictId": 6,
+   "name": "todo list",
+   "state": 1
+  },
+  {
+   "id": 6,
+   "edictId": 7,
+   "name": "send photo",
+   "state": 1
+  },
+  {
+   "id": 14,
+   "edictId": 10,
+   "name": "certification stack",
+   "state": 1
+  },
+  {
+   "id": 15,
+   "edictId": 11,
+   "name": "",
+   "state": 1
+  },
+  {
+   "id": 16,
+   "edictId": 11,
+   "name": "https://www.mycareersfuture.gov.sg/job/information-technology?employmentType=Internship%2FAttachment&sortBy=relevancy&page=0",
+   "state": 1
+  },
+  {
+   "id": 17,
+   "edictId": 8,
+   "name": "your megafile u fuckin dingus",
+   "state": 1
+  },
+  {
+   "id": 22,
+   "edictId": 13,
+   "name": "ertt",
+   "state": 1
+  },
+  {
+   "id": 23,
+   "edictId": 17,
+   "name": "Reset script: add “list usernames” mode",
+   "state": 3
+  },
+  {
+   "id": 24,
+   "edictId": 17,
+   "name": "Create scripts/create-account.js for fresh users",
+   "state": 3
+  },
+  {
+   "id": 25,
+   "edictId": null,
+   "name": "Tasks: \"mark completed\" when selectnig a task.",
+   "state": 1
+  },
+  {
+   "id": 26,
+   "edictId": 17,
+   "name": "dragging of tasks, other data tables.",
+   "state": 3
+  },
+  {
+   "id": 27,
+   "edictId": null,
+   "name": "clicking on a task opens their taasks. ",
+   "state": 1
+  },
+  {
+   "id": 40,
+   "edictId": 18,
+   "name": "PREREQ: User access control & permissions",
+   "state": 3
+  },
+  {
+   "id": 41,
+   "edictId": 18,
+   "name": "FS-1: Local web UI — multi-root browsing",
+   "state": 3
+  },
+  {
+   "id": 42,
+   "edictId": 18,
+   "name": "FS-1: Full CRUD",
+   "state": 3
+  },
+  {
+   "id": 43,
+   "edictId": 18,
+   "name": "FS-1: Previews",
+   "state": 3
+  },
+  {
+   "id": 44,
+   "edictId": 18,
+   "name": "FS-1: Search, sorting & filtering",
+   "state": 3
+  },
+  {
+   "id": 45,
+   "edictId": 18,
+   "name": "FS-1: Image thumbnails",
+   "state": 3
+  },
+  {
+   "id": 46,
+   "edictId": 18,
+   "name": "FS-1: In-browser text editing",
+   "state": 3
+  },
+  {
+   "id": 47,
+   "edictId": 18,
+   "name": "FS-2: Network file share",
+   "state": 3
+  },
+  {
+   "id": 48,
+   "edictId": 18,
+   "name": "FS-3 (later): Sync/replica of a folder to another location",
+   "state": 3
+  },
+  {
+   "id": 49,
+   "edictId": 18,
+   "name": "ARCH: Separate service, same repo, containerized",
+   "state": 3
+  },
+  {
+   "id": 50,
+   "edictId": 18,
+   "name": "ARCH: Two modes — file server vs mirror, switchable at setup",
+   "state": 3
+  },
+  {
+   "id": 51,
+   "edictId": 18,
+   "name": "ARCH: Storage — local disk + DB metadata",
+   "state": 3
+  },
+  {
+   "id": 55,
+   "edictId": 17,
+   "name": "outdated README",
+   "state": 3
+  },
+  {
+   "id": 56,
+   "edictId": 17,
+   "name": "have resouces be able to pull from oswald's /resources",
+   "state": 3
+  },
+  {
+   "id": 57,
+   "edictId": 17,
+   "name": "task counter on policy workspace is broken",
+   "state": 3
+  },
+  {
+   "id": 58,
+   "edictId": 18,
+   "name": "internal logging (mirrored to OSWALD as seen on console, pulls API logs from BOTH OSWALD AND FILESERVER) ",
+   "state": 3
+  },
+  {
+   "id": 59,
+   "edictId": 17,
+   "name": "UAC regression: policy CRUD raw fetch (FIXED)",
+   "state": 3
+  },
+  {
+   "id": 60,
+   "edictId": 17,
+   "name": "https on oswald",
+   "state": 3
+  },
+  {
+   "id": 61,
+   "edictId": 17,
+   "name": "UAC admin page: users & permissions (DONE)",
+   "state": 3
+  },
+  {
+   "id": 64,
+   "edictId": 17,
+   "name": "BUG: dragging description text field with text exits task without pressing escape key.",
+   "state": 3
+  },
+  {
+   "id": 65,
+   "edictId": null,
+   "name": "have features that are archived not show up on the policy. toggle viewing on policy.html=id using best practice implmenetation",
+   "state": 1
+  },
+  {
+   "id": 67,
+   "edictId": 18,
+   "name": "FS GUI: runtime mode switch (drop to sync) (DONE)",
+   "state": 3
+  },
+  {
+   "id": 68,
+   "edictId": 18,
+   "name": "FS GUI: new file with type selector (DONE)",
+   "state": 3
+  },
+  {
+   "id": 69,
+   "edictId": 17,
+   "name": "Central config module for the dashboard",
+   "state": 3
+  },
+  {
+   "id": 70,
+   "edictId": 17,
+   "name": "Shared cert + auth util between dashboard and fileserver",
+   "state": 3
+  },
+  {
+   "id": 71,
+   "edictId": 17,
+   "name": "Rename experiments/mirrored fileserver.html (space in filename)",
+   "state": 3
+  },
+  {
+   "id": 72,
+   "edictId": 17,
+   "name": "Expand scripts/smoke-test.js into a regression suite",
+   "state": 3
+  },
+  {
+   "id": 73,
+   "edictId": 20,
+   "name": "PREREQ: Data model — job applications table (company, role, status, appliedAt, followUpAt, salary, location, link, notes, contact, resumePath)",
+   "state": 3
+  },
+  {
+   "id": 74,
+   "edictId": 20,
+   "name": "PREREQ: Decide module shape — separate service (like fileserver) vs dashboard page + API",
+   "state": 3
+  },
+  {
+   "id": 75,
+   "edictId": 20,
+   "name": "MOD-1: Job application CRUD — API + UI form (add / edit / delete)",
+   "state": 3
+  },
+  {
+   "id": 76,
+   "edictId": 20,
+   "name": "MOD-1: Pipeline board — kanban by status (applied → interview → offer → hired / rejected / withdrawn)",
+   "state": 3
+  },
+  {
+   "id": 77,
+   "edictId": 20,
+   "name": "MOD-1: Deadlines & follow-ups — overdue / due-today highlighting like the policy workspace",
+   "state": 3
+  },
+  {
+   "id": 78,
+   "edictId": 20,
+   "name": "MOD-1: Stats — applications per week, response rate, interview → offer rate",
+   "state": 3
+  },
+  {
+   "id": 79,
+   "edictId": 20,
+   "name": "MOD-1: Attachments — resumes / cover letters (reuse /resources or per-application files)",
+   "state": 3
+  },
+  {
+   "id": 80,
+   "edictId": 20,
+   "name": "MOD-1: Search / filter / sort (company, status, date applied)",
+   "state": 3
+  },
+  {
+   "id": 81,
+   "edictId": 20,
+   "name": "MOD-2: Notifications — surface upcoming follow-ups on the dashboard sidebar",
+   "state": 3
+  },
+  {
+   "id": 82,
+   "edictId": 20,
+   "name": "MOD-2: Link with the existing \"Job\" policy (11) — show application status beside policy tasks",
+   "state": 3
+  },
+  {
+   "id": 83,
+   "edictId": 20,
+   "name": "ARCH: Access control — per-user data scoping (owner-only applications)",
+   "state": 3
+  },
+  {
+   "id": 84,
+   "edictId": 20,
+   "name": "ARCH: Tags + per-application notes / contacts",
+   "state": 3
+  },
+  {
+   "id": 85,
+   "edictId": 21,
+   "name": "PREREQ: Data model — certifications table (name, issuer, status, startAt, obtainedAt, expiryAt, renewalCost, score, credentialUrl, notes)",
+   "state": 3
+  },
+  {
+   "id": 86,
+   "edictId": 21,
+   "name": "PREREQ: Decide module shape — separate service vs dashboard page + API",
+   "state": 3
+  },
+  {
+   "id": 87,
+   "edictId": 21,
+   "name": "MOD-1: Certification CRUD — API + UI form (add / edit / delete)",
+   "state": 3
+  },
+  {
+   "id": 88,
+   "edictId": 21,
+   "name": "MOD-1: Status board — planned / in-progress / obtained / expired",
+   "state": 3
+  },
+  {
+   "id": 89,
+   "edictId": 21,
+   "name": "MOD-1: Expiry & renewal alerts — highlight expiring soon / expired",
+   "state": 3
+  },
+  {
+   "id": 90,
+   "edictId": 21,
+   "name": "MOD-1: Stats — obtained count, in-progress, expiring within 90 days",
+   "state": 3
+  },
+  {
+   "id": 91,
+   "edictId": 21,
+   "name": "MOD-1: Study-material links — attach resources from /resources",
+   "state": 3
+  },
+  {
+   "id": 92,
+   "edictId": 21,
+   "name": "MOD-1: Search / filter / sort (issuer, status, expiry date)",
+   "state": 3
+  },
+  {
+   "id": 93,
+   "edictId": 21,
+   "name": "MOD-2: Notifications — renewal reminders on the dashboard sidebar",
+   "state": 3
+  },
+  {
+   "id": 94,
+   "edictId": 21,
+   "name": "MOD-2: Link with the existing \"Certificates\" policy (10)",
+   "state": 3
+  },
+  {
+   "id": 95,
+   "edictId": 21,
+   "name": "ARCH: Access control — per-user data scoping (owner-only certifications)",
+   "state": 3
+  },
+  {
+   "id": 96,
+   "edictId": 18,
+   "name": "TODO: Log viewer UI — read-only page in Oswald to browse ApiLogs (GET /api/logs exists; build the console UI to view dashboard + fileserver traffic)",
+   "state": 3
+  },
+  {
+   "id": 101,
+   "edictId": 20,
+   "name": "PREREQ: Data model — job_applications table (owner userID, company, role, source, jobUrl, status, appliedAt, followUpAt, salary, location, notes, contact, resumePath, tags)",
+   "state": 3
+  },
+  {
+   "id": 102,
+   "edictId": 20,
+   "name": "PREREQ: Module-attachment framework — policies get a \"+ Add module\" (registry); panels render in the policy workspace",
+   "state": 3
+  },
+  {
+   "id": 103,
+   "edictId": 20,
+   "name": "PREREQ: Career Files module — resume/certs store backed by a dedicated folder (e.g. /resources/career)",
+   "state": 3
+  },
+  {
+   "id": 104,
+   "edictId": 20,
+   "name": "MOD-1: Job application CRUD — API + UI form (add / edit / delete, status moves)",
+   "state": 3
+  },
+  {
+   "id": 105,
+   "edictId": 20,
+   "name": "MOD-1: Pipeline board — kanban by status: Applied → Screening → Assessment → Interview → Offer → Hired / Rejected / Withdrawn",
+   "state": 3
+  },
+  {
+   "id": 106,
+   "edictId": 20,
+   "name": "MOD-1: Deadlines & follow-ups — overdue / due-today highlighting like the policy workspace",
+   "state": 3
+  },
+  {
+   "id": 107,
+   "edictId": 20,
+   "name": "MOD-1: Stats — applications per week, response rate, funnel (screening → interview → offer)",
+   "state": 3
+  },
+  {
+   "id": 108,
+   "edictId": 20,
+   "name": "MOD-1: Source sites — MyCareersFuture / JobStreet / InternSG / Other + job URL; per-site filter + quick-open buttons",
+   "state": 3
+  },
+  {
+   "id": 109,
+   "edictId": 20,
+   "name": "MOD-1: Attachments — link a resume / cover letter from the Career Files module",
+   "state": 3
+  },
+  {
+   "id": 110,
+   "edictId": 20,
+   "name": "MOD-1: Search / filter / sort (company, status, source, date applied)",
+   "state": 3
+  },
+  {
+   "id": 111,
+   "edictId": 20,
+   "name": "MOD-2: Notifications — surface upcoming follow-ups on the dashboard sidebar",
+   "state": 3
+  },
+  {
+   "id": 112,
+   "edictId": 20,
+   "name": "MOD-2: Link with the existing \"Job\" policy (11)",
+   "state": 3
+  },
+  {
+   "id": 113,
+   "edictId": 20,
+   "name": "ARCH: Access control — per-user data scoping (owner-only applications + files)",
+   "state": 3
+  },
+  {
+   "id": 114,
+   "edictId": 20,
+   "name": "ARCH: Tags + per-application notes / contacts",
+   "state": 3
+  },
+  {
+   "id": 121,
+   "edictId": 17,
+   "name": "UIC-1: Component library — shared CSS layer (btn/toolbar/card/chip/stats/empty/form/modal + one semantic status color map)",
+   "state": 3
+  },
+  {
+   "id": 122,
+   "edictId": 17,
+   "name": "UIC-2: Jobs page — refactor onto shared components (kanban kept, status chips standardized)",
+   "state": 3
+  },
+  {
+   "id": 123,
+   "edictId": 17,
+   "name": "UIC-3: Career Files page — refactor onto shared components + shared card",
+   "state": 3
+  },
+  {
+   "id": 124,
+   "edictId": 17,
+   "name": "UIC-4: Certificates page — refactor onto shared components + shared card",
+   "state": 3
+  },
+  {
+   "id": 125,
+   "edictId": 17,
+   "name": "UIC-5: Sidebar nav — add Career module section (module + admin + dashboard pages)",
+   "state": 3
+  },
+  {
+   "id": 126,
+   "edictId": 17,
+   "name": "NAV-1: Breadcrumb — Dashboard › Modules › page nav across policies, certs, jobs, new policy, users+permissions, logs (deferred)",
+   "state": 3
+  },
+  {
+   "id": 128,
+   "edictId": 17,
+   "name": "UTC-1: Dates — convert Edicts/Tasks timestamps from GETDATE to GETUTCDATE (fixes the +8h display bug; mirrors migration 009 for ApiLogs)",
+   "state": 3
+  },
+  {
+   "id": 129,
+   "edictId": 17,
+   "name": "SCH-1: Schema — sync sql/schema/DB_init_table.sql with migrations 004-014 (RBAC, fileserver metadata, ApiLogs, module tables, UAC columns, Services)",
+   "state": 3
+  },
+  {
+   "id": 130,
+   "edictId": 17,
+   "name": "CLN-1: Cleanup — detach leftover career_files + jobs modules from roadmap policy 21 (real modules live on policies 10 + 11)",
+   "state": 3
+  },
+  {
+   "id": 133,
+   "edictId": 17,
+   "name": "UAC-1: Session control",
+   "state": 3
+  },
+  {
+   "id": 134,
+   "edictId": 17,
+   "name": "UAC-2: Users page CRUD",
+   "state": 3
+  },
+  {
+   "id": 135,
+   "edictId": 17,
+   "name": "UAC-3: Role manager",
+   "state": 3
+  },
+  {
+   "id": 139,
+   "edictId": 17,
+   "name": "UAC-4: Login activity — UserSessions (migration 015), last login + device columns on users.html, per-user session history; UAC dashboard polish (contained panel scroll, color-coded stats, checkbox/modal alignment)",
+   "state": 3
+  },
+  {
+   "id": 140,
+   "edictId": 18,
+   "name": "SYNC-1: Sync area — writable tester root + push/collect directions (Phase A: tester drops over HTTPS, admin Collect into resources / Push working copy). DONE",
+   "state": 3
+  },
+  {
+   "id": 141,
+   "edictId": 18,
+   "name": "SYNC-2: Bidirectional remote sync client (MEGA-like) — Node CLI agent over ZeroTier HTTPS; manifest-diff, last-write-wins + .conflict copies, safe-delete, optional --watch; Electron GUI deferred",
+   "state": 3
+  },
+  {
+   "id": 144,
+   "edictId": 17,
+   "name": "UAC-5: \"Who is logged in\" - user chip (initials+username+role) in Oswald topbar-right + fileserver topbar (before Sign out), merged with auth control for readability; plus compact active-sessions view (recent UserSessions.loggedInAt)",
+   "state": 3
+  },
+  {
+   "id": 145,
+   "edictId": 18,
+   "name": "FS-4: File data modal - clicking a file / grid card opens a popup with metadata (size, modified, kind, tags, path) + quick actions (download/edit/rename/move/delete)",
+   "state": 3
+  },
+  {
+   "id": 146,
+   "edictId": 18,
+   "name": "FS-OPS-1: Investigate two fileservers running - duplicate node processes / native + Docker both on :8090 causing file discrepancies; reconcile to a single instance",
+   "state": 3
+  },
+  {
+   "id": 154,
+   "edictId": 51,
+   "name": "LST-1: Data model — migration for Listings / ListingParts / PartPrices / InventoryItems / LedgerEntries / ListingComps / CostSettings / Lookups / GpuUpgrades",
+   "state": 3
+  },
+  {
+   "id": 155,
+   "edictId": 51,
+   "name": "LST-2: Service skeleton — self-contained listings/ service (auth, health, serverManager registration)",
+   "state": 3
+  },
+  {
+   "id": 156,
+   "edictId": 51,
+   "name": "LST-3: Excel import — import-xlsm.js seeds all tables from the .xlsm",
+   "state": 3
+  },
+  {
+   "id": 157,
+   "edictId": 51,
+   "name": "LST-4: API — CRUD + profit calc + global recalc + lookups",
+   "state": 3
+  },
+  {
+   "id": 158,
+   "edictId": 51,
+   "name": "LST-5: UI — listings / inventory / prices / ledger / comps / settings tabs",
+   "state": 3
+  },
+  {
+   "id": 159,
+   "edictId": 51,
+   "name": "LST-6: Carousell — paste parser + own-listing ingestion + copy-ready output",
+   "state": 3
+  },
+  {
+   "id": 160,
+   "edictId": 52,
+   "name": "TRD-0: Trading Agent — Phase 0 foundation (migration 024, trading/ service skeleton, serverManager registration, /api/trading/ping 3-check, LibreWolf/Chromium browser spike)",
+   "state": 3
+  },
+  {
+   "id": 161,
+   "edictId": 52,
+   "name": "TRD-1: Trading Agent — AI core (DeepSeek chair adapter + deterministic quant/risk modules + aggregator with risk veto + waker with MarketSessionGuard + sliding context window + fail-secure JSON parsing)",
+   "state": 3
+  },
+  {
+   "id": 162,
+   "edictId": 52,
+   "name": "TRD-2: Trading Agent — Plus500 bridge read-only (LibreWolf BiDi / Chromium CDP automation, text/aria selectors + SELECTOR_MAP hot-patch, selector health check + UI fallback pause, tick capture, economic calendar import)",
+   "state": 3
+  },
+  {
+   "id": 163,
+   "edictId": 52,
+   "name": "TRD-3: Trading Agent — Executor + safety (core trade actions, DEMO-only guard, two-tier kill switch with -8% disaster floor, phantom-fill reconciliation, caps + circuit breaker)",
+   "state": 3
+  },
+  {
+   "id": 164,
+   "edictId": 52,
+   "name": "TRD-4: Trading Agent — Persistence + trading dashboard UI (wake log prompts->decisions, trades ledger, alerts, kill switch + Resume button, tick retention 7d + PriceBars)",
+   "state": 3
+  },
+  {
+   "id": 165,
+   "edictId": 52,
+   "name": "TRD-5: Trading Agent — Market data providers (Binance/OKX public REST behind provider abstraction, snapshotAll uniform timestamps, 60s staleness gate)",
+   "state": 3
+  },
+  {
+   "id": 166,
+   "edictId": 52,
+   "name": "TRD-6: Trading Agent — Backtester + Turtle Ultimate + dual worksheets (CFD cost model: swap/spread/slippage, ex-dividend normalize, Spot-Baseline vs CFD-Estimated, provenance)",
+   "state": 3
+  },
+  {
+   "id": 167,
+   "edictId": 52,
+   "name": "TRD-7: Trading Agent — Deferred (Meta Ultimate shadow mode, research templates, equities + A-share multi-factor, Plus500 internal API passive observation)",
+   "state": 1
+  },
+  {
+   "id": 168,
+   "edictId": 52,
+   "name": "TRD-8: Trading Agent — Hardening + zombie watchdog (human-like pacing, Telegram alerts on login-death, autoStart opt-in, README + smoke suite)",
+   "state": 3
+  },
+  {
+   "id": 180,
+   "edictId": 52,
+   "name": "TRD-9: Trading Agent — Open data + data quality (Yahoo provider + full symbol map + 4h aggregation + backfill-all/coverage + backtest ranges 1w/1m/1y + refresh toggle + consistency panel)",
+   "state": 3
+  },
+  {
+   "id": 184,
+   "edictId": 52,
+   "name": "TRD-10: Trading Agent — Strategy registry + Meta Ultimate shadow + equities multi-factor (turtle/ADX configurable params, shadow verdict per wake, daily-bars momentum+trend+vol+P/E+ROE ranking, Strategy tab editor)",
+   "state": 3
+  },
+  {
+   "id": 186,
+   "edictId": 52,
+   "name": "TRD-11: Trading Agent — Market pulse narrative + central AI (thinking ON) + paper-trading mode (user addendum: why-the-market-moving model feeding deliberation; separate paper broker option)",
+   "state": 3
+  },
+  {
+   "id": 200,
+   "edictId": 52,
+   "name": "TRD-12: Learning loop — post-trade autopsy (entry vs indicators, MFE/MAE, holding time, slippage + optional LLM write-up, \"Why\" panel in Trades)",
+   "state": 3
+  },
+  {
+   "id": 201,
+   "edictId": 52,
+   "name": "TRD-12: Analytics — equity curve card + per-strategy performance (win rate, profit factor, drift detection)",
+   "state": 3
+  },
+  {
+   "id": 202,
+   "edictId": 52,
+   "name": "TRD-12: Risk — daily-loss halt + trailing high-water kill baseline + portfolio exposure budget enforcement",
+   "state": 3
+  },
+  {
+   "id": 203,
+   "edictId": 52,
+   "name": "TRD-12: Backtest — walk-forward mode + Monte Carlo on sweeps + buy-and-hold benchmark",
+   "state": 3
+  },
+  {
+   "id": 204,
+   "edictId": 52,
+   "name": "TRD-12: Orders — venue-native stop/take-profit orders (stops live on Plus500, not only the DB)",
+   "state": 3
+  },
+  {
+   "id": 205,
+   "edictId": 52,
+   "name": "TRD-12: Data — data-quality scoring pipeline (bar/tick validation, staleness SLAs, bad-tick quarantine)",
+   "state": 3
+  },
+  {
+   "id": 206,
+   "edictId": 52,
+   "name": "TRD-12: Connector — venue abstraction (quotes/orders/positions interface; Chrome bridge as one implementation)",
+   "state": 3
+  },
+  {
+   "id": 207,
+   "edictId": 52,
+   "name": "TRD-12: Budget — daily LLM token spend cap + loud Telegram alert",
+   "state": 3
+  },
+  {
+   "id": 208,
+   "edictId": 52,
+   "name": "TRD-12: Strategy — multi-factor liveSignal (let \"multi\" actually trade, gated + sized)",
+   "state": 3
+  },
+  {
+   "id": 209,
+   "edictId": 52,
+   "name": "TRD-12: Sim — paper gap realism (overnight/weekend gaps, fill latency, divergence monitor vs demo)",
+   "state": 3
+  },
+  {
+   "id": 210,
+   "edictId": 52,
+   "name": "TRD-12: Nav — link-first Plus500 navigation (discover href map every 10m, navigate by URL instead of button clicks)",
+   "state": 1
+  },
+  {
+   "id": 266,
+   "edictId": 52,
+   "name": "TRD-25: Cost-basis erratum - fix CFD worksheet double-count in backtest.js + calibrate per-instrument spreads/slippage from venue telemetry",
+   "state": 3
+  },
+  {
+   "id": 267,
+   "edictId": 52,
+   "name": "TRD-26: Fresh-data validation - turtle survivors (Gold dc20 gate-off; Oil dc5 gate-off/gate-20) via the Section 14 gate",
+   "state": 1
+  },
+  {
+   "id": 268,
+   "edictId": 52,
+   "name": "TRD-27: Daily deep repull - delete + re-pull yahoo 1d bars (unblock experiment C, daily-bar variant)",
+   "state": 3
+  },
+  {
+   "id": 269,
+   "edictId": 52,
+   "name": "TRD-28: Daily-bar lab round (rule L) - frozen trend family on the 10y yahoo 1d series (breadth-powered, confirmatory)",
+   "state": 1
+  },
+  {
+   "id": 271,
+   "edictId": 52,
+   "name": "TRD-29: Demo-forward - plus500 demo runs the two frozen survivors (survgold/survoil)",
+   "state": 2
+  },
+  {
+   "id": 1271,
+   "edictId": 52,
+   "name": "TRD-30: Risk sizing — the notional cap is the real risk control, not riskPerTradePct",
+   "state": 3
+  },
+  {
+   "id": 1272,
+   "edictId": 52,
+   "name": "TRD-31: Capture metric — MFE/MAE was inverted for shorts, ran past the close, and under-sampled the peak",
+   "state": 3
+  },
+  {
+   "id": 1273,
+   "edictId": 52,
+   "name": "TRD-32: Exit policy — follow-through time-stop + holding-time cap (rule L pre-registration)",
+   "state": 1
+  },
+  {
+   "id": 1274,
+   "edictId": 52,
+   "name": "TRD-33: Trailing anchor — peak/trough were seeded from pre-entry bars, closing positions on phantom stops",
+   "state": 3
+  },
+  {
+   "id": 1275,
+   "edictId": 52,
+   "name": "TRD-34: Parity gate — full-size live trading was released by a manual flag, not by the parity harness",
+   "state": 3
+  },
+  {
+   "id": 1276,
+   "edictId": 52,
+   "name": "TRD-35: Reconciliation test — live and backtest must agree on the same bars, and fail when they do not",
+   "state": 3
+  },
+  {
+   "id": 1277,
+   "edictId": 52,
+   "name": "TRD-36: chgPct horizon — a 120-bar lookback was labelled as a 5-minute move and justified two exits",
+   "state": 3
+  },
+  {
+   "id": 1278,
+   "edictId": 52,
+   "name": "TRD-37: Venue levels — arithmetic exact, but anchored to the DECISION price so realised R:R ranged 0.979-2.138",
+   "state": 3
+  },
+  {
+   "id": 1279,
+   "edictId": 52,
+   "name": "TRD-38: Exit-policy counterfactual — every short-horizon rule is worse, which contradicts A1 as written",
+   "state": 1
+  },
+  {
+   "id": 1280,
+   "edictId": 52,
+   "name": "TRD-39: Evidence thresholds — 20/10/50 were chosen, not derived; the parity rule fires on noise 17% of the time",
+   "state": 3
+  },
+  {
+   "id": 1281,
+   "edictId": 52,
+   "name": "TRD-40: Failures must be audible — the desk was down 9h silently, and the kill state blocks trading invisibly",
+   "state": 3
+  },
+  {
+   "id": 1282,
+   "edictId": 52,
+   "name": "TRD-41: Make the learning loop actually run — parity bucket exemption, restore criteria, then enable the tuner",
+   "state": 3
+  },
+  {
+   "id": 1283,
+   "edictId": 52,
+   "name": "TRD-42: Order reject rate — 41% of recorded attempts fail against a <10% criterion",
+   "state": 3
+  },
+  {
+   "id": 1285,
+   "edictId": 52,
+   "name": "TRD-43: 11 of 25 closed trades have no stopPrice - they are invisible to every risk metric",
+   "state": 3
+  },
+  {
+   "id": 1286,
+   "edictId": 52,
+   "name": "TRD-44: Parity reference join is broken - the enabled strategies have no BacktestRuns row",
+   "state": 3
+  },
+  {
+   "id": 1287,
+   "edictId": 52,
+   "name": "TRD-45: Plus500 instrument mirror - the venue universe with contract metadata (lot/min/step/leverage/spread)",
+   "state": 1
+  },
+  {
+   "id": 1288,
+   "edictId": 52,
+   "name": "TRD-46: Memory leak - the automation Chrome grows to ~5GB in a single Plus500 tab",
+   "state": 3
+  },
+  {
+   "id": 1289,
+   "edictId": 52,
+   "name": "TRD-47: The watchdog navigates the shared bridge tab every 5 min with no pageLock and no kill awareness",
+   "state": 3
+  },
+  {
+   "id": 1290,
+   "edictId": 52,
+   "name": "TRD-48: an ambiguous OPEN failure leaves an unverified orphan - the forced reconcile is wired only into closeTrade",
+   "state": 3
+  },
+  {
+   "id": 1291,
+   "edictId": 52,
+   "name": "TRD-49: Swap nights are counted at UTC midnight, but the venue bills at its own funding clock time (05:00) - every swap charge is wrong for holds that straddle one and not the other",
+   "state": 3
+  },
+  {
+   "id": 1292,
+   "edictId": 52,
+   "name": "TRD-50: Only Gold has a spot row in the instrument registry -- the other 12 watchlist symbols still carry the flat placeholder rate and the legacy midnight clock",
+   "state": 3
+  },
+  {
+   "id": 1293,
+   "edictId": 52,
+   "name": "TRD-51: A failed wake is invisible - it writes no prompt row, so the wake list renders an outage as silence, and the watchdog staleness clock is reset by the very failures it exists to report",
+   "state": 3
+  },
+  {
+   "id": 1294,
+   "edictId": 52,
+   "name": "TRD-52: The desk can submit an order into a CLOSED market and then records the unconfirmed outcome as \"rejected\" - the venue queues it, fills it at the session open hours later, and the desk no longer recognises it",
+   "state": 3
+  },
+  {
+   "id": 1295,
+   "edictId": 52,
+   "name": "TRD-53: The desk captures no venue ticket id at submit, so recovering its own queued order is a heuristic (symbol + direction + size) rather than a certainty",
+   "state": 3
+  },
+  {
+   "id": 1296,
+   "edictId": 52,
+   "name": "TRD-54: DB_Oswald has AUTO_CLOSE on, so every service restart cold-starts the database - 13 full recoveries in 25 hours, and any query arriving in that window can time out",
+   "state": 3
+  },
+  {
+   "id": 1297,
+   "edictId": 52,
+   "name": "TRD-55: The committee was convened on wakes with NO proposal, so every chair vote was a foreordained no - 44% of the LLM input bill for a decision already in the contract",
+   "state": 3
+  },
+  {
+   "id": 1298,
+   "edictId": 52,
+   "name": "TRD-56: The flat/signal reason text reports strategies that have NO scope for that symbol, and it rides into every chair bundle - the owner read the desk panel and concluded the desk trades MACD",
+   "state": 3
+  },
+  {
+   "id": 1299,
+   "edictId": 52,
+   "name": "TRD-SHW-1: Shadow signals - the ShadowSignals ledger and the forward-only recorder",
+   "state": 3
+  },
+  {
+   "id": 1300,
+   "edictId": 52,
+   "name": "TRD-SHW-2: Shadow signals - the forward scorer, and baselines A, B and C",
+   "state": 3
+  },
+  {
+   "id": 1301,
+   "edictId": 52,
+   "name": "TRD-BYP-1: Chair economy - the veto IS worth money, and the bypass trigger cannot be derived. Step 2 is REFUTED, not merely blocked",
+   "state": 3
+  },
+  {
+   "id": 1302,
+   "edictId": 52,
+   "name": "TRD-SHW-3: Shadow signals - the pre-registered promotion gate and the report",
+   "state": 1
+  },
+  {
+   "id": 1303,
+   "edictId": 52,
+   "name": "TRD-BYP-2: Chair economy - the strong-setup bypass rule. CLOSED UNBUILT - BYP-1 refuted the premise",
+   "state": 3
+  },
+  {
+   "id": 1304,
+   "edictId": 52,
+   "name": "TRD-BYP-3: Chair economy - the bypass scorecard and auto-disable. CLOSED UNBUILT - follows BYP-2",
+   "state": 3
+  },
+  {
+   "id": 1305,
+   "edictId": 52,
+   "name": "TRD-VET-1: A chair no is a vote, not a veto - the blend lets a unanimous panel outvote 2 of 3 dissenting chairs, so the committee only blocks on UNANIMITY",
+   "state": 3
+  },
+  {
+   "id": 1306,
+   "edictId": 52,
+   "name": "TRD-PRC-1: The deliberation bundle contradicts itself on price - 5 of 7 overruled chair dissents were cross-source conflicts the blend discarded",
+   "state": 3
+  },
+  {
+   "id": 1307,
+   "edictId": 52,
+   "name": "TRD-62: The UI Fallback Pause deadlocked the tick capture - the health gate blocked the very navigation that repaires the page",
+   "state": 3
+  },
+  {
+   "id": 1308,
+   "edictId": 52,
+   "name": "TRD-63: assertDemo searched only the first 5000 chars of body text - a content-rich page read as NOT a demo account and blocked capture AND every order",
+   "state": 3
+  },
+  {
+   "id": 1309,
+   "edictId": 52,
+   "name": "TRD-64: The calendar reading overrode the venue own market-closed banner, so a CLOSED-market spread could become a cost constant",
+   "state": 3
+  },
+  {
+   "id": 1310,
+   "edictId": 52,
+   "name": "TRD-65: The UI Fallback Pause latch survives recovery - entries stay blocked with consecutiveFails back at 0 and no page to say so",
+   "state": 3
+  },
+  {
+   "id": 1311,
+   "edictId": 52,
+   "name": "TRD-66: Batch per-symbol navigation blanks the shared page - after ~6 symbols assertDemo reads 0 chars of body text",
+   "state": 3
+  },
+  {
+   "id": 1312,
+   "edictId": 52,
+   "name": "TRD-67: Tick staleness is graded warn, so a 2h26m dead feed never paged",
+   "state": 3
+  },
+  {
+   "id": 1313,
+   "edictId": 52,
+   "name": "TRD-68: Navigation and chart-bar gaps leave symbols on the watchlist with no registry row and no fresh signal series - and both failures are reported as success",
+   "state": 3
+  },
+  {
+   "id": 1314,
+   "edictId": 52,
+   "name": "TRD-69: Cross-venue prices are not comparable - yahoo Gold is a DIFFERENT instrument, and the desk would have traded on it",
+   "state": 3
+  },
+  {
+   "id": 1315,
+   "edictId": 52,
+   "name": "TRD-70: The live demo strip never updated every second - the loop was 1s PLUS two page reads, and a rejected sample froze the number silently",
+   "state": 3
+  },
+  {
+   "id": 1316,
+   "edictId": 52,
+   "name": "TRD-71: There is no live-eligibility gate - a strategy lab verdict is computed and then read by nothing",
+   "state": 1
+  },
+  {
+   "id": 1317,
+   "edictId": 52,
+   "name": "TRD-72: 68% of every chair bundle is telemetry no strategy can act on - 2,412 tokens per wake, measured",
+   "state": 3
+  },
+  {
+   "id": 1318,
+   "edictId": 52,
+   "name": "TRD-73: Let the AI choose which telemetry each instrument needs - design, with the determinism and shadow-instrument traps stated",
+   "state": 3
+  },
+  {
+   "id": 1319,
+   "edictId": 52,
+   "name": "TRD-74: Strategy lab — retest verdict is never persisted, so a gate would read nothing",
+   "state": 3
+  },
+  {
+   "id": 1320,
+   "edictId": 52,
+   "name": "TRD-75: Strategy scope — the instrument/strategy binding should be AI-selected per instrument, not a global enable list",
+   "state": 3
+  },
+  {
+   "id": 1321,
+   "edictId": 52,
+   "name": "TRD-76: Physical telemetry — 7 of 8 declared commodity sources have no adapter, so the reviewer can only ask for them",
+   "state": 3
+  },
+  {
+   "id": 1322,
+   "edictId": 52,
+   "name": "TRD-77: The budget meter ran blind for four days and nothing noticed — a control that fails silently needs a detector",
+   "state": 3
+  },
+  {
+   "id": 1323,
+   "edictId": 52,
+   "name": "TRD-78: Wake bundle — the 3-chair fan-out re-sends an effectively uncacheable 8k bundle, so the same ~5.3k tokens are paid three times per wake",
+   "state": 3
+  },
+  {
+   "id": 1324,
+   "edictId": 52,
+   "name": "TRD-79: Venue admission — only 12 symbols have a cost basis, so the substitute-venue gate can never admit anyone for the other ~90",
+   "state": 3
+  },
+  {
+   "id": 1325,
+   "edictId": 52,
+   "name": "TRD-80: Parity gate - parityValidated is desk-wide while its evidence is per-strategy, so survgold hands survoil full size 89 weeks before survoil has any",
+   "state": 3
+  },
+  {
+   "id": 1326,
+   "edictId": 52,
+   "name": "TRD-81: Wake loop - the poll clears its own timer before awaiting the settings read, so one rejected read stops the desk waking for good while every other loop and /healthz keep reporting healthy",
+   "state": 3
+  },
+  {
+   "id": 1327,
+   "edictId": 52,
+   "name": "TRD-82: Wake steps have no deadline - capture held the shared bridge for 109.7s, 100x every other step, and hangs indefinitely when the page maps to no instruments, which stranded the wake loop",
+   "state": 3
+  },
+  {
+   "id": 1328,
+   "edictId": 52,
+   "name": "TRD-83: capture takes ~110s (100x every other wake step) and can hang forever when the page maps to no instruments - find out why, and whether the connector path and POST /capture are even the same code",
+   "state": 3
+  },
+  {
+   "id": 1329,
+   "edictId": 52,
+   "name": "TRD-84: The binding reviewer costs ~14k tokens per proposal against a 45k/day cap - the cap was set before the real per-call cost was known, and a 3x boost is currently the only reason it runs",
+   "state": 3
+  },
+  {
+   "id": 1330,
+   "edictId": 52,
+   "name": "TRD-85: The reviewer is asked which pairs should be in scope while only ever being shown the pairs that ALREADY are - its evidence is built from the in-scope list, so for an unscoped symbol it receives nothing at all",
+   "state": 3
+  },
+  {
+   "id": 1331,
+   "edictId": 52,
+   "name": "TRD-86: Ask the reviewer for a HYPOTHESIS and the data that would falsify it, then route it through the lab - the middle step that turns wantsPhysical into something testable, without letting an AI-authored rule trade",
+   "state": 1
+  },
+  {
+   "id": 1333,
+   "edictId": 52,
+   "name": "TRD-UI-1: Dashboard routing — expose the three human routes, declare the rest script-only",
+   "state": 3
+  },
+  {
+   "id": 1334,
+   "edictId": 52,
+   "name": "TRD-UI-2: State consistency — one source of truth per fact",
+   "state": 3
+  },
+  {
+   "id": 1335,
+   "edictId": 52,
+   "name": "TRD-UI-3: Read-only knowledge surfaces",
+   "state": 3
+  },
+  {
+   "id": 1336,
+   "edictId": 52,
+   "name": "TRD-UI-4: Layout — the fold and the narration column",
+   "state": 3
+  },
+  {
+   "id": 1337,
+   "edictId": 52,
+   "name": "TRD-UI-5: The manual accessibility pass, and what it can pin",
+   "state": 1
+  },
+  {
+   "id": 1338,
+   "edictId": 52,
+   "name": "TRD-87: Task closure — a closed task is not evidence its defect is gone",
+   "state": 1
+  },
+  {
+   "id": 1339,
+   "edictId": 52,
+   "name": "TRD-88: Performance stats read a lower-bounded excursion metric - mfePct and maePct come from the tick capture, and PriceTicks holds two instruments under Gold",
+   "state": 3
+  },
+  {
+   "id": 1340,
+   "edictId": 52,
+   "name": "TRD-89: A mean-reversion entry paired with a trend-following exit - rsi2 shorts overbought into an uptrend and the LLM review closes it within minutes, thirteen times",
+   "state": 3
+  },
+  {
+   "id": 1341,
+   "edictId": 52,
+   "name": "TRD-90: Pre-registration - the give-back rule (close at the next wake once a position has been 1R in favour)",
+   "state": 3
+  },
+  {
+   "id": 1342,
+   "edictId": 52,
+   "name": "TRD-91: The enabled list is not a master switch - an explicit symbolScope entry overrides it, and every symbol has one",
+   "state": 3
+  },
+  {
+   "id": 1343,
+   "edictId": 52,
+   "name": "TRD-92: Tick retention is 7 days, so no counterfactual study can be reproduced once its paths age out",
+   "state": 3
+  },
+  {
+   "id": 1344,
+   "edictId": 52,
+   "name": "TRD-93: The smoke suite drives the live kill switch - a failed run can leave the real desk latched HARD",
+   "state": 3
+  },
+  {
+   "id": 1345,
+   "edictId": 52,
+   "name": "TRD-94: The chair sub-cap is spent by the entries it exists to gate - 53 calls exhausted 500,000 tokens by 07:02Z, so the desk entered quant-only for the rest of the day",
+   "state": 3
+  },
+  {
+   "id": 1346,
+   "edictId": 52,
+   "name": "TRD-95: A position review records the symbol but not the position - 941 review events carry no tradeId, so no verdict can be attributed to the trade it judged",
+   "state": 3
+  },
+  {
+   "id": 1347,
+   "edictId": 52,
+   "name": "TRD-96: A budget consumer with no per-consumer cap renders as 0 percent used - shadow and binding are uncapped and look like the safest rows in the table",
+   "state": 3
+  },
+  {
+   "id": 1348,
+   "edictId": 52,
+   "name": "TRD-97: A notional cap is price-dependent and a risk cap is not - the desk risked 2.4x more on the symbol with the NEGATIVE edge, and riskPerTradePct was true of neither",
+   "state": 3
+  },
+  {
+   "id": 1349,
+   "edictId": 52,
+   "name": "TRD-98: The stop sat 12x wider than the adverse excursion a winner ever takes - capping it is the only lever that moves the payoff ratio, and it needed a cost floor",
+   "state": 3
+  },
+  {
+   "id": 1350,
+   "edictId": 52,
+   "name": "TRD-99: rsi2 lost 28.82 and the venue round trip alone was 48.98 - its whole favourable excursion was 6.6x smaller than the cost of trading it",
+   "state": 3
+  },
+  {
+   "id": 1351,
+   "edictId": 52,
+   "name": "TRD-100: survoil is the only GROSS-NEGATIVE line and it is still trading - stop its entries or accept that the Oil forward track is losing money by design",
+   "state": 3
+  },
+  {
+   "id": 1352,
+   "edictId": 52,
+   "name": "TRD-101: PriceTicks keeps FOUR venues per symbol that disagree by more than a percent at the same instant - a path study that does not pin the venue measures the spread between venues, not the trade",
+   "state": 3
+  },
+  {
+   "id": 1353,
+   "edictId": 52,
+   "name": "TRD-102: The risk cap was applied to a stop the position would never use - a 0.25% label meant 0.026% of equity at the venue, and the error was per symbol",
+   "state": 3
+  },
+  {
+   "id": 1354,
+   "edictId": 52,
+   "name": "TRD-103: The scope WIDENER re-added rsi2 to Bitcoin 12 minutes after a human retired it - removal is not durable, and the desk can widen its own scope unattended",
+   "state": 3
+  },
+  {
+   "id": 1355,
+   "edictId": 52,
+   "name": "TRD-104: A forced diagnostic run is indistinguishable from the desk cadence - 26.6% of one day of the binding meter was a debug session, and the record could not say so",
+   "state": 3
+  },
+  {
+   "id": 1356,
+   "edictId": 52,
+   "name": "TRD-105: Selection was on win rate, which is not the condition for a profit - the net-edge screen (MFE > |MAE| + round trip) now refuses a WIDENING onto measured-negative evidence",
+   "state": 3
+  },
+  {
+   "id": 1357,
+   "edictId": 52,
+   "name": "TRD-106: The net-edge screen is blind exactly where the edge is thinnest - the shortest trades can never have an excursion measured, so 15 of 44 closes are invisible to every path-based test",
+   "state": 1
+  },
+  {
+   "id": 1358,
+   "edictId": 52,
+   "name": "TRD-107: The desk could not measure its own prompt-cache efficiency - the split was thrown away at the meter and the only copy lived in another service in-memory",
+   "state": 3
+  },
+  {
+   "id": 1359,
+   "edictId": 52,
+   "name": "TRD-108: closePrice on a venue-closed row is the venue's quoted close rate, not the fill - it misses the booked money by 22-38% on 15 of 20 rows while the money itself is equity-verified to 2c, so no price-derived metric on those rows is usable",
+   "state": 3
+  },
+  {
+   "id": 1360,
+   "edictId": 52,
+   "name": "TRD-109: the baseline chain is FAIL-OPEN - risk.initialEquity (2,685.76) is only ever a fallback, but a missing kill.initialEquity would turn the -8% disaster floor into a ~-38% one and a missing day-start would silently disable the daily-loss halt",
+   "state": 3
+  },
+  {
+   "id": 1361,
+   "edictId": 52,
+   "name": "TRD-110: the evidence clock is set by the PROPOSAL RATE, not by size or time - survivors need n=50 and the desk produced ~6-26 proposals a day, so validation takes weeks and the levers live in the strategies own signal frequency",
+   "state": 1
+  },
+  {
+   "id": 1362,
+   "edictId": 52,
+   "name": "TRD-111: POST /kill with {\"tier\":\"hard\"} and no autoClose stores autoClose FALSE and closes nothing - setTier defaults true only when the key is ABSENT, and undefined is not null",
+   "state": 3
+  },
+  {
+   "id": 1363,
+   "edictId": 52,
+   "name": "TRD-112: The tuner has still never run against the evidence input it was rewritten for - every tune event predates 2026-09-13, and tuner.enabled=TRUE still yields willAct=false (paper off, parityValidated false)",
+   "state": 3
+  },
+  {
+   "id": 1364,
+   "edictId": 52,
+   "name": "TRD-113: A chair reply rescued by the last-resort regex was blended as a full-weight reasoned vote - a truncated JSON answer became an opinion",
+   "state": 3
+  },
+  {
+   "id": 1365,
+   "edictId": 52,
+   "name": "TRD-114: Cost is 40% of R and NO rule gates it - the stop-cap guard tests the cap against cost, while cost-as-a-share-of-R is computed and read by nothing, so the desk asks the LLM instead",
+   "state": 3
+  },
+  {
+   "id": 1367,
+   "edictId": 52,
+   "name": "TRD-115: TRD-92 residual - the archive is readable but nothing uses it, no repro harness records its sample ids, retention is desk-wide, and the window has no UI control",
+   "state": 3
+  },
+  {
+   "id": 1368,
+   "edictId": 52,
+   "name": "TRD-116: Scope and `enabled` disagree in both directions - survoil is enabled with NO symbols, and meanrev is assigned three symbols while not enabled, so four configurations read as live and are unreachable",
+   "state": 1
+  },
+  {
+   "id": 1369,
+   "edictId": 52,
+   "name": "TRD-117: metrics — maePct is CIRCULAR on loss-exit rows, so hitStop and the net-edge screen read the exit, not an excursion",
+   "state": 3
+  },
+  {
+   "id": 1370,
+   "edictId": 52,
+   "name": "TRD-118: closeAt is COARSE on 39% of closes — and the captured tick path is NOT offset (my earlier claim is REFUTED)",
+   "state": 1
+  },
+  {
+   "id": 1371,
+   "edictId": 52,
+   "name": "TRD-119: exits — the exit chair verdicts are still compared to NOTHING, so advisory-vs-decider is a policy with no measured value",
+   "state": 1
+  },
+  {
+   "id": 1372,
+   "edictId": 52,
+   "name": "TRD-GRD-1: Capture integrity — observe-mode bar-scale detector, and the 4 wrong-instrument rows it found",
+   "state": 3
+  },
+  {
+   "id": 1373,
+   "edictId": 52,
+   "name": "TRD-AUD-1: Deliverables — structure-engine stage audit",
+   "state": 3
+  },
+  {
+   "id": 1374,
+   "edictId": 52,
+   "name": "TRD-EVD-1: Strategy evidence — condition-paired decision unit (replaces absolute expectancy)",
+   "state": 3
+  },
+  {
+   "id": 1375,
+   "edictId": 52,
+   "name": "TRD-REV-1: Position review — boundary-triggered cadence (observe mode, NOT a gate)",
+   "state": 3
+  },
+  {
+   "id": 1376,
+   "edictId": 52,
+   "name": "TRD-STR-1: Structure engine — S3 gate input venue (backtest reads yahoo, live reads plus500_chart)",
+   "state": 3
+  },
+  {
+   "id": 1377,
+   "edictId": 52,
+   "name": "TRD-STR-2: Structure engine — S4 vocabulary: prompt-version bump + fresh shadow pre-registration",
+   "state": 1
+  },
+  {
+   "id": 1378,
+   "edictId": 52,
+   "name": "TRD-STR-3: Evidence — the lockbox release that would give S3 a verdict (one-shot, family-wide)",
+   "state": 1
+  },
+  {
+   "id": 1379,
+   "edictId": 52,
+   "name": "TRD-STR-4: Evidence — resolve the unresolved PRDS flag on release 3 (r=-0.3846, flagged true)",
+   "state": 3
+  },
+  {
+   "id": 1380,
+   "edictId": 52,
+   "name": "TRD-GRD-2: Capture integrity — promote the bar-scale detector past observe mode",
+   "state": 1
+  },
+  {
+   "id": 1382,
+   "edictId": 52,
+   "name": "TRD-SHW-4: Shadow signals - the forward scorer has never written a realisedR, so the gate it feeds can never open",
+   "state": 3
+  },
+  {
+   "id": 1384,
+   "edictId": 52,
+   "name": "TRD-GRD-3: Capture integrity — the instrument-swap defect: 151 rows across 7 watchlist symbols carry the WRONG instrument, and the mechanism is still live",
+   "state": 1
+  },
+  {
+   "id": 1385,
+   "edictId": 52,
+   "name": "TRD-GRD-4: Capture integrity — enforce the STALE-READ check: refuse to bank a chart whose instrument ID did not change between consecutive symbols",
+   "state": 1
+  },
+  {
+   "id": 1386,
+   "edictId": 52,
+   "name": "TRD-GRD-5: Capture integrity — every plus500_chart 1h row is aggregated from a 5m or 30m chart (NONE is native 1h), and STR-1 made that series the structure venue",
+   "state": 1
+  },
+  {
+   "id": 1387,
+   "edictId": 52,
+   "name": "TRD-LRN-1: Learning - a hand retirement is NOT remembered: emptying symbolScope does not write `strategies.retired`, so the widener is free to undo it",
+   "state": 1
+  },
+  {
+   "id": 1388,
+   "edictId": 52,
+   "name": "TRD-LRN-2: Learning - the desk runs TWO R conventions (live uses the ACTUAL fill-to-stop risk, the Lab/backtest use a CONSTANT nominal risk) and they are not comparable",
+   "state": 1
+  },
+  {
+   "id": 1389,
+   "edictId": 52,
+   "name": "TRD-120: Strategy scope - the ONLY pair that ever passed the Lab screen (rsi2 x Arabica Coffee, PF 3.40, n=73) was never scoped, and rsi2 was pointed at Bitcoin instead, where it lost 28.82",
+   "state": 1
+  },
+  {
+   "id": 1391,
+   "edictId": 52,
+   "name": "TRD-ANL-1: Analytics — decide the label-coverage threshold that releases the circular-MAE exclusion",
+   "state": 1
+  },
+  {
+   "id": 1392,
+   "edictId": 52,
+   "name": "TRD-TUN-1: Self-tuner — revert() ignores dryRun, so a proposal that was never applied can be reverted and the revert is recorded as if it changed something",
+   "state": 1
+  },
+  {
+   "id": 1393,
+   "edictId": 52,
+   "name": "TRD-TUN-2: Self-tuner — the tuner reads strategies.list() and writes strategies.params, while the desk trades strategies.symbolParams, so a change can be recorded, displayed and ignored",
+   "state": 1
+  },
+  {
+   "id": 1394,
+   "edictId": 52,
+   "name": "TRD-EVD-2: Evidence - the parity and net-edge gates judge the CURRENT configuration on the PREVIOUS configuration's trades, so a change that improved a strategy is diluted by the sample it was meant to replace",
+   "state": 1
+  },
+  {
+   "id": 1395,
+   "edictId": 51,
+   "name": "LST-7: Condition - a used machine can be stored as New, and the Workbench cannot fix what Carousell shows",
+   "state": 1
+  },
+  {
+   "id": 1396,
+   "edictId": 51,
+   "name": "LST-8: Parts - no field for a component that came WITH the unit, so its cost is parked on another row and the margin is unreadable",
+   "state": 1
+  },
+  {
+   "id": 1399,
+   "edictId": 52,
+   "name": "TRD-AIH-1: Agent hygiene — never read a memory file whole; the memory tool doubles the file on write",
+   "state": 1
+  },
+  {
+   "id": 1400,
+   "edictId": 52,
+   "name": "TRD-REG-1: Register — tasks.name has no uniqueness check, so a label can point at two open tasks (4th occurrence)",
+   "state": 1
+  },
+  {
+   "id": 1401,
+   "edictId": 52,
+   "name": "TRD-ACT-1: Activity — the measure the chair consumes has no forward endpoint of its own, and nothing records it per call",
+   "state": 1
+  },
+  {
+   "id": 1402,
+   "edictId": 52,
+   "name": "TRD-EXT-1: Exit policy — the follow-through rule is now the BEST candidate (contradicting closed TRD-38), and the cohort split that would test it is degenerate",
+   "state": 1
+  }
+ ]
+}

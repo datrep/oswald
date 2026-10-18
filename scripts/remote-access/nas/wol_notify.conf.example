@@ -1,0 +1,14 @@
+# wol_notify.conf.example - copy to /volume1/scripts/wol_notify.conf to ENABLE Telegram pushes
+# from wol_and_probe.py (wake result) and wol_monitor.py (UP/DOWN transitions).
+#
+# Nothing is ever sent while this file does not exist under the exact name `wol_notify.conf`.
+# Keep the real file readable only by admin (it holds a bot token):
+#   cp /volume1/scripts/wol_notify.conf.example /volume1/scripts/wol_notify.conf
+#   chmod 600 /volume1/scripts/wol_notify.conf
+#   vi /volume1/scripts/wol_notify.conf      # fill both values, remove the # from the lines
+
+# Telegram bot token (as used by the desk's Telegram alerts):
+#telegram_bot_token=123456:ABCDEF...
+
+# Telegram chat id to notify:
+#telegram_chat_id=-1001234567890

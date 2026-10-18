@@ -1,0 +1,86 @@
+{
+  "_note": "REAL rows captured 2026-09-15 from https://publicreporting.cftc.gov/resource/72hh-3qpy.json (disaggregated futures-only) via cftcCot.buildUrl. Trimmed to the newest 8 rows for GOLD and SILVER. Do not hand-edit: the parser is tested against this shape.",
+  "_capturedFrom": "https://publicreporting.cftc.gov/resource/72hh-3qpy.json",
+  "rows": [
+    {
+      "contract_market_name": "GOLD",
+      "report_date_as_yyyy_mm_dd": "2026-09-08T00:00:00.000",
+      "open_interest_all": "411227",
+      "m_money_positions_long_all": "145804",
+      "m_money_positions_short_all": "10832",
+      "m_money_positions_spread": "29462",
+      "change_in_m_money_long_all": "-3917",
+      "change_in_m_money_short_all": "-2118"
+    },
+    {
+      "contract_market_name": "SILVER",
+      "report_date_as_yyyy_mm_dd": "2026-09-08T00:00:00.000",
+      "open_interest_all": "103250",
+      "m_money_positions_long_all": "21148",
+      "m_money_positions_short_all": "6762",
+      "m_money_positions_spread": "5275",
+      "change_in_m_money_long_all": "1992",
+      "change_in_m_money_short_all": "204"
+    },
+    {
+      "contract_market_name": "SILVER",
+      "report_date_as_yyyy_mm_dd": "2026-09-01T00:00:00.000",
+      "open_interest_all": "104362",
+      "m_money_positions_long_all": "19156",
+      "m_money_positions_short_all": "6558",
+      "m_money_positions_spread": "6609",
+      "change_in_m_money_long_all": "-2265",
+      "change_in_m_money_short_all": "-790"
+    },
+    {
+      "contract_market_name": "GOLD",
+      "report_date_as_yyyy_mm_dd": "2026-09-01T00:00:00.000",
+      "open_interest_all": "415196",
+      "m_money_positions_long_all": "149721",
+      "m_money_positions_short_all": "12950",
+      "m_money_positions_spread": "27264",
+      "change_in_m_money_long_all": "-10098",
+      "change_in_m_money_short_all": "-2122"
+    },
+    {
+      "contract_market_name": "SILVER",
+      "report_date_as_yyyy_mm_dd": "2026-08-25T00:00:00.000",
+      "open_interest_all": "113801",
+      "m_money_positions_long_all": "21421",
+      "m_money_positions_short_all": "7348",
+      "m_money_positions_spread": "7106",
+      "change_in_m_money_long_all": "1888",
+      "change_in_m_money_short_all": "-490"
+    },
+    {
+      "contract_market_name": "GOLD",
+      "report_date_as_yyyy_mm_dd": "2026-08-25T00:00:00.000",
+      "open_interest_all": "427957",
+      "m_money_positions_long_all": "159819",
+      "m_money_positions_short_all": "15072",
+      "m_money_positions_spread": "16251",
+      "change_in_m_money_long_all": "5224",
+      "change_in_m_money_short_all": "2125"
+    },
+    {
+      "contract_market_name": "SILVER",
+      "report_date_as_yyyy_mm_dd": "2026-08-18T00:00:00.000",
+      "open_interest_all": "120117",
+      "m_money_positions_long_all": "19533",
+      "m_money_positions_short_all": "7838",
+      "m_money_positions_spread": "10177",
+      "change_in_m_money_long_all": "-423",
+      "change_in_m_money_short_all": "-960"
+    },
+    {
+      "contract_market_name": "GOLD",
+      "report_date_as_yyyy_mm_dd": "2026-08-18T00:00:00.000",
+      "open_interest_all": "406260",
+      "m_money_positions_long_all": "154595",
+      "m_money_positions_short_all": "12947",
+      "m_money_positions_spread": "15591",
+      "change_in_m_money_long_all": "5961",
+      "change_in_m_money_short_all": "1975"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oswald — Desk Mirror</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 13px/1.5 Consolas, Menlo, monospace; background: #101418; color: #d7dde3; margin: 20px; }
+  h1 { font-size: 15px; font-weight: 600; color: #9fb3c8; margin: 0 0 2px; }
+  .sub { color: #6b7d90; font-size: 12px; margin-bottom: 14px; }
+  .sub a { color: #7fb2d9; }
+  .cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .card { background: #131a22; border: 1px solid #223041; border-radius: 8px; padding: 10px 14px; min-width: 150px; }
+  .card .k { color: #6b7d90; font-size: 11px; }
+  .card .v { font-size: 17px; font-weight: 600; }
+  h2 { font-size: 12px; font-weight: 600; color: #9fb3c8; margin: 16px 0 6px; }
+  table { border-collapse: collapse; font-size: 12px; width: 100%; max-width: 1100px; }
+  th { text-align: left; color: #6b7d90; font-weight: 400; padding: 2px 12px 4px 0; border-bottom: 1px solid #223041; }
+  td { padding: 3px 12px 3px 0; border-bottom: 1px solid #161d26; }
+  .pos { color: #6fce9c; } .neg { color: #e05c5c; } .muted { color: #6b7d90; }
+  .age { color: #6b7d90; font-size: 11px; margin-left: 8px; }
+  .stale { color: #e0a63c; }
+  #err { color: #e05c5c; font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <h1>OSWALD — DESK MIRROR <span class="muted" style="font-size:11px">live view of the plus500 desk · fed by trading/scripts/mirror-export.js (4 s) · page polls only while visible</span></h1>
+  <div class="sub"><a href="./index.html">← dashboard</a> · <a href="./bridge-state.html">bridge state machine</a> · <a href="./desk-mirror.json">raw json</a></div>
+
+  <div class="cards" id="cards">—</div>
+
+  <h2>OPEN POSITIONS</h2>
+  <table id="pos"><thead><tr><th>#</th><th>instrument</th><th>dir</th><th>size</th><th>entry</th><th>now</th><th>net P&amp;L</th><th>stop</th><th>target</th><th>opened</th><th>strategy</th></tr></thead><tbody></tbody></table>
+
+  <h2>CLOSED — LAST 24 H <span class="muted" id="realized"></span></h2>
+  <table id="closes"><thead><tr><th>#</th><th>instrument</th><th>dir</th><th>size</th><th>close rate</th><th>fill</th><th>net P&amp;L</th><th>closed</th><th>by</th></tr></thead><tbody></tbody></table>
+
+  <h2>RECENT FILLS <span class="muted" style="font-size:10px">new telemetry: spread at signal / at submit · signal→fill seconds</span></h2>
+  <table id="fills"><thead><tr><th>#</th><th>instrument</th><th>dir</th><th>opened</th><th>spread signal %</th><th>spread submit %</th><th>sig→fill s</th><th>fill ms</th><th>slippage %</th></tr></thead><tbody></tbody></table>
+
+  <div id="err"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (x) => String(x == null ? '—' : x).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  const num = (x, d = 2) => (x == null || x === '' || isNaN(Number(x))) ? '—' : Number(x).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pnlCls = (x) => Number(x) > 0 ? 'pos' : Number(x) < 0 ? 'neg' : 'muted';
+  const pnlTxt = (x) => (x == null || isNaN(Number(x))) ? '—' : (Number(x) > 0 ? '+' : '') + num(x, 2);
+
+  function render(j) {
+    const a = j.account || {};
+    $('cards').innerHTML =
+      `<div class="card"><div class="k">equity ${esc(a.currency || '')} <span class="age" id="age"></span></div><div class="v">${num(a.equity)}</div></div>` +
+      `<div class="card"><div class="k">available</div><div class="v">${num(a.available)}</div></div>` +
+      `<div class="card"><div class="k">margin</div><div class="v">${num(a.margin)}</div></div>` +
+      `<div class="card"><div class="k">open P&amp;L</div><div class="v ${pnlCls(a.pnl)}">${pnlTxt(a.pnl)}</div></div>` +
+      `<div class="card"><div class="k">realized 24 h</div><div class="v ${pnlCls(j.realized24h)}">${pnlTxt(j.realized24h)}</div></div>` +
+      `<div class="card"><div class="k">era (closed, #1506)</div><div class="v">${j.era == null ? '—' : j.era + ' / 30'}</div></div>`;
+
+    $('pos').tBodies[0].innerHTML = (j.positions || []).map((t) =>
+      `<tr><td class="muted">${t.id}</td><td>${esc(t.symbol)}</td><td>${esc(t.direction)}</td><td>${esc(t.size)} ${esc(t.units || '')}</td>` +
+      `<td>${num(t.openPrice, 4)}</td><td>${num(t.currentRate, 4)}</td>` +
+      `<td class="${pnlCls(t.floatingPnl)}">${pnlTxt(t.floatingPnl)}</td>` +
+      `<td class="muted">${num(t.stopPrice, 4)}</td><td class="muted">${num(t.takeProfitPrice, 4)}</td>` +
+      `<td class="muted">${esc(t.openAt)}</td><td class="muted">${esc(t.strategyId)}</td></tr>`).join('') ||
+      '<tr><td colspan="11" class="muted">no open positions</td></tr>';
+
+    $('realized').textContent = j.closes && j.closes.length ? `(${j.closes.length} closes)` : '';
+    $('closes').tBodies[0].innerHTML = (j.closes || []).map((c) =>
+      `<tr><td class="muted">${c.id}</td><td>${esc(c.symbol)}</td><td>${esc(c.direction)}</td><td>${esc(c.size)}</td>` +
+      `<td>${num(c.closePrice, 4)}</td><td>${num(c.closeFillPrice, 4)}</td>` +
+      `<td class="${pnlCls(c.grossPnl)}">${pnlTxt(c.grossPnl)}</td>` +
+      `<td class="muted">${esc(c.closeAt)}</td><td class="muted">${esc(c.closeAtSource || '')}</td></tr>`).join('') ||
+      '<tr><td colspan="9" class="muted">none in the last 24 h</td></tr>';
+
+    $('fills').tBodies[0].innerHTML = (j.fills || []).map((f) =>
+      `<tr><td class="muted">${f.id}</td><td>${esc(f.symbol)}</td><td>${esc(f.direction)}</td>` +
+      `<td class="muted">${esc(f.openAt)}</td><td>${num(f.spreadSignalPct, 4)}</td><td>${num(f.spreadSubmitPct, 4)}</td>` +
+      `<td>${f.signalToFillSec == null ? '—' : f.signalToFillSec}</td><td>${f.fillDelayMs == null ? '—' : f.fillDelayMs}</td>` +
+      `<td class="${pnlCls(-(f.slippagePct || 0))}">${num(f.slippagePct, 4)}</td></tr>`).join('') ||
+      '<tr><td colspan="9" class="muted">no fills recorded</td></tr>';
+
+    const ageS = Math.round((Date.now() - new Date(j.generatedAt).getTime()) / 1000);
+    const ageEl = $('age');
+    if (ageEl) { ageEl.textContent = `${ageS}s old`; ageEl.className = 'age' + (ageS > 30 ? ' stale' : ''); }
+    $('err').textContent = '';
+  }
+
+  let timer = null;
+  async function tick() {
+    if (document.visibilityState !== 'visible') return;  // no background pings: fetch only while watched
+    try {
+      const j = await (await fetch('./desk-mirror.json?ts=' + Date.now(), { cache: 'no-store' })).json();
+      render(j);
+    } catch (e) {
+      $('err').textContent = 'mirror feed unavailable — ' + String(e && e.message || e).slice(0, 100);
+    }
+  }
+  function arm() { if (timer) clearInterval(timer); timer = setInterval(tick, 5000); }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
+  tick(); arm();
+</script>
+</body>
+</html>

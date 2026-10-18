@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Agent — Oswald</title>
+  <style>
+    :root {
+      --bg: #0e1117; --panel: #161b24; --panel-2: #1c2330; --border: #2a3344;
+      --text: #e6e9f0; --muted: #8b96a8; --accent: #7c8cf8; --accent-soft: rgba(124,140,248,.12);
+      --success: #6ee7b7; --danger: #fda4af; --warn: #fcd34d; --info: #7dd3fc;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+    header { display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
+    header h1 { font-size: 15px; margin: 0; }
+    header .muted { color: var(--muted); font-size: 12px; }
+    /* TRD-UI-4 (2026-09-22). MEASURED, not guessed, at 1920x900:
+         tab bar top 3901px (viewport is 900) | first position row top 2748px |
+         narration column 63-105px | 720px of the screen left unused outside main.
+       The cause of the first two is ORDER, not size: the 3631px-tall overview grid sat above the tab bar,
+       so the page navigation was 4.3 screens down. `flex-direction: column` plus `order: 9` on .grid puts
+       the overview AFTER the tab panels with a 3-line change and no markup move — the tab bar and the active
+       panel become the first thing on the page, and nothing is hidden to achieve it (the audit asked for a
+       fix that does not hide a fact; reordering shows every card, just later).
+       ⚠ The flex context belongs on #app, NOT on main: every card, the banner, the tab bar and the panels are
+       wrapped in `<div id="app">`, so main has exactly two children (#login-card and #app) and an `order` set
+       on .grid there is inert — `order` only means anything to a flex/grid ITEM. Measured after the first
+       attempt: mainDisplay=flex, gridOrder=9, and the grid still sat at top 238. The rule was applying; the
+       element was not an item.
+       The max-width was the cause of the last two: at 1200px a 1920 screen wasted 720px while squeezing
+       every card. 1680px is chosen to keep the reading measure sane rather than to fill the screen. */
+    main { max-width: min(1680px, 96vw); margin: 0 auto; padding: 18px 16px 60px; }
+    #app { display: flex; flex-direction: column; }
+    .hidden { display: none !important; }
+    /* ---- 2026-09-12 control scale ------------------------------------------
+       Owner report: deliberation "inconsistent sizing", backtest "sizing", paper
+       "all over the place". Shared cause: `input,select{width:100%}` also hit
+       CHECKBOXES (measured 958px wide — a full-card-width invisible box inside
+       every label, which re-flowed rows and stretched the buttons next to them)
+       and RANGES (a 120px slider boxed 34px tall by input padding).
+       `.toolbar input{min-width:140px}` forced every number input to 140px, so
+       the backtest param chips ignored their own width:60px. One scale now.
+       `:where()` keeps THIS rule at plain element specificity — the obvious
+       `input:not([type=checkbox])...` chain scored (0,3,1) and silently outranked
+       the per-type widths below, so every number input inherited width:100% and
+       flex-shrink squashed it to an arbitrary fractional width (measured 78-219px
+       instead of 64). */
+    input:where(:not([type="checkbox"]):not([type="radio"]):not([type="range"])), select {
+      width: 100%; background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
+    input[type="checkbox"], input[type="radio"] { width: 14px; height: 14px; min-width: 14px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); vertical-align: middle; }
+    input[type="range"] { width: 120px; padding: 0; margin: 0; accent-color: var(--accent); vertical-align: middle; }
+    input[type="number"] { width: 64px; margin: 0; padding: 5px 8px; }
+    input[type="number"].num-md { width: 96px; }
+    input[type="datetime-local"] { width: 190px; margin: 0; padding: 5px 8px; }
+    input[type="text"].w-sm { width: 96px; margin: 0; padding: 5px 8px; }
+    input[type="text"].w-md { width: 170px; margin: 0; padding: 5px 8px; }
+    button { background: var(--accent); color: #fff; border: 1px solid transparent; border-radius: 8px; padding: 7px 13px; cursor: pointer; font-size: 13px; }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+    button.small { padding: 4px 9px; font-size: 12px; }
+    button:disabled { opacity: .45; cursor: default; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .card h2 { font-size: 12px; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: flex; justify-content: space-between; align-items: center; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px; order: 9; }
+    /* F11: "the PULSE mover narration — the panel whose whole purpose is why it moves — wraps in a ~150px
+       column with a large empty region beside it". The grid column is ~285px whatever main's width is, so
+       widening the page alone does NOT fix this: auto-fit just adds columns. The card spans two columns on
+       screens with room for it (measured below 1100px the grid is 2-wide or narrower, where a 2-span would
+       push into an implicit column and overflow), which takes .why from ~105px to well over 150px. */
+    @media (min-width: 1100px) { .pulse-card { grid-column: span 2; } }
+    /* F10, the half that is NOT height-dependent: "the Ask the AI card reserves roughly 285px for a one-line
+       empty state at EVERY height". The box is a bordered, padded, max-height:180px panel that was
+       placeholder-filled on load, so it occupied its full size before ever holding an answer. The hint is
+       already in the input's own placeholder, so nothing is lost by collapsing the box until it has an
+       answer — and `ask()` already empties it at the start of every question, so it collapses during the
+       wait too, which is where the feedback line above it is the thing you want to see. */
+    #ask-answer:empty { display: none; }
+    .banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; }
+    .banner-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+    .banner-item b { color: var(--muted); font-weight: 600; }
+    .banner-btns { display: inline-flex; gap: 6px; }
+    .banner-spacer { flex: 1; }
+    .banner .feedback { margin: 0; min-height: 0; }
+    #health-banner { border-color: rgba(252, 211, 77, .5); background: rgba(252, 211, 77, .06); }
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+    .health-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .cat { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10.5px; margin-left: 6px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+    .cat.crypto { color: var(--info); border-color: rgba(125,211,252,.4); }
+    .cat.commodities { color: var(--warn); border-color: rgba(252,211,77,.4); }
+    .cat.singapore, .cat.equities { color: var(--success); border-color: rgba(110,231,183,.4); }
+    .cat.hong-kong { color: var(--accent); border-color: rgba(124,140,248,.4); }
+    .pulse-head { font-size: 15px; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+    .pulse-mover { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px; border-bottom: 1px solid rgba(42,51,68,.5); }
+    .pulse-mover:last-child { border-bottom: none; }
+    .pulse-mover .mover-name { font-weight: 600; }
+    .pulse-mover .why { flex: 1; }
+    .pulse-sec { margin-top: 6px; font-size: 12px; line-height: 1.5; }
+    /* S2 news panel (2026-10-03): compact per-symbol list; titles link out to the stored item's url.
+       Deliberately NOT a live region and NOT chair-facing — an owner window onto NewsItems only. */
+    .news-sym { margin-bottom: 8px; }
+    .news-sym-name { font-weight: 600; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+    .news-item { font-size: 12.5px; line-height: 1.5; }
+    label.chk { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; }
+    .strat-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 6px; }
+    .kv { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+    .kv .k { color: var(--muted); }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    .chip.off { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+    .chip.soft { background: rgba(252,211,77,.15); color: var(--warn); border: 1px solid rgba(252,211,77,.4); }
+    .chip.hard { background: rgba(253,164,175,.15); color: var(--danger); border: 1px solid rgba(253,164,175,.5); }
+    .chip.open { background: rgba(110,231,183,.12); color: var(--success); border: 1px solid rgba(110,231,183,.35); }
+    .chip.closed { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+    .chip.phantom { background: rgba(139,150,168,.15); color: var(--muted); border: 1px dashed var(--border); }
+    .chip.rejected { background: rgba(253,164,175,.15); color: var(--danger); border: 1px solid rgba(253,164,175,.5); }
+    /* TRD-51 fix 1 (2026-09-14): a wake that threw before deliberation. It must be visible at a
+       glance in the wake list — the whole defect was that four hours of failed wakes rendered as
+       four hours of nothing. Tinted row, not just a chip, so it cannot be scrolled past. */
+    tr.wake-failed > td { background: rgba(253,164,175,.07); }
+    tr.wake-failed > td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tab { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
+    .tab.active { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); }
+    td { padding: 6px 8px; border-bottom: 1px solid rgba(42,51,68,.6); white-space: nowrap; }
+    tr:hover td { background: rgba(124,140,248,.04); }
+    .table-wrap { max-height: 440px; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+    .mono { font-family: Consolas, monospace; }
+    .pos { color: var(--success); } .neg { color: var(--danger); }
+    .muted { color: var(--muted); }
+    /* position:relative + maintainAspectRatio:false = the canvas fills the box
+       (before this the equity canvas rendered at its attribute ratio 300:60 —
+       a thin strip with ~70px of dead space in the 150px box). */
+    .chart-box { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .toolbar { display: flex; gap: 8px 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .toolbar select { width: auto; min-width: 120px; margin: 0; }
+    /* NOT min-width:140px — that overrode every input's own width and is what
+       made the backtest toolbar read as a wall of 140px boxes. */
+    .toolbar input { width: auto; min-width: 0; margin: 0; }
+    .toolbar input[type="number"] { width: 64px; }
+    .toolbar label { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--muted); }
+    .toolbar .lbl { color: var(--muted); font-size: 12px; }
+    .toolbar-group { display: inline-flex; align-items: center; gap: 6px; padding-right: 10px; border-right: 1px solid var(--border); }
+    .toolbar-group:last-of-type { border-right: 0; padding-right: 0; }
+    .feedback { font-size: 12.5px; margin: 6px 0 0; min-height: 16px; }
+    .feedback.err { color: var(--danger); } .feedback.ok { color: var(--success); }
+    tr.clickable { cursor: pointer; }
+    tr.clickable.selected td { background: var(--accent-soft); }
+    tr.wake-head td { background: rgba(124,140,248,.07); color: var(--muted); font-size: 11.5px; border-bottom: 1px solid var(--border); padding-top: 8px; }
+    tr.wake-head td:first-child { font-weight: 600; color: var(--text); }
+    .detail-panel { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .detail-panel h3 { font-size: 12px; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .4px; }
+    .detail-panel h3:first-child { margin-top: 0; }
+    .detail-panel pre { white-space: pre-wrap; word-break: break-word; font-family: Consolas, monospace; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+    .event-kind { display: inline-block; padding: 1px 8px; border-radius: 12px; font-size: 11px; border: 1px solid var(--border); color: var(--muted); }
+    .event-kind.decision { color: var(--success); border-color: rgba(110,231,183,.4); }
+    .event-kind.kill { color: var(--danger); border-color: rgba(253,164,175,.5); }
+    .event-kind.error { color: var(--danger); border-color: rgba(253,164,175,.5); }
+    #watchlist-chips { max-height: 118px; overflow: auto; padding: 2px; }
+    #wl-results { max-height: 150px; overflow: auto; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+    .wl-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; font-size: 12.5px; border-bottom: 1px solid rgba(42,51,68,.6); }
+    .wl-item:last-child { border-bottom: none; }
+    .chip .x { margin-left: 6px; cursor: pointer; color: var(--muted); font-weight: 700; }
+    .chip .x:hover { color: var(--danger); }
+    .conf-bar { display: inline-block; width: 46px; height: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; vertical-align: middle; margin: 0 5px; }
+    .conf-fill { display: block; height: 100%; background: var(--muted); }
+    .conf-fill.yes { background: var(--success); }
+    .cd-bar { display: inline-block; width: 56px; height: 5px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 5px; }
+    .cd-fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+    .spark { display: block; }
+    .warn-t { color: var(--warn); }
+    option.unsupported { color: var(--muted); font-style: italic; }
+    /* F27 (2026-09-12): the kill controls must be reachable from wherever the
+       owner is — the banner sticks to the top (it used to scroll away 3 screens
+       above the positions table). */
+    #status-banner { position: sticky; top: 0; z-index: 50; box-shadow: 0 6px 14px -10px #000; }
+    /* F25: act-class cards (they mutate state) get a spine so they read
+       differently from reporting cards. */
+    .card.act { border-left: 3px solid var(--accent); }
+    /* F14: right-aligned, tabular numbers for money columns. */
+    .num { text-align: right; font-variant-numeric: tabular-nums; font-family: Consolas, monospace; }
+    /* F15: a review verdict is not an order rejection. */
+    .chip.review { background: rgba(124,140,248,.12); color: var(--accent); border: 1px solid rgba(124,140,248,.4); }
+    .chip.muted { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+    /* F19: chart window/timeframe toggles are not panel tabs. */
+    .win { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 11.5px; }
+    .win.active { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+    /* F18: visually-hidden but accessible (equity fallback table, live regions). */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    /* F5: keep Time/Symbol visible while the wide Decisions table scrolls sideways. */
+    #tab-wakes table th:first-child, #tab-wakes table td:first-child { position: sticky; left: 0; background: var(--panel); z-index: 2; }
+    tr.wake-head td { cursor: pointer; }
+    tr.wake-head td .caret { display: inline-block; width: 10px; color: var(--muted); }
+    /* F23: event-kind colours keyed to the real stream families (mapped in JS). */
+    .ev-act { color: var(--success); border-color: rgba(110,231,183,.4); }
+    .ev-state { color: var(--info); border-color: rgba(125,211,252,.4); }
+    .ev-sec { color: var(--warn); border-color: rgba(252,211,77,.4); }
+    .ev-err { color: var(--danger); border-color: rgba(253,164,175,.5); }
+    .ev-app { color: var(--muted); }
+    /* F7(a11y): an authored focus indicator instead of the UA default. */
+    button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    /* 2026-10-03 (sitting §2): current Chrome focuses scrollable divs WITHOUT a tabindex attribute, so they miss the rule above and render the weak UA ring. */
+    #whitepaper-body:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    /* 2026-10-03 (sitting §1 fix): the AI-state line carries the full strategies run as PLAIN TEXT —
+       unbreakable, it held the document 727px wider than any viewport. Break it only when needed. */
+    #ai-state-line { overflow-wrap: anywhere; }
+    /* TRD-UI-9 (C): the in-page confirm dialog (native window.confirm read with a stray host-app word under NVDA). */
+    #confirm-dialog { max-width: 460px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 16px; }
+    #confirm-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+    tr.clickable.selected td { background: var(--accent-soft); }
+    .asof { font-size: 11px; color: var(--muted); }
+    .asof.stale { color: var(--warn); }
+    /* 2026-09-12: inner panels (Scripts, Pipeline, Equity stats, White paper,
+       Watchlist, Activity tables) scroll with NATIVE scrollbars, which render as
+       loud light-grey bars on the dark theme. Thin + themed now. */
+    .table-wrap, #scripts-list, #pipeline-body, #strategy-stats-body,
+    #whitepaper-body, #watchlist-chips, #wl-results, #ask-answer,
+    .detail-panel pre, .sr-only { scrollbar-width: thin; scrollbar-color: #2a3344 transparent; }
+    /* F16: the reason is the primary evidence for a decision — never the
+       smallest text on the row (the templates set an inline 11px). */
+    #wakes-body td .muted { font-size: 12px !important; }
+    /* 2026-09-12 (user-reported crop): the Decision cell was `white-space: nowrap`
+       inherited from the global `td` rule, so the reason could only be shown by
+       cutting it. It wraps now — the reason is the evidence, never clip it. */
+    #wakes-body td.reason { white-space: normal; overflow-wrap: anywhere; }
+    /* the model list is "model ×n" — wrapping is the safety net, not the fix. */
+    #wakes-body td.models { white-space: normal; overflow-wrap: anywhere; }
+    /* 2026-09-12 (user-reported crop): Scripts + Strategy stats live in ~279px grid
+       columns, but their rows were single-line flex rows with fixed-width cells
+       totalling 460-570px. Measured result: the description cell collapsed to
+       clientWidth 0 with 406px of hidden text, and every row scrolled sideways.
+       Two-line rows instead — identity on top, free text underneath. */
+    .rowlist { font-size: 12px; line-height: 1.55; }
+    /* 2026-09-12 (best-practice choice for the Scripts card): full-width so 18
+       rows can flow in columns instead of one 1619px column driving the grid row
+       height. Nothing is capped or hidden — same rows, same text, 3x shorter. */
+    .grid > .wide { grid-column: 1 / -1; order: 99; }
+    .rowlist.cols { columns: 300px; column-gap: 20px; }
+    .rowlist.cols .row { break-inside: avoid; }
+    .rowlist .row { padding: 5px 0; border-bottom: 1px solid rgba(42,51,68,.5); }
+    .rowlist .row:last-child { border-bottom: 0; }
+    .rowlist .row-top { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+    .rowlist .row-at { margin-left: auto; }
+    .rowlist .row-note { color: var(--muted); overflow-wrap: anywhere; margin-top: 1px; }
+    /* detail tables (Scouted symbols / Votes / Book round): free text wraps,
+       numeric cells keep their single line. */
+    .detail-panel td.muted, .detail-panel td .muted { white-space: normal; overflow-wrap: anywhere; }
+    /* 2026-09-12 panel polish: every tab stacked `h3.muted` section titles — the
+       headings were the SAME grey as body text, so nothing scanned. `.sec-h`
+       gives a real title (text colour, weight, hairline rule) + a muted hint. */
+    .sec-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      margin: 18px 0 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .sec-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+    .sec-h .hint { font-weight: 400; font-size: 11.5px; color: var(--muted); }
+    .param-grid { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+    .param-grid label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+    .panel-voters { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 6px 14px; }
+    .voter { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .voter b { color: var(--text); font-weight: 600; }
+    .chair-head, .chair-row { display: grid; grid-template-columns: 88px minmax(150px, 1fr) 64px 64px 110px 30px; gap: 6px 8px; align-items: center; }
+    .chair-head { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; margin: 2px 0 4px; }
+    .chair-row { margin: 3px 0; }
+    .rr { display: grid; grid-template-columns: minmax(150px, 1fr) 120px 44px auto;
+      align-items: center; gap: 4px 10px; color: var(--muted); font-size: 12px; }
+    .rr .rr-v { text-align: right; }
+    .rr .rr-note { grid-column: 1 / -1; font-size: 11px; margin-bottom: 2px; }
+    #risk-sizing { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 6px 22px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+    .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+    .stat .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+    .stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .note-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.55; }
+    .budget-grid { display: grid; grid-template-columns: minmax(120px, 220px) 1fr; gap: 2px 12px; font-size: 12px; }
+    .budget-grid .b-k { color: var(--muted); }
+    .strat-card { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+    /* enabled strategies feed the live quant — say so structurally, not only
+       with a checkbox the eye has to hunt for. */
+    .strat-card.on { border-left: 3px solid var(--accent); }
+    .strat-card:not(.on) { opacity: .7; }
+    .strat-card .strat-name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
+    .strat-card .strat-desc { color: var(--muted); font-size: 12px; margin: 3px 0 8px; }
+    .strat-card .strat-params { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 4px 12px; }
+    .strat-card .strat-params label { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 11.5px; }
+    .table-wrap.tight { max-height: 260px; }
+    /* 2026-09-12 wakes density: "too big for the amount of data shown". */
+    #tab-wakes td { padding: 4px 8px; }
+    #tab-wakes .wake-head td { padding-top: 6px; }
+    #tab-wakes td.reason { line-height: 1.45; }
+    .alert-form { display: grid; grid-template-columns: 130px 110px 110px auto auto; gap: 8px; align-items: start; }
+    .alert-form input, .alert-form select { margin: 0; }
+    @media (max-width: 760px) { .alert-form { grid-template-columns: 1fr 1fr; } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Trading Agent <span class="muted" id="user-chip"></span></h1>
+    <button id="btn-auth" class="secondary">Sign in</button>
+  </header>
+  <main>
+    <div id="login-card" class="card hidden">
+      <h2>Sign in (Oswald account)</h2>
+      <input id="username" aria-label="Username" placeholder="Username" autocomplete="username" />
+      <input id="password" aria-label="Password" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="btn-login">Sign in</button>
+      <div id="login-feedback" class="feedback"></div>
+    </div>
+
+    <!-- TRD-UI-9 (C) 2026-10-03: in-page confirm dialog for destructive writes. Cancel holds focus by
+         default; Esc closes with an empty returnValue so only an explicit Proceed resolves true. -->
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+      <h3 id="confirm-title" style="margin:0 0 10px">Confirm</h3>
+      <div id="confirm-body" style="white-space:pre-wrap;font-size:13px;line-height:1.55"></div>
+      <div class="btn-row" style="justify-content:flex-end;margin-top:14px">
+        <button id="confirm-cancel" class="small secondary">Cancel</button>
+        <button id="confirm-ok" class="small danger">Proceed</button>
+      </div>
+    </dialog>
+
+    <div id="app" class="hidden">
+      <div id="status-banner" class="banner">
+        <span class="banner-item"><b>Mode</b> <span id="banner-mode" class="chip muted">—</span></span>
+        <span class="banner-item"><b>Kill</b> <span id="kill-tier" class="chip off">—</span></span>
+        <span class="banner-btns">
+          <button id="btn-kill-soft" class="small secondary" title="Soft kill — blocks NEW entries, keeps positions open (one click, reversible with Resume)">Soft</button>
+          <button id="btn-kill-hard" class="small danger" title="HARD kill — blocks entries AND closes open positions. Asks for confirmation.">Hard</button>
+          <span id="kill-feedback" class="feedback" role="status" aria-live="polite"></span>
+        </span>
+        <span class="banner-spacer"></span>
+        <span class="banner-item"><b>Open</b> <span id="banner-open" class="chip off" title="open demo + sim positions">—</span></span>
+        <span class="banner-item"><b>Can trade</b> <span id="banner-universe" class="chip off" title="effective universe = enabled strategies ∩ symbol scope (from settings)">—</span></span>
+        <span class="banner-item"><b>Data</b> <span id="banner-data" class="chip off" title="two questions: whether each panel's last fetch succeeded (browser), and whether the desk's own feed is still arriving (server). Hover for both.">—</span></span>
+        <button id="paper-mode-toggle" class="small secondary">Paper mode: —</button>
+        <button id="btn-kill-off" class="small secondary" title="Resume — clears the kill tier (does not re-close anything)">Resume</button>
+      </div>
+      <div id="health-banner" class="banner hidden" role="status" aria-live="polite"></div>
+      <div class="grid">
+        <div class="card">
+          <h2 aria-label="AI State">AI State <span class="muted" style="font-size:11px">what it is right now</span></h2>
+          <div id="ai-state-line" style="font-size:13px;line-height:1.5;min-height:20px">—</div>
+          <div id="ai-state-chips" class="btn-row" style="margin-top:6px;gap:4px"></div>
+          <div class="kv" style="margin-top:8px"><span class="k">Last action</span><span class="v" id="ai-last" style="text-align:right">—</span></div>
+          <div class="kv"><span class="k">Next wake</span><span class="v" id="ai-next">—</span></div>
+          <div class="kv"><span class="k">Sessions</span><span class="v" id="ai-sessions" style="text-align:right;font-size:11px">—</span></div>
+        </div>
+        <div class="card">
+          <h2 aria-label="Ask the AI">Ask the AI <span class="muted" style="font-size:11px">what are you doing?</span></h2>
+          <div style="display:flex;gap:6px">
+            <input id="ask-input" aria-label="Ask the AI a question" placeholder="e.g. why are you paused? what are you holding?" style="margin:0" autocomplete="off" />
+            <button id="btn-ask" class="small" style="flex:0 0 auto">Ask</button>
+          </div>
+          <div id="ask-feedback" class="feedback"></div>
+          <div id="ask-answer" style="margin-top:8px;max-height:180px;overflow:auto;white-space:pre-wrap;font-size:12.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px"></div>
+          <div id="ask-meta" class="muted" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div class="card pulse-card">
+          <h2 aria-label="Pulse">Pulse <span class="muted" style="font-size:11px">why it moves</span></h2>
+          <div id="pulse-body">—</div>
+          <div class="btn-row" style="margin-top:6px">
+            <button id="pulse-run" class="small">Run now</button>
+            <button id="pulse-wl" class="small secondary">Watchlist</button>
+          </div>
+          <div class="btn-row">
+            <input id="pulse-query" aria-label="Scope the pulse run to one market" placeholder="scope to… (e.g. gold or oil)" style="margin:0" />
+            <button id="pulse-custom" class="small secondary">Run custom</button>
+          </div>
+          <div id="pulse-feedback" class="feedback"></div>
+        </div>
+        <div class="card">
+          <h2 aria-label="News">News <span class="muted" style="font-size:11px">watchlist headlines — not shown to the AI</span></h2>
+          <div id="news-body"><span class="muted">—</span></div>
+          <div class="muted" id="news-meta" style="font-size:11px;margin-top:6px"></div>
+        </div>
+        <div class="card act">
+          <h2 aria-label="Agent">Agent <span><button id="btn-wake" class="small">Wake now</button> <button id="btn-wake-pause" class="small">Pause</button></span></h2>
+          <div class="kv"><span class="k">Running</span><span class="v" id="waker-running">—</span></div>
+          <div class="kv"><span class="k">In progress</span><span class="v" id="waker-progress">—</span></div>
+          <div class="kv"><span class="k">Last decision</span><span class="v" id="waker-decision">—</span></div>
+          <div class="kv"><span class="k">Why</span><span class="v muted" id="waker-reason" style="font-size:12px"></span></div>
+          <div class="kv"><span class="k">Last wake</span><span class="v" id="waker-last">—</span></div>
+          <div class="kv"><span class="k">Next wake</span><span class="v" id="waker-next">—</span></div>
+          <div class="kv"><span class="k">Interval</span><span class="v"><input id="wake-interval" aria-label="Wake interval in minutes" type="number" min="1" max="240" value="10" style="width:64px;margin:0" /> <button id="btn-wake-interval" class="small secondary">Apply</button></span></div>
+          <div class="kv" style="align-items:flex-start"><span class="k" style="margin-top:6px">Your input</span><span class="v" style="flex:1"><input id="wake-input" aria-label="Your input to the next wake" placeholder="e.g. gold looks exhausted — check a fade" style="margin:0;width:100%" autocomplete="off" /></span></div>
+          <div id="wake-feedback" class="feedback"></div>
+          <h2 style="margin-top:10px">Flags</h2>
+          <div id="agent-flags" class="muted" style="font-size:11px;line-height:1.9"></div>
+        </div>
+        <div class="card">
+          <h2 aria-label="Regime">Regime <span class="muted" style="font-size:11px">shadow</span></h2>
+          <div class="kv"><span class="k">Regime</span><span class="v" id="meta-regime">—</span></div>
+          <div class="kv"><span class="k">Trend</span><span class="v" id="meta-trend">—</span></div>
+          <div class="kv"><span class="k">Confidence</span><span class="v" id="meta-conf">—</span></div>
+          <div class="kv"><span class="k">Scale</span><span class="v" id="meta-scale">—</span></div>
+          <div class="kv"><span class="k">Win rate</span><span class="v" id="meta-win">—</span></div>
+          <div class="kv"><span class="k"></span><span class="v muted" id="meta-note" style="font-size:11px"></span></div>
+        </div>
+        <div class="card">
+          <h2 aria-label="Watchlist">Watchlist <span class="muted" id="wl-mode" style="font-size:11px"></span> <button id="btn-discover" class="small">Discover</button></h2>
+          <input id="wl-search" aria-label="Search instruments to add to the watchlist" placeholder="Search instruments to add…" autocomplete="off" />
+          <div id="wl-results" class="hidden"></div>
+          <div id="watchlist-chips" class="btn-row"></div>
+          <div class="btn-row">
+            <button id="btn-confirm" class="small">Confirm found</button>
+            <button id="btn-bars" class="small secondary">Build bars</button>
+          </div>
+          <div id="watch-feedback" class="feedback"></div>
+          <h3 class="muted" style="margin:12px 0 6px">AI discoverer <span class="muted" id="wl-ai-count" style="font-size:11px"></span></h3>
+          <label class="muted chk"><input type="checkbox" id="wl-ai-enabled" aria-label="AI discoverer enabled" /> enabled</label>
+          <label class="muted chk">max AI symbols <input type="range" id="wl-ai-max" min="1" max="10" step="1" style="width:100px;vertical-align:middle" aria-label="Max AI symbols" /> <span id="wl-ai-max-v" class="mono"></span></label>
+          <div class="btn-row" style="margin-top:6px">
+            <button id="btn-wl-ai-run" class="small">Run now</button>
+            <button id="btn-wl-ai-save" class="small secondary">Save</button>
+            <span id="wl-ai-last" class="muted" style="font-size:11px"></span>
+          </div>
+          <div id="wl-ai-feedback" class="feedback"></div>
+        </div>
+        <div class="card act">
+          <h2 aria-label="Data sources">Data sources <button id="btn-providers" class="small">Snapshot</button></h2>
+          <div class="kv"><span class="k">Binance</span><span class="v" id="prov-binance">—</span></div>
+          <div class="kv"><span class="k">OKX</span><span class="v" id="prov-okx">—</span></div>
+          <div class="kv"><span class="k">Yahoo</span><span class="v" id="prov-yahoo">—</span></div>
+          <div class="kv"><span class="k">Last snapshot</span><span class="v" id="prov-last">—</span></div>
+          <div class="btn-row">
+            <button id="btn-capture" class="small">Capture prices now</button>
+            <button id="btn-backfill" class="small">Backfill 1h</button>
+            <button id="btn-backfill-all" class="small">Download all</button>
+          </div>
+          <div id="prov-feedback" class="feedback"></div>
+          <div id="capture-feedback" class="feedback"></div>
+        </div>
+        <div class="card act">
+          <h2>Health</h2>
+          <div class="kv"><span class="k">Chrome</span><span class="v" id="bridge-state">—</span></div>
+          <div class="kv"><span class="k">Consecutive fails</span><span class="v" id="bridge-fails">—</span></div>
+          <div class="kv"><span class="k">Capture on wake</span><span class="v" id="bridge-cap">—</span></div>
+          <div class="kv"><span class="k">Watchdog</span><span class="v" id="waker-watchdog">—</span></div>
+          <div class="kv"><span class="k">Plus500 login</span><span class="v" id="waker-login">—</span></div>
+          <div class="kv"><span class="k">Disaster floor</span><span class="v" id="kill-floor">—</span></div>
+          <div class="kv"><span class="k">Initial equity</span><span class="v"><span id="kill-equity">—</span> <button id="btn-baseline" class="small secondary" title="Set the kill-switch baseline to the current live demo equity">Set baseline</button></span></div>
+          <div class="kv"><span class="k">Demo account</span><span class="v" id="account-indicators">—</span></div>
+          <div class="btn-row"><button id="btn-bridge-resume" class="small secondary">Resume bridge</button> <button id="btn-bridge-park" class="small secondary" title="Park the desk for analysis: stops scheduled wakes, captures (and their Chrome cold-start), the mirror cycle, the account strip poller and the sessionFeed re-attach. Unpark restores everything. Nothing else changes.">Park (analysis)</button></div>
+          <div class="hint" style="margin-top:6px;font-size:11px"><a href="desk-mirror.html">open the desk mirror — live positions, account, closes, fills (spread telemetry) →</a></div>
+        </div>
+        <div class="card wide">
+          <h2 aria-label="Bridge state machine">Bridge state machine <span class="muted" style="font-size:11px">live · 5 s · drawn from trading/plus500/bridgeStateGraph.js — pinned against the reducer (test/bridge-state-graph.test.js) · <a href="bridge-state.html">full view</a></span></h2>
+          <div id="bridge-machine"></div>
+        </div>
+        <div class="card wide">
+        <h2 aria-label="Scripts">Scripts <span class="muted" style="font-size:11px">every background process</span></h2>
+          <div id="scripts-list" class="rowlist cols">—</div>
+        </div>
+        <div class="card">
+          <h2 aria-label="Pipeline">Pipeline <span class="muted" style="font-size:11px">wake steps + bridge conflicts</span></h2>
+          <div id="pipeline-body" style="max-height:300px;overflow:auto;font-size:12px;line-height:1.7">—</div>
+        </div>
+        <div class="card">
+          <h2 aria-label="Equity curve">Equity curve <span class="muted" style="font-size:11px">live demo strip <b id="eq-latest" class="mono">—</b> <span id="eq-age" class="muted" style="font-size:10px" title="age of the venue account-strip sample behind this number"></span> <span id="eq-span" class="muted" style="font-size:10px"></span> <span id="eq-asof" class="asof"></span></span></h2>
+          <div class="btn-row" style="margin:2px 0 6px;gap:4px">
+            <button class="tab small win" data-eqwin="1800000">30m</button>
+            <button class="tab small win active" data-eqwin="7200000">2h</button>
+            <button class="tab small win" data-eqwin="21600000">6h</button>
+            <button class="tab small win" data-eqwin="43200000">12h</button>
+            <button class="tab small win" data-eqwin="86400000">1d</button>
+            <button class="tab small win" data-eqwin="259200000">3d</button>
+            <button class="tab small win" data-eqwin="604800000">1w</button>
+            <button class="tab small win" data-eqwin="all">all</button>
+          </div>
+          <div class="chart-box" style="height:150px"><canvas id="equity-chart"></canvas></div>
+          <table id="equity-table" class="sr-only" aria-label="Equity series (accessible fallback for the chart)"><thead><tr><th>Sample (UTC)</th><th>Equity</th></tr></thead><tbody></tbody></table>
+          <div id="strategy-stats-body" class="rowlist">—</div>
+          <div id="drift-flags" style="margin-top:4px"></div>
+        </div>
+        <div class="card">
+          <h2 aria-label="White paper">White paper <span class="muted" style="font-size:11px">yearly · monthly · weekly baseline</span></h2>
+          <div id="whitepaper-body" style="max-height:260px;overflow:auto;font-size:12px;line-height:1.7">—</div>
+          <div class="btn-row" style="margin-top:4px"><button id="btn-whitepaper" class="small secondary">Generate now</button><span id="whitepaper-feedback" class="feedback"></span></div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="trades">Positions</button>
+        <button class="tab" data-tab="wakes">Decisions</button>
+        <button class="tab" data-tab="paper">Paper</button>
+        <button class="tab" data-tab="backtest">Backtest</button>
+        <button class="tab" data-tab="prices">Prices</button>
+        <button class="tab" data-tab="strategy">Strategy</button>
+        <button class="tab" data-tab="deliberation">Deliberation</button>
+        <button class="tab" data-tab="alerts">Alerts</button>
+        <button class="tab" data-tab="events">Activity</button>
+        <button class="tab" data-tab="health">Health</button>
+      </div>
+
+      <div id="tab-wakes" class="card hidden" role="region" aria-label="Decisions">
+        <div class="toolbar">
+          <input id="wakes-symbol" aria-label="Filter decisions by symbol" placeholder="filter symbol (e.g. gold)" style="width:170px" autocomplete="off" />
+          <button id="wakes-clear" class="small secondary">Clear</button>
+          <button id="wakes-collapse" class="small secondary">Collapse all</button>
+          <button id="wakes-expand" class="small secondary">Expand all</button>
+          <span id="wakes-count" class="muted" style="font-size:11px"></span>
+          <span id="wakes-asof" class="asof"></span>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>Time</th><th>Trigger</th><th>Symbol</th><th>Decision</th><th>Scouted</th><th>Details</th><th>Model</th><th>Latency</th>
+          </tr></thead><tbody id="wakes-body"></tbody></table>
+        </div>
+        <div id="wake-detail" class="hidden" style="margin-top:10px"></div>
+      </div>
+
+      <div id="tab-events" class="card hidden" role="region" aria-label="Activity">
+        <div class="toolbar">
+          <span class="muted" style="align-self:center">kind</span>
+          <select id="events-kind" aria-label="Filter events by kind" style="width:190px">
+            <option value="">all kinds</option>
+            <optgroup label="safety / audit">
+              <option value="kill">kill</option>
+              <option value="order_rejected">order_rejected</option>
+              <option value="order_unconfirmed">order_unconfirmed</option>
+              <option value="order_unconfirmed_expired">order_unconfirmed_expired</option>
+              <option value="order_blocked">order_blocked</option>
+              <option value="phantom_fill">phantom_fill</option>
+              <option value="divergence_alert">divergence_alert</option>
+              <option value="watchdog_login_death">watchdog_login_death</option>
+              <option value="watchdog_waker_stale">watchdog_waker_stale</option>
+              <option value="black_swan">black_swan</option>
+              <option value="error">error</option>
+            </optgroup>
+            <optgroup label="act (mutations)">
+              <option value="wake">wake</option>
+              <option value="decision">decision</option>
+              <option value="order_attempt">order_attempt</option>
+              <option value="order_recovered">order_recovered</option>
+              <option value="trade_opened">trade_opened</option>
+              <option value="trade_closed">trade_closed</option>
+              <option value="position_review">position_review</option>
+              <option value="alert">alert</option>
+              <option value="alternatives">alternatives</option>
+              <option value="paper_trade">paper_trade</option>
+              <option value="reconciliation">reconciliation</option>
+            </optgroup>
+            <optgroup label="state / LLM">
+              <option value="account">account</option>
+              <option value="meta">meta</option>
+              <option value="self_health">self_health</option>
+              <option value="pulse">pulse</option>
+              <option value="digest">digest</option>
+              <option value="whitepaper">whitepaper</option>
+              <option value="central">central</option>
+              <option value="ask">ask</option>
+              <option value="autopsy">autopsy</option>
+              <option value="tune">tune</option>
+              <option value="tune_revert">tune_revert</option>
+              <option value="multi_signal">multi_signal</option>
+            </optgroup>
+            <optgroup label="app / market">
+              <option value="telemetry">telemetry</option>
+              <option value="llm_usage">llm_usage</option>
+              <option value="bars_built">bars_built</option>
+              <option value="provider_snapshot">provider_snapshot</option>
+              <option value="multi_tf_backfill">multi_tf_backfill</option>
+              <option value="system">system</option>
+              <option value="note">note</option>
+            </optgroup>
+            <!-- 2026-10-03 (4.5 item 6 fix): the ledger's telemetry/internal kinds were unfilterable from
+                 this dropdown (census: 66 distinct kinds vs 41 selectable). Diff computed live against the DB. -->
+            <optgroup label="telemetry / internal">
+              <option value="account_switch">account_switch</option>
+              <option value="binding_proposal">binding_proposal</option>
+              <option value="budget_warn">budget_warn</option>
+              <option value="cut_refusal_resolved">cut_refusal_resolved</option>
+              <option value="cut_refused">cut_refused</option>
+              <option value="day_start">day_start</option>
+              <option value="discover_signal">discover_signal</option>
+              <option value="entry_reanchored">entry_reanchored</option>
+              <option value="excursion_live">excursion_live</option>
+              <option value="fill_telemetry">fill_telemetry</option>
+              <option value="lab_gate">lab_gate</option>
+              <option value="level_reanchor_held">level_reanchor_held</option>
+              <option value="level_reanchored">level_reanchored</option>
+              <option value="llm_call">llm_call</option>
+              <option value="llm_provider_error">llm_provider_error</option>
+              <option value="paper_reset">paper_reset</option>
+              <option value="parity_check">parity_check</option>
+              <option value="pnl_range">pnl_range</option>
+              <option value="position_pnl">position_pnl</option>
+              <option value="price_divergence">price_divergence</option>
+              <option value="reanchor_inert">reanchor_inert</option>
+              <option value="reanchor_no_tick">reanchor_no_tick</option>
+              <option value="reanchor_skipped">reanchor_skipped</option>
+              <option value="session_probe">session_probe</option>
+              <option value="settings_write">settings_write</option>
+              <option value="shadow_signal">shadow_signal</option>
+              <option value="size_reconciled">size_reconciled</option>
+              <option value="stop_capped">stop_capped</option>
+              <option value="strategy_scope_dead">strategy_scope_dead</option>
+              <option value="telemetry_observation">telemetry_observation</option>
+              <option value="trailing_stop_placed">trailing_stop_placed</option>
+              <option value="trailing_stop_refused">trailing_stop_refused</option>
+              <option value="trd26_check">trd26_check</option>
+              <option value="tune_skipped">tune_skipped</option>
+              <option value="watchdog_login_recovered">watchdog_login_recovered</option>
+            </optgroup>
+          </select>
+          <span id="events-note" class="muted" style="align-self:center;font-size:11px"></span>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>Time</th><th>Kind</th><th>Payload</th>
+          </tr></thead><tbody id="events-body"></tbody></table>
+        </div>
+      </div>
+
+      <div id="tab-health" class="card hidden" role="region" aria-label="Health">
+        <h2 style="margin:0 0 4px">Self-health <span class="muted" style="font-size:11px">does the desk's reading of the world still hold?</span></h2>
+        <div class="toolbar">
+          <span id="health-status" class="chip muted" role="status" aria-live="polite">—</span>
+          <span id="health-last" class="muted" style="font-size:11px">never run</span>
+          <button id="btn-health-run" class="small">Run now</button>
+          <span id="health-feedback" class="feedback"></span>
+        </div>
+        <div class="btn-row" style="margin:6px 0 8px">
+          <button id="btn-test-sql" class="small secondary"
+                  title="GET /ping — the SQL schema probe plus the cached model and bridge status. The liveness half of this route is PUBLIC so a boot script can ask whether the desk is up; this button asks the token-authenticated half, which is the part that touches SQL.">Test SQL</button>
+          <button id="btn-test-model" class="small secondary"
+                  title="POST /ping/deepseek — forces a FRESH model check instead of the cached verdict. The failure this exists to catch is not a dead key but a key that answers 402: an account out of credit (TRD-94), where a seat abstaining on credit looks identical to a seat with nothing to say.">Test model</button>
+          <button id="btn-test-bridge" class="small secondary"
+                  title="POST /ping/browser — starts a bridge probe, or reports the one already running. The bridge is the SHARED Chrome tab the desk drives, so this is the question an operator asks before trusting a capture, and until now it needed curl.">Test bridge</button>
+          <span id="ping-feedback" class="feedback"></span>
+        </div>
+        <div id="ping-result" class="muted" style="font-size:12px;line-height:1.7"></div>
+
+        <h3 class="sec-h">Economic calendar <span class="hint" id="calendar-state"></span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          The scheduled halts the session guard reads. <b>The guard REFUSES entries on a stored event</b>, so
+          this list is what decides whether the desk may trade on a given day — with no view, a refusal
+          arrived with no visible cause. <b>FOMC only</b>: the import reads federalreserve.gov, so CPI and NFP
+          are NOT covered, and the panel says so rather than looking complete.
+        </div>
+        <div class="btn-row" style="margin:0 0 8px">
+          <button id="btn-calendar-import" class="small secondary"
+                  title="POST /calendar/import — replaces the stored federalreserve events for the next 7 days. It deletes the same window first, so a removed FOMC date disappears rather than lingering.">Import FOMC dates</button>
+          <span id="calendar-feedback" class="feedback"></span>
+        </div>
+        <div id="calendar-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+
+        <h3 class="sec-h">Digest <span class="hint" id="digest-state"></span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          The digest <b>the chairs actually read</b> — the desk's own summary of itself. It decides what the
+          deliberation sees, so it belongs on a screen rather than behind curl.
+        </div>
+        <div id="digest-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+        <div id="health-body" class="muted">no self-health snapshot yet — click Run now</div>
+      </div>
+
+      <div id="tab-trades" class="card" role="region" aria-label="Positions">
+        <div class="toolbar">
+          <button id="btn-mirror" class="small">Mirror Plus500 positions now</button>
+          <button id="btn-review" class="small secondary">Review positions (AI)</button>
+          <span class="muted" style="align-self:center">| submit trade:</span>
+          <select id="trade-symbol" aria-label="Symbol to trade" style="width:150px"></select>
+          <select id="trade-dir" aria-label="Trade direction" style="width:90px"><option value="buy">buy</option><option value="sell">sell</option></select>
+          <input id="trade-amount" aria-label="Trade amount" type="number" step="any" placeholder="amount" style="width:100px" />
+          <input id="trade-stop" aria-label="Stop level (blank submits with no stop)" type="number" step="any" placeholder="stop (blank = none)" style="width:160px"
+                 title="Venue stop-loss level. Leave blank to submit with NO stop: the position's risk is then unmeasured, it is excluded from every R-based metric, and self-health flags it (TRD-43)." />
+          <button id="btn-trade" class="small">Submit</button>
+          <span class="muted" style="align-self:center">|</span>
+          <span id="trades-asof" class="asof"></span>
+          <button id="btn-past" class="small secondary">View past positions</button>
+        </div>
+        <div id="trade-feedback" class="feedback"></div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>#</th><th>Symbol</th><th>Dir</th><th>Size</th><th>Open</th><th>Stop</th><th>Current</th><th>P&amp;L (live)</th><th>Review</th><th>Status</th><th>Note</th><th>Action</th>
+          </tr></thead><tbody id="trades-body"></tbody></table>
+        </div>
+        <div id="past-trades" class="hidden" style="margin-top:12px">
+          <div class="sec-h">Past positions <span class="hint" id="past-summary">—</span></div>
+          <div class="btn-row" style="margin:0 0 8px">
+            <button id="btn-sync-closes" class="small secondary" title="Read Plus500's own closed-positions list and record the real close (price, P&L, reason, time) for anything we could not account for. The desk sets the trade's stop-loss / take-profit AT THE VENUE, so Plus500 closes most positions itself — those arrive as 'Profit call' / 'Loss call', or 'Market closed' at session end.">Sync venue closes</button>
+            <span id="past-feedback" class="feedback"></span>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr>
+              <th>#</th><th>Symbol</th><th>Dir</th><th>Size</th><th>Open</th><th>Close</th><th>Net P&amp;L</th><th>Held</th><th>Closed</th><th>Status</th><th>Why</th>
+            </tr></thead><tbody id="trades-past-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-alerts" class="card hidden" role="region" aria-label="Alerts">
+        <h3 class="muted" style="margin:0 0 6px">Plus500 alerts (source of truth)</h3>
+        <div class="toolbar">
+          <button id="btn-alerts-sync" class="small">Sync from Plus500</button>
+          <select id="al-p500-symbol" aria-label="Alert symbol" style="width:140px"></select>
+          <input id="al-p500-value" aria-label="Alert price level" type="number" step="any" placeholder="price" style="width:90px" />
+          <select id="al-p500-side" aria-label="Alert side" style="width:90px"><option value="buy">buy side</option><option value="sell">sell side</option></select>
+          <button id="btn-alerts-create" class="small">Create on Plus500</button>
+        </div>
+        <div id="alerts-plus-feedback" class="feedback"></div>
+        <h3 class="muted" style="margin:10px 0 6px">Local alerts (checked every wake)</h3>
+        <div class="alert-form">
+          <input id="al-symbol" aria-label="Symbol for a custom alert" placeholder="Symbol (e.g. Gold)" list="al-symbols" autocomplete="off" />
+          <datalist id="al-symbols"></datalist>
+          <select id="al-direction" aria-label="Alert direction">
+            <option value="above">above</option>
+            <option value="below">below</option>
+            <option value="crosses">crosses</option>
+          </select>
+          <input id="al-threshold" aria-label="Alert threshold" type="number" step="any" placeholder="Threshold" style="min-width:118px" />
+          <button id="al-add" class="small">Add alert</button>
+        </div>
+        <div id="alerts-feedback" class="feedback"></div>
+        <div class="table-wrap" style="margin-top:10px">
+          <table><thead><tr>
+            <th scope="col">Symbol</th><th scope="col">Metric</th><th scope="col">Condition</th><th scope="col">Threshold</th><th scope="col">Triggered at</th><th scope="col"><span class="sr-only">Actions</span></th>
+          </tr></thead><tbody id="alerts-body"></tbody></table>
+        </div>
+      </div>
+
+      <div id="tab-prices" class="card hidden" role="region" aria-label="Prices">
+        <div class="toolbar">
+          <select id="bar-symbol" aria-label="Symbol for the price chart"></select>
+          <button class="tab small win" data-tf="5m" id="tf-5m">5m</button>
+          <button class="tab small win" data-tf="15m" id="tf-15m">15m</button>
+          <button class="tab small win active" data-tf="1h" id="tf-1h">1h</button>
+          <button class="tab small win" data-tf="4h" id="tf-4h">4h</button>
+          <button class="tab small win" data-tf="1d" id="tf-1d">1d</button>
+          <button id="btn-open-plus500" class="small secondary">Open in Plus500</button>
+          <span class="muted" id="bar-count"></span>
+          <span class="muted" id="bar-coverage"></span>
+        </div>
+        <div class="chart-box" style="height:260px"><canvas id="bars-chart" height="80"></canvas></div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>Bar start</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Ticks</th>
+          </tr></thead><tbody id="bars-body"></tbody></table>
+        </div>
+        <div class="btn-row" style="margin-top:8px">
+          <button id="btn-bars-rebuild" class="small secondary" title="Delete flagged bars and rebuild hourly/daily from validated ticks">Rebuild bars from clean ticks</button>
+          <span id="bars-rebuild-feedback" class="feedback"></span>
+        </div>
+        <h3 style="margin-top:10px">Quarantined ticks <span class="muted" style="font-size:11px">rejected at ingest — never entered PriceTicks</span></h3>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>At</th><th>Symbol</th><th>Bid</th><th>Ask</th><th>Reason</th><th>Detail</th>
+          </tr></thead><tbody id="quarantine-body"></tbody></table>
+        </div>
+      </div>
+
+      <div id="tab-backtest" class="card hidden" role="region" aria-label="Backtest">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <select id="bt-symbol" aria-label="Backtest symbol"></select>
+            <select id="bt-venue" aria-label="Backtest venue">
+              <option value="plus500">plus500 (frontend)</option>
+              <option value="binance">binance</option>
+              <option value="okx">okx</option>
+              <option value="yahoo">yahoo</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <span class="lbl">timeframe</span>
+            <button class="tab small win" data-tf="5m">5m</button>
+            <button class="tab small win" data-tf="15m">15m</button>
+            <button class="tab small win active" data-tf="1h">1h</button>
+            <button class="tab small win" data-tf="4h">4h</button>
+            <button class="tab small win" data-tf="1d">1d</button>
+          </div>
+          <div class="toolbar-group">
+            <span class="lbl">range</span>
+            <button class="tab small win active" data-range="1w">1w</button>
+            <button class="tab small win" data-range="1m">1m</button>
+            <button class="tab small win" data-range="1y">1y</button>
+            <button class="tab small win" data-range="all">all</button>
+          </div>
+          <div class="toolbar-group">
+            <label><input type="checkbox" id="bt-refresh" checked /> refresh data</label>
+            <label title="randomize costs (spread/slippage/swap) over N trials and report the P&L band"><input type="checkbox" id="bt-mc" /> monte carlo</label>
+            <input type="number" id="bt-mc-trials" aria-label="Monte Carlo trials" value="200" min="10" max="2000" step="10" title="trials" />
+          </div>
+          <div class="toolbar-group">
+            <button id="btn-backtest" class="small">Run backtest</button>
+            <button id="btn-bt-sweep" class="small secondary">Sweep params</button>
+          </div>
+          <span class="muted" id="bt-provenance"></span>
+        </div>
+        <div class="toolbar">
+          <span class="lbl">strategy <span class="muted">(backtest-only — does NOT touch the live one)</span></span>
+          <select id="bt-strategy" aria-label="Backtest strategy" style="width:200px"></select>
+          <span id="bt-params" class="param-grid"></span>
+        </div>
+        <div id="bt-feedback" class="feedback"></div>
+        <div class="chart-box" style="height:240px"><canvas id="bt-chart" height="90"></canvas></div>
+        <div class="grid" id="bt-metrics"></div>
+        <div id="bt-sweep-results" style="margin-top:14px"></div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>#</th><th>Dir</th><th>Entry</th><th>Exit</th><th>Nights</th><th>Costs</th><th>Net P&amp;L</th><th>Reason</th>
+          </tr></thead><tbody id="bt-body"></tbody></table>
+        </div>
+        <div id="bt-consistency" style="margin-top:14px">
+          <h3 class="muted" style="margin:0 0 6px">P&amp;L consistency over time (same symbol + venue + timeframe)</h3>
+          <div class="table-wrap">
+            <table><thead><tr>
+              <th>Ran at</th><th>Range</th><th>Bars</th><th>Net P&amp;L (CFD)</th><th>Win rate</th><th>PF</th><th>Max DD</th>
+            </tr></thead><tbody id="bt-consistency-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-deliberation" class="card hidden" role="region" aria-label="Deliberation">
+        <h3 class="sec-h">Quant panel <span class="hint">deterministic voters · weights normalize</span></h3>
+        <div id="delib-panel" class="panel-voters"></div>
+        <h3 class="sec-h">Chairs <span class="hint">LLM voters, 1-3 · failures abstain</span></h3>
+        <div class="chair-head"><span>id</span><span>model (blank = default)</span><span>temp</span><span>weight</span><span>persona</span><span></span></div>
+        <div id="delib-chairs"></div>
+        <div class="btn-row" style="margin-top:8px">
+          <button id="delib-add-chair" class="small">+ chair</button>
+          <button id="delib-save" class="small">Save deliberation</button>
+        </div>
+        <div id="delib-feedback" class="feedback"></div>
+        <h3 class="sec-h">Position exit review <span class="hint">dedicated loop, one position per cycle (token-capped)</span></h3>
+        <div id="delib-pr" class="param-grid">
+          <label class="chk"><input type="checkbox" id="pr-enabled" /> enabled</label>
+          <label>every <input type="number" id="pr-minutes" min="0.5" step="0.5" /> min</label>
+          <label>per cycle <input type="number" id="pr-max" min="0" max="10" /></label>
+          <label>min conf <input type="number" id="pr-conf" min="0" max="1" step="0.05" /></label>
+          <label class="chk"><input type="checkbox" id="pr-mirrored" /> auto-close mirrored (user) positions</label>
+        </div>
+        <h3 class="sec-h">Risk &amp; position sizing <span class="hint">live risk gate</span></h3>
+        <div id="risk-sizing">
+          <label class="rr"><span class="rr-k">risk per trade</span><input type="range" id="risk-riskpct" min="0.1" max="5" step="0.1" /><span id="risk-riskpct-v" class="rr-v mono"></span></label>
+          <label class="rr"><span class="rr-k">max position % equity</span><input type="range" id="risk-maxpos" min="1" max="80" step="1" /><span id="risk-maxpos-v" class="rr-v mono"></span></label>
+          <label class="rr" title="The share of account equity the WHOLE book may hold as notional, across every open position. 0 = refuse all new exposure (a legitimate way to stop taking risk without stopping the desk). &#10;&#10;⚠ This is NOT the binding ceiling at high values: the MARGIN ceiling (80% by default) caps the margin the venue sets aside, which at 1:5 leverage is reached at ~400% notional. So past roughly 400% on a 1:5 instrument this dial stops mattering and the margin guard is what holds."><span class="rr-k">exposure cap %</span><input type="range" id="risk-expcap" min="0" max="500" step="1" /><span id="risk-expcap-v" class="rr-v mono"></span></label>
+          <label class="rr"><span class="rr-k">new trades / day</span><input type="range" id="risk-dailycap" min="1" max="20" step="1" /><span id="risk-dailycap-v" class="rr-v mono"></span></label>
+          <label class="rr"><span class="rr-k">max open positions</span><input type="range" id="risk-maxcount" min="1" max="10" step="1" /><span id="risk-maxcount-v" class="rr-v mono"></span></label>
+          <label class="rr"><span class="rr-k">re-entry cooldown</span><input type="range" id="risk-cooldown" min="0" max="24" step="1" /><span id="risk-cooldown-v" class="rr-v mono"></span><label class="chk" style="color:var(--muted)"><input type="checkbox" id="risk-cooldown-on" /> enabled</label></label>
+          <label class="rr" title="The stop the venue receives is capped at this percentage of price. It applies to EVERY entry on every instrument. Setting it to 0 disables the cap, so the stop becomes the declared 2xATR."><span class="rr-k">stop cap % of price</span><input type="range" id="risk-stopcap" min="0" max="1.5" step="0.05" /><span id="risk-stopcap-v" class="rr-v mono"></span></label>
+          <label class="rr" title="Pulls the take-profit in by this share of its OWN distance, so a near-miss books a win. Applies to EVERY entry. 0 = off. The effective R:R falls by the same proportion."><span class="rr-k">take-profit offset</span><input type="range" id="risk-tpoffset" min="0" max="30" step="1" /><span id="risk-tpoffset-v" class="rr-v mono"></span></label>
+          <label class="rr" title="OFF (default): the target sits at 1.5x the DECLARED 2xATR, so a capped stop leaves it further away and the ticket carries MORE than 1.5R. ON: the target is anchored to the stop the venue ACTUALLY receives, so every ticket carries the 1.5R the strategy declared. Measured on the 25 trades that ran past 1.6R: at their real target 16% touched, expectancy -0.26R; at a true 1.5R target 48% touched, +0.20R. This changes the geometry of a FROZEN forward-validation candidate (TRD-29), so it ships off and the track is annotated when it moves."><span class="rr-k">anchor target to placed stop</span><input type="checkbox" id="risk-tpanchor-on" /><span id="risk-tpanchor-v" class="rr-v mono"></span></label>
+          <label class="rr" title="The cap on the RISK a position may imply, as a share of equity — checked against the stop the VENUE will use. It always overrides 'risk per trade' when it is smaller, because both divide by the same stop distance. 0 = OFF, which hands sizing back to 'risk per trade' and makes every position several times larger."><span class="rr-k">max risk / trade %</span><input type="range" id="risk-maxrisk" min="0" max="5" step="0.01" /><span id="risk-maxrisk-v" class="rr-v mono"></span></label>
+          <label class="rr" title="A new entry is refused when |correlation| against an OPEN position is at or above this, on 30-day log-returns of 1h closes. HIGHER = FEWER refusals: 1.00 effectively disables the check. 0 is deliberately not offered — the test is `>= threshold`, so 0 would refuse every entry."><span class="rr-k">correlation veto</span><input type="range" id="risk-corrveto" min="0.1" max="1" step="0.05" /><span id="risk-corrveto-v" class="rr-v mono"></span></label>
+          <div class="rr-note neg" id="risk-maxrisk-note" style="display:none" title="Both dials divide by the SAME effective stop distance, so the smaller one binds for every symbol. This is arithmetic, not a per-ticket subtlety."></div>
+          <div class="rr-note neg" id="risk-maxpos-warn" style="display:none" title="A single position may hold this share of account equity — past 40% one adverse move dominates the book. Notification only: nothing is blocked and the value saves as-is.">⚠ &gt;40% of equity in one position — danger</div>
+          <div class="rr-note neg" id="risk-costfloor" style="display:none" title="costShare = venue round trip / stop cap. A TIGHTER cap RAISES the cost share, and past the ceiling the risk gate refuses the entry — so each instrument has a minimum cap it can carry before it is excluded. Measured from the desk's own cost model."></div>
+          <div class="rr-note" id="risk-refusals" style="display:none" title="Counts WAKES, not events (one wake could write two events). A refusal by the risk gate happens BEFORE the committee, so no seat sees it and llmCalled is false on those wakes — which is why this panel exists at all."></div>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:4px" id="risk-runin"></div>
+        <div class="btn-row" style="margin-top:6px">
+          <button id="risk-save" class="small">Save sizing</button>
+          <span id="risk-feedback" class="feedback"></span>
+        </div>
+        <h3 class="sec-h">LLM token budget <span class="hint">per-consumer daily caps + total + boost (3x until)</span></h3>
+        <div id="budget-body" class="budget-grid">—</div>
+        <div class="btn-row" style="margin-top:6px">
+          <label class="chk">total <input type="number" id="budget-total" min="1000" step="5000" class="num-md" /></label>
+          <label class="chk">boost until <input type="datetime-local" id="budget-boost" /></label>
+          <button id="budget-save" class="small">Save budget</button>
+          <button id="budget-clear-boost" class="small secondary">Clear boost</button>
+          <span id="budget-feedback" class="feedback"></span>
+        </div>
+        <div class="btn-row">
+          <button id="delib-pr-save" class="small secondary">Save review settings</button>
+          <button id="delib-pr-run" class="small">Review now</button>
+        </div>
+        <div id="delib-pr-feedback" class="feedback"></div>
+      </div>
+
+      <div id="tab-strategy" class="card hidden" role="region" aria-label="Strategy">
+        <h3 class="sec-h">Strategies <span class="hint" id="strat-effective-hint">enabled ones feed the live quant · multi is shadow-only ranking</span></h3>
+        <div id="strat-effective"></div>
+        <div id="strat-list"></div>
+        <h3 class="sec-h">Can trade <span class="hint" id="cantrade-state"></span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          The tradable universe in full, rather than in a hover. <b>An explicit empty scope means the symbol
+          can NEVER enter</b> — it is how a symbol is retired — so a list showing only the enabled strategies
+          would overstate what the desk can actually do.
+        </div>
+        <div id="cantrade-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+        <h3 class="sec-h">Scope &amp; hypotheses <span class="hint" id="binding-state"></span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          The instrument &harr; (strategy, params) binding, what the independent reviewer last decided, and the
+          claims it wants tested. <b>A hypothesis grants no scope</b> — it is a claim with a named falsifier,
+          and only the lab can settle it.
+        </div>
+        <div id="binding-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+        <div class="btn-row" style="margin-top:6px">
+          <button id="btn-binding-propose" class="small">Ask the reviewer now</button>
+          <span id="binding-feedback" class="feedback"></span>
+        </div>
+        <h3 class="sec-h">Strategy Lab — candidate scoreboard <span class="hint" id="lab-sb-state"></span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          Every REGISTERED candidate pair, its walk-forward stages and its release state — the evidence behind the
+          hypotheses above. <b>The lab reports; it does not gate:</b> a verdict here is a measurement, and this panel
+          never changes what can trade. Registration and scoring stay script-only on purpose.
+        </div>
+        <div id="lab-sb-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+        <h3 class="sec-h">Shadow surfaces <span class="hint" id="shadow-state"></span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          Research processes whose reads a screen should carry. <b>Both are switched OFF</b> in
+          <code>strategies.enabled</code>, so this panel shows <b>disabled</b> and names the reason rather
+          than rendering an empty table — <b>an empty panel would lie about why there is nothing in it</b>.
+        </div>
+        <div id="shadow-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+        <h3 class="sec-h">AI self-tuning <span class="hint" id="tuner-state"></span></h3>
+        <div class="param-grid">
+          <label class="chk"><input type="checkbox" id="tuner-enabled" /> enabled</label>
+          <label>interval <input type="number" id="tuner-interval" min="6" max="168" step="1" value="24" /> h</label>
+        </div>
+        <div class="btn-row" style="margin-top:6px">
+          <button id="btn-tuner-run" class="small">Run now</button>
+          <button id="btn-tuner-save" class="small secondary">Save</button>
+          <span id="tuner-feedback" class="feedback"></span>
+        </div>
+        <div id="tuner-adjustments" class="muted" style="font-size:12px;line-height:1.7"></div>
+
+        <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:16px 0 12px" />
+        <h3 class="sec-h">Instrument mirror — Phase 0 <span class="hint">what the venue actually exposes</span></h3>
+        <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px">
+          In the Plus500 Chrome window, navigate <b>by hand</b> to a page listing instruments — a
+          category, or one instrument such as <code>/trade/oil---weekly</code> — then press this.
+          It reads the loaded page, the highlighted category and every instrument on it. It never
+          navigates, clicks, or closes anything, so it is safe while the desk is idle.
+        </div>
+        <button id="btn-probe-instruments" class="small">Read loaded instrument page</button>
+        <span id="probe-feedback" class="feedback"></span>
+        <div id="probe-result" class="muted" style="font-size:12px;line-height:1.7;margin-top:6px"></div>
+        <h3 class="sec-h">Live vs backtest scorecard <span class="hint">P2 — parity check between the ledger and the last backtest run</span></h3>
+        <div id="scorecard-body" class="muted" style="font-size:12px;line-height:1.7">—</div>
+        <div id="congress-token-row" class="hidden" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+          <div class="muted" style="font-size:12px;margin-bottom:6px">Quiver token — free key from quiverquant.com/dashboard (blank keeps the current one)</div>
+          <div class="param-grid">
+            <input id="congress-token" aria-label="Quiver API token" class="w-md" placeholder="paste Quiver token…" style="width:340px" />
+            <button id="congress-pull" class="small" type="button">Pull Congress data now</button>
+            <span id="congress-feedback" class="feedback"></span>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:8px"><button id="strat-save" class="small">Save strategies</button></div>
+        <div id="strat-feedback" class="feedback"></div>
+      </div>
+
+      <div id="tab-paper" class="card hidden" role="region" aria-label="Paper">
+        <h3 class="sec-h">Sim trading <span class="hint">central AI (thinking ON) + simulated broker — separate from the Plus500 demo path</span></h3>
+        <div class="btn-row">
+          <label class="chk"><input type="checkbox" id="paper-toggle" /> Paper mode on</label>
+          <button id="paper-reset" class="small secondary">Reset account</button>
+          <button id="paper-wake" class="small">Wake now (sim)</button>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Equity</div><span class="v" id="paper-equity">—</span></div>
+          <div class="stat"><div class="k">Realized</div><span class="v" id="paper-realized">—</span></div>
+          <div class="stat"><div class="k">Floating</div><span class="v" id="paper-float">—</span></div>
+          <div class="stat"><div class="k">Swap accrued</div><span class="v" id="paper-swap">—</span></div>
+        </div>
+        <div id="paper-fail" class="feedback"></div>
+        <h3 class="sec-h">Last central verdict</h3>
+        <div id="paper-verdict" class="note-box mono">—</div>
+        <h3 class="sec-h">Open positions</h3>
+        <div class="table-wrap tight"><table id="paper-open" class="ledger"></table></div>
+        <h3 class="sec-h">Closed ledger</h3>
+        <div class="table-wrap tight"><table id="paper-closed" class="ledger"></table></div>
+        <div id="paper-feedback" class="feedback"></div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/bridge-machine.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
