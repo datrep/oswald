@@ -46,7 +46,16 @@ test('★★ EVERY `distanceFromPercent` call anchors `entry` to the SAME readin
   const sites = callSites();
   assert.ok(sites.length >= 3, `expected several call sites, found ${sites.length}: ${JSON.stringify(sites)}`);
 
+  // ★ THE ONE LEGITIMATE EXCEPTION (TRD-TRL-12b, 2026-10-18): the POST-ENTRY edit card anchors its percent to
+  // the position's ENTRY price, measured live on 2026-10-08 — so the engage path inside `setPositionTrail` MUST
+  // pass the trade's entry, not the current price. Every other site (unsubmitted tickets) keeps the rule above.
+  // The exception is pinned by SHAPE: exactly one entryRate/post.price site, and it must sit inside that function.
+  const start = webtrader.indexOf('async function setPositionTrail');
+  const nextFn = webtrader.indexOf('\nasync function ', start + 10);
+  const engageBody = start > -1 ? webtrader.slice(start, nextFn > -1 ? nextFn : webtrader.length) : '';
+
   const offenders = [];
+  let engageSites = 0;
   for (const s of sites) {
     const entry = /\bentry:\s*([A-Za-z_$][\w$.]*)/.exec(s);
     const price = /\bprice:\s*([A-Za-z_$][\w$.]*)/.exec(s);
@@ -54,13 +63,24 @@ test('★★ EVERY `distanceFromPercent` call anchors `entry` to the SAME readin
       offenders.push(`could not read both sides from: ${s}`);
       continue;
     }
+    const inEngage = engageBody.includes(s);
+    if (inEngage) {
+      engageSites += 1;
+      // trade-entry anchored: entry must be enteringRate and price must be the card's current reading
+      if (entry[1] !== 'entryRate' || price[1] !== 'post.price') {
+        offenders.push(`engage site must be entry: entryRate / price: post.price — got entry: ${entry[1]} price: ${price[1]}`);
+      }
+      continue;
+    }
     if (entry[1] !== price[1]) offenders.push(`entry: ${entry[1]}  vs  price: ${price[1]}   -> ${s}`);
   }
+  assert.equal(engageSites, 1, `expected exactly ONE trade-entry anchored site (the engage card), found ${engageSites}`);
   assert.deepStrictEqual(
     offenders,
     [],
-    'the venue anchors an unsubmitted ticket to the CURRENT PRICE, so `entry` must cancel. Any other anchor ' +
-      'injects a drift term of |entry - price| into the distance — the TRL-6 defect:\n  ' + offenders.join('\n  ')
+    'the venue anchors an unsubmitted ticket to the CURRENT PRICE, so `entry` must cancel — except on the ' +
+      'post-entry edit card, which anchors to the ENTRY price (TRD-TRL-12b). Any other anchor injects a drift ' +
+      'term of |entry - price| into the distance — the TRL-6 defect:\n  ' + offenders.join('\n  ')
   );
 });
 

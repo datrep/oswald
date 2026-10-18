@@ -2792,6 +2792,19 @@ async function setPositionTrail(page, settings, trade, { trailDistance, stopPric
     out.before = await readRowLevels(page, venueId);
     if (!out.before.found) { out.reason = 'row_not_found'; return out; }
 
+    // ★★ TRD-TRL-12b (2026-10-18) — THE CARD ANCHORS ITS PERCENT TO THE ENTRY PRICE, AND THIS FUNCTION USED TO
+    // ASSUME IT ANCHORED TO THE CURRENT PRICE. Measured live in five readings on 2026-10-08 (Silver buy #1288,
+    // Silver sell #1296 x2, #1299 x2): the card's readDistance = |entry - (price + D_venue)|, i.e. the distance
+    // from the ENTRY to the venue's level — |D - excursion| when favourable, D + excursion when adverse, never
+    // plain D. Passing the current price as `entry` therefore compared the wrong quantity against D and would
+    // have REFUSED every engage more than a rounding band from break-even (`trail_not_verified_before_commit`) —
+    // which is exactly why promotion was held. The entry rate now comes from the TRADE ROW (the desk's record of
+    // the venue fill); without it the function REFUSES rather than guessing, because a guessed anchor makes the
+    // whole verification meaningless.
+    const entryRate = trade && trade.openPrice != null ? Number(trade.openPrice) : null;
+    if (!(entryRate > 0)) { out.reason = 'entry_rate_unknown'; return out; }
+    out.entryRate = entryRate;
+
     const opened = await page.evaluate((id) => {
       const el = document.querySelector(`[data-testid="OpenPosition.${id}.Button.Edit"]`);
       if (!el) return false;
@@ -2847,15 +2860,18 @@ async function setPositionTrail(page, settings, trade, { trailDistance, stopPric
 
     const post = await readTrailPanel(page);
     const fieldNum = post && post.fieldRaw != null ? parseFloat(String(post.fieldRaw).replace(/[^\d.-]/g, '')) : null;
+    // TRD-TRL-12b: entry = the TRADE's open rate, price = the card's current rate. The venue's percent is
+    // (level - entry) x profitSign / price, so with the true entry this resolves the venue's actual level and
+    // `distance` becomes the real trail distance — the quantity `expectedDistance` was always meant to be.
     const dist = post
-      ? distanceFromPercent({ direction, entry: post.price, price: post.price, percentFraction: post.percentFraction })
+      ? distanceFromPercent({ direction, entry: entryRate, price: post.price, percentFraction: post.percentFraction })
       : { ok: false, reason: 'unreadable' };
     const readDistance = dist.ok ? dist.distance : null;
     const tolPct = (settings && settings.risk && settings.risk.trailingStop && Number(settings.risk.trailingStop.verifyTolerancePct)) || 2;
     const band = out.expectedDistance == null ? null : Math.max(0.05, Math.abs(out.expectedDistance) * (tolPct / 100));
     const held = fieldNum != null && Math.round(fieldNum) === want;
     const proportional = held && readDistance != null && band != null && Math.abs(readDistance - out.expectedDistance) <= band;
-    out.card.post = post && { money: post.money, percentRaw: post.percentRaw, price: post.price, fieldRaw: post.fieldRaw, fieldVia: post.fieldVia, readDistance, expectedDistance: out.expectedDistance, band };
+    out.card.post = post && { money: post.money, percentRaw: post.percentRaw, price: post.price, fieldRaw: post.fieldRaw, fieldVia: post.fieldVia, readDistance, expectedDistance: out.expectedDistance, band, entryUsed: entryRate };
 
     if (!held) { out.reason = `pip_field_did_not_take_count (raw ${post && post.fieldRaw})`; return out; } // nothing committed
     if (!proportional) { out.reason = 'trail_not_verified_before_commit'; return out; }                        // nothing committed
