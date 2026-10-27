@@ -47,10 +47,15 @@ test('★ the pause alerts ON THE TRANSITION, not on every failed poll', () => {
   // ⚠ A NOISY ALERT IS ONE THAT STOPS BEING READ, which is how the original silence would return by a different
   // route. Both writers of `paused` must pass the PREVIOUS state, and the helper must return early when it was
   // already paused.
-  assert.match(h, /if \(wasPaused \|\| !nowPaused\) return;/,
-    'the transition test must be the first thing the helper does');
+  // ⚠ THE RULE IS UNCHANGED; THE SHAPE MOVED (2026-10-27) so the decision could be tested without Telegram.
+  // `pauseAlertVerdict` is pure and `alertOnPause` only sends what the verdict returns. The behavioural cases —
+  // silent for the first hour of a held pause, one page at the hour, silent again afterwards — live in
+  // `test/pause-alert-verdict.test.js`. This test only proves the helper still CONSULTS that verdict rather than
+  // growing a second copy of the rule.
+  assert.match(h, /function pauseAlertVerdict\(/, 'the alert decision must be a pure, testable verdict');
+  assert.match(h, /const verdict = pauseAlertVerdict\(/, 'alertOnPause must consult the verdict, not re-derive it');
   assert.match(h, /const wasPaused = !!bridge\.paused;/, 'checkAndGate must capture the previous state');
-  assert.match(h, /alertOnPause\(!!bridge\.paused, paused,/, 'recordConnectionFailure must pass the previous state too');
+  assert.match(h, /alertOnPause\(\{ wasPaused/, 'both writers must pass the previous state in');
 });
 
 test('★ BOTH writers of `paused` are covered — not just the obvious one', () => {
@@ -67,7 +72,9 @@ test('a failed alert never turns a pause into a crash', () => {
   // a silent `catch {}` would be indistinguishable from a deliberate one without it.
   const raw = fs.readFileSync(path.join(ROOT, 'trading/plus500/health.js'), 'utf8');
   // ⚠ THE PAUSE IS THE SAFETY BEHAVIOUR; the alert is the courtesy. Wrapping it the wrong way round would make
-  // Telegram an availability dependency of the desk's safety control.
-  assert.match(raw, /catch \{ \/\* telegram is optional/,
+  // Telegram an availability dependency of the desk's safety control. The comment may be a block or a line comment —
+  // what is asserted is that a REASON is written down, so a silent `catch {}` stays distinguishable from a
+  // deliberate one.
+  assert.match(raw, /catch \{\s*(\/\*|\/\/)\s*telegram is optional/,
     'the alert must be wrapped in a try/catch that says why swallowing is correct');
 });

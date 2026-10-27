@@ -23,6 +23,7 @@ const TRADING_DIR = path.join(ROOT, 'trading');
 const { DEFAULT_SETTINGS } = require('../store');
 
 let PORT = 0;
+let HEALTH_PORT = 0;
 let child = null;
 
 function findFreePort() {
@@ -115,6 +116,9 @@ async function currentTokenVersion() {
 // ---- boot -------------------------------------------------------------------
 async function boot() {
   PORT = await findFreePort();
+  // ⚠ A SEPARATE FREE PORT, or the child's singleton guard probes 8115, finds the LIVE desk, and refuses to start
+  // (exit 3). That is why `npm test` has not been runnable on a working desk.
+  HEALTH_PORT = await findFreePort();
   child = spawn(process.execPath, [path.join(TRADING_DIR, 'server.js')], {
     cwd: TRADING_DIR,
     windowsHide: true,
@@ -124,6 +128,7 @@ async function boot() {
       TRADING_SMOKE: '1',
       TRADING_TLS: '0',
       TRADING_PORT: String(PORT),
+      TRADING_HEALTH_PORT: String(HEALTH_PORT),
       TRADING_HOST: '127.0.0.1',
     },
   });

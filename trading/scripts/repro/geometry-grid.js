@@ -35,8 +35,14 @@ const SINCE = arg('--since', '2026-09-21');
 // made the SAME COMMAND return different numbers minutes apart: a trade opened an hour ago has a longer path
 // every time you look, so more of them reach their target. A result that drifts with the wall clock is not a
 // measurement, so the data cutoff is stated, printed, and part of the invocation.
-const UNTIL = arg('--until', '2026-09-28T12:00:00Z');
-const UNTIL_MS = Date.parse(UNTIL);
+//
+// ★ 2026-10-19: THE DEFAULT WAS A HARD-CODED SEPTEMBER DATE, AND IT SILENTLY RETURNED AN EMPTY SAMPLE. Run
+// with no arguments on 2026-10-18 it reported "229 filled trades; 0 usable" and every skip said the trade had
+// `only -25996m of path` — a NEGATIVE horizon, because the default cutoff (2026-09-28T12:00:00Z) sits before
+// every recent entry. A measurement that answers "no data" when the data is right there is worse than one that
+// refuses to run, so the default is now DERIVED FROM THE DATA (the newest entry, floored to the minute). It is
+// still a fixed timestamp and still printed, so the reproducibility the comment above protects is unchanged.
+const UNTIL_ARG = arg('--until', null);
 // A trade whose path is shorter than this cannot exercise a target, so including it would only add timeouts.
 const MIN_HORIZON_MIN = Number(arg('--min-horizon', 120)) || 120;
 const VENUE = 'plus500';                  // the desk's own venue rate: the price its P&L is denominated in
@@ -60,6 +66,14 @@ function costPctFor(symbol) {
 (async () => {
   const pool = await getPool();
   const q = (s) => pool.request().query(s).then((r) => r.recordset);
+  // The cutoff: the argument if given, otherwise the newest entry in the data, floored to the minute.
+  let UNTIL = UNTIL_ARG;
+  if (!UNTIL) {
+    const m = (await q(`SELECT MAX(openAt) AS m FROM Trades WHERE userId = ${USER} AND openPrice IS NOT NULL`))[0];
+    if (!m || !m.m) { console.error('no trades with a filled price — nothing to replay'); process.exit(1); }
+    UNTIL = new Date(Math.floor(new Date(m.m).getTime() / 60000) * 60000).toISOString().replace('.000Z', 'Z');
+  }
+  const UNTIL_MS = Date.parse(UNTIL);
   if (!Number.isFinite(UNTIL_MS)) { console.error(`--until ${UNTIL} is not a readable timestamp`); process.exit(1); }
 
   // ---- 1. the entries, and the geometry each was actually built with ----------------------------------
@@ -97,6 +111,20 @@ function costPctFor(symbol) {
       capped: !!(p.stopCap && p.stopCap.cappedBy),
       wasCappedAt: HORIZON_MIN,
     });
+  }
+
+  if (!usable.length) {
+    // ★ NAMED, NOT A BARE EMPTY TABLE. An empty sample has causes that look identical in the output and could
+    // not be more different: a window that predates the trades, a window that predates the TICK record, no
+    // decisions, or genuinely no filled trades. The tally says which one it is, and the hint names the fix.
+    const tally = skipped.reduce((a, s) => { const k = String(s.why).replace(/[0-9.-]+/g, '#'); a[k] = (a[k] || 0) + 1; return a; }, {});
+    console.error('\n================ NO USABLE TRADES ================');
+    console.error(`  ${trades.length} filled trade(s) in the window, 0 usable. Skipped by reason:`);
+    for (const [why, n] of Object.entries(tally).sort((a, b) => b[1] - a[1])) console.error(`    ${String(n).padStart(4)}  ${why}`);
+    console.error(`  data cutoff used: ${UNTIL}`);
+    console.error('  -> a NEGATIVE path means the cutoff predates the entry: pass --until near the newest trade, or omit it to derive the cutoff from the data.');
+    console.error('  -> "only # ticks" at a recent cutoff means the tick record does not cover that window (the position poll only started 2026-10-15).');
+    process.exit(2);
   }
 
   console.log('\n================ THE SAMPLE ================');

@@ -53,7 +53,7 @@ async function runView(userId, settings, { page, view, symbol }) {
   let parsed = null;
   try { parsed = JSON.parse(r.text); } catch { parsed = null; }
   const store = require('../store');
-  const id = await store.insertAnalysesNote(userId, {
+  const w = await store.insertAnalysesNote(userId, {
     kind: view === 'weekly' ? 'weekly' : 'instrument',
     symbol: symbol || null,
     title: parsed && parsed.title ? String(parsed.title).slice(0, 200) : `vision: ${view}`,
@@ -80,9 +80,9 @@ async function runView(userId, settings, { page, view, symbol }) {
         timeframeHint: null,
         snippet: `[vision] ${String(l.label || '').slice(0, 120)}`,
       }));
-    if (mapped.length) { await store.insertAnalysisLevels(userId, id, mapped); levels = mapped.length; }
+    if (w.inserted && mapped.length) { await store.insertAnalysisLevels(userId, w.id, mapped); levels = mapped.length; }
   }
-  return { stored: id, levels, readable: parsed ? parsed.readable !== false : null, shot: shotHow };
+  return { stored: w.id, inserted: w.inserted, levels, readable: parsed ? parsed.readable !== false : null, shot: shotHow };
 }
 
 module.exports = { runView, PROMPT_VERSION };

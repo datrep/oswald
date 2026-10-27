@@ -131,6 +131,71 @@ async function importCalendar(userId, { days = 14 } = {}) {
   return { imported: events.length, window: { from: dayKey(from), to: dayKey(to) }, events };
 }
 
+// ★ A SCHEDULED SYNC (2026-10-25). BEFORE THIS, `importCalendar` HAD NO SCHEDULED CALLER AT ALL — it was
+// reachable only from a manual UI button and a route, so in practice nobody ran it. Measured on 2026-10-25:
+// `CorporateEvents` held **2 rows, both 2026-09-15/16**, i.e. the import had not run in the five and a half
+// weeks since. The mechanism below was correct the whole time and simply unplugged.
+//
+// ⚠ WHAT THIS DOES *NOT* RESTORE IS A VETO, and the distinction has to be stated because it is easy to get
+// backwards. `sessions.js` was deliberately revised on 2026-09-15: a `macro` row is CONTEXT handed to the
+// deliberating chairs as `scheduledEvents`, NOT an entry lock. So the five-week gap did not leave the desk
+// trading "unguarded" through FOMC days — there was nothing to guard — what it left was the chairs being
+// told nothing at all about an approaching meeting. That is the defect this fixes.
+//
+// THE CLOCK IS AN EVENT, following `newsAggregator`'s convention rather than inventing a second one: one
+// `calendar_sync` row IS the throttle. That makes the schedule survive restarts and downtime without a timer
+// in memory, and it means the record of what ran is the same record used to decide whether to run.
+const SYNC_KIND = 'calendar_sync';
+const SYNC_DEFAULTS = { enabled: true, intervalHours: 12, daysAhead: 21 };
+
+async function lastSyncAt(userId) {
+  const pool = await getPool();
+  const r = await pool.request()
+    .input('userId', sql.Int, userId)
+    .query(`SELECT TOP 1 createdAt FROM TradingEvents
+             WHERE userId = @userId AND kind = '${SYNC_KIND}'
+             ORDER BY id DESC`);
+  return r.recordset[0] ? r.recordset[0].createdAt : null;
+}
+
+// Returns { skipped } / { ok: true, imported, window } / { ok: false, error }. Never throws: this is called
+// from a timer, and a rejection there is an unhandled rejection that can take the process down.
+async function syncScheduled(userId, settings = null) {
+  const c = (settings && settings.calendar) || {};
+  if (c.enabled === false) return { skipped: 'disabled' };
+
+  const intervalHours = Number(c.intervalHours) > 0 ? Number(c.intervalHours) : SYNC_DEFAULTS.intervalHours;
+  const daysAhead = Number(c.daysAhead) > 0 ? Number(c.daysAhead) : SYNC_DEFAULTS.daysAhead;
+
+  const last = await lastSyncAt(userId).catch(() => null);
+  if (last && Date.now() - last.getTime() < intervalHours * 3600000) {
+    return { skipped: 'throttled', lastSyncAt: last.toISOString(), intervalHours };
+  }
+
+  let result = null;
+  let error = null;
+  try {
+    result = await importCalendar(userId, { days: daysAhead });
+  } catch (e) {
+    error = (e && e.message) || String(e);
+  }
+
+  // ⚠ THE ATTEMPT IS RECORDED EITHER WAY. This import can fail for reasons that leave the table looking
+  // perfectly healthy — a 403 from federalreserve.gov, a re-worded calendar page that parses to zero
+  // meetings, a DNS failure. A sync that writes nothing on failure is the silent-dead-feed class this repo
+  // has already paid for twice, so the event carries `ok` and the error text.
+  const payload = {
+    ok: !error,
+    error,
+    imported: result ? result.imported : null,
+    window: result ? result.window : null,
+    daysAhead,
+    intervalHours,
+  };
+  await require('../store').logEvent(userId, SYNC_KIND, payload).catch(() => {});
+  return error ? { ok: false, error } : { ok: true, imported: result.imported, window: result.window };
+}
+
 // Upcoming scheduled events for the dashboard/UI.
 async function upcomingHaltEvents(userId, { days = 14 } = {}) {
   const pool = await getPool();
@@ -147,4 +212,4 @@ async function upcomingHaltEvents(userId, { days = 14 } = {}) {
   return r.recordset;
 }
 
-module.exports = { fetchFomcEvents, importCalendar, upcomingHaltEvents, fomcRows, EVENT_TYPE };
+module.exports = { fetchFomcEvents, importCalendar, upcomingHaltEvents, fomcRows, syncScheduled, lastSyncAt, EVENT_TYPE, SYNC_KIND };

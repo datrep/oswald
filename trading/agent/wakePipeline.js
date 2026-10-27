@@ -1094,7 +1094,7 @@ async function run(userId, trigger = 'manual', { manual = false, alert = null, u
             // `d.stopDistance` is still the declared 2xATR — that is the distance risk.js SIZED against,
             // so the dollar risk falls by the same ratio rather than being re-levered by a tighter stop.
             const maxAdv = adverseStopCap(settings, d.symbol);
-            const lv = entryLevels({ direction: d.direction, atr14: atr, price: px, stopDistance: d.stopDistance, maxAdversePct: maxAdv.pct, takeProfitOffsetPct: (settings.risk || {}).takeProfitOffsetPct, takeProfitAnchor: (settings.risk || {}).takeProfitAnchor });
+            const lv = entryLevels({ direction: d.direction, atr14: atr, price: px, stopDistance: d.stopDistance, maxAdversePct: maxAdv.pct, takeProfitOffsetPct: (settings.risk || {}).takeProfitOffsetPct, takeProfitAnchor: (settings.risk || {}).takeProfitAnchor, takeProfitRR: (settings.risk || {}).takeProfitRR });
             if (!lv.ok) {
               const detail = `${lv.reason} (atr14=${atr == null ? 'null' : atr}, price=${px == null ? 'null' : px}, direction=${d.direction || 'null'})`;
               executions.push({
@@ -1151,6 +1151,12 @@ async function run(userId, trigger = 'manual', { manual = false, alert = null, u
               // F20: the venue the decision price came from, so the re-anchor at submit compares
               // like-for-like rather than across venues (TRD-69).
               priceVenue: (qs && qs.priceVenue) || null,
+              // 2026-10-27 (migration 055): THE INSTRUMENT THIS TICKET WAS SIZED AGAINST, recorded rather than
+              // reconstructed. `constraintAudit` used to resolve the id by SYMBOL at audit time, against the registry
+              // as it is THEN, so a renamed symbol or an expired option chain left the trade unjoinable. This reads
+              // the resolution the risk gate already made for this decision (`sizeCalc.venueFloor`) — not a second
+              // lookup, so it cannot disagree with the size that was sent.
+              venueInstrumentId: (d.sizeCalc && d.sizeCalc.venueFloor && d.sizeCalc.venueFloor.venueInstrumentId) || null,
             }, { keepOpen: true });
             // The cap's disposition travels with the execution: applied, or refused and why. A risk
             // control that did not run must not look the same as one that did.

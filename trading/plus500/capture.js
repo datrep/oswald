@@ -94,7 +94,10 @@ async function updateUniverse(userId, settings, names, { seedSymbols = false } =
     patch.symbols = next.slice(0, 9).map((symbol) => ({ symbol, venue: 'plus500' }));
   }
   if (Object.keys(patch).length) {
-    settings = await store.saveSettings(userId, { watchlist: patch });
+    // `universe` is machine-owned. `symbols` is only seeded when the operator has NONE (`seedSymbols` + empty list),
+    // so the entry-level rule can never fire here — a machine write that starts from an empty list cannot remove a
+    // manual entry.
+    settings = await store.saveSettings(userId, { watchlist: patch }, { by: 'machine' });
   }
   return settings;
 }
@@ -151,24 +154,12 @@ async function bankTicks(userId, ticks) {
 // it — but the registry is right by construction rather than by luck, and it catches a stale read even when
 // the page was left on an instrument from a PREVIOUS sweep, which comparing to the previous symbol cannot.
 
-// `11_Sell` -> `11`. Returns null when the venue gives us nothing to parse — and null is NOT a pass.
-function chartInstrumentId(chartSymbol) {
-  const m = String(chartSymbol == null ? '' : chartSymbol).match(/^\s*(\d+)/);
-  return m ? m[1] : null;
-}
-
-// Case, spacing and punctuation are not identity, so they are normalised away. `registrySymbol` comes from the
-// desk's own registry, so this compares desk-name to desk-name — a mismatch is a real signal, not a naming gap.
-const normSymbol = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// 'match' | 'mismatch' | 'unregistered' | 'unrecorded'. ABSENCE IS NEVER `match`: a chart that does not say
-// which instrument it is has told us nothing, and treating silence as agreement is how a guard goes inert.
-function chartIdentityVerdict(chartSymbol, deskSymbol, registrySymbol) {
-  if (!chartInstrumentId(chartSymbol)) return 'unrecorded';
-  const r = normSymbol(registrySymbol);
-  if (!r) return 'unregistered';
-  return r === normSymbol(deskSymbol) ? 'match' : 'mismatch';
-}
+// ⚠ MOVED 2026-10-27 to `./chartIdentity` — PURE, and for the same reason the identity rule itself exists: a second
+// consumer appeared. `webtrader.placeOrder` now records the venue's own instrument id on the fill
+// (`Trades.venueInstrumentId`, migration 055) and cannot require THIS file, because capture requires webtrader and the
+// dependency would be a cycle. Re-exported below so the two existing callers keep working unchanged, and so the rule
+// has exactly one implementation.
+const { chartInstrumentId, chartIdentityVerdict } = require('./chartIdentity');
 
 // ★ THE BUCKETING, EXTRACTED AND PURE (TRD-GRD-5, 2026-09-25). It is the decision under dispute, and a
 // decision that can only be exercised through a live browser cannot be pinned by a test.
@@ -184,8 +175,8 @@ function chartIdentityVerdict(chartSymbol, deskSymbol, registrySymbol) {
 // ⚠ `merge` IS NOT VOLUME AND IS NOT DERIVABLE FROM IT. An aggregated hour and a native hour can carry
 // identical OHLC (they SHOULD, if the bucket is right), so the only fact that separates them is how many
 // source bars went in.
-const TF_MAP = Object.freeze({ 900: '15m', 1800: '1h', 3600: '1h', 14400: '4h', 86400: '1d' });
-const BUCKET_MS = Object.freeze({ '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 });
+const TF_MAP = Object.freeze({ 60: '1m', 300: '5m', 900: '15m', 1800: '1h', 3600: '1h', 14400: '4h', 86400: '1d' });
+const BUCKET_MS = Object.freeze({ '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 });
 
 // Returns the bars to store AND the arithmetic that produced them. `fallThrough` is TRUE exactly when the
 // chart declared an interval the map does not know, so the substitution is NAMED rather than inferred.
@@ -233,8 +224,20 @@ function bucketChartBars(bars, intervalSec) {
   };
 }
 
-async function bankChartBars(userId, symbol, page) {
+async function bankChartBars(userId, symbol, page, chartCfg = null) {
   try {
+    // ★ THE INTERVAL IS REQUESTED BEFORE IT IS READ (2026-10-22). Until now the capture inherited whatever
+    // interval the last navigation left the tab on, and the DB proves it moved: over 2026-09-20..10-22 the same
+    // '1h' series was built from 60s, 300s, 600s, 900s and 3600s reads, and only 1% of it was native 1h.
+    //
+    // ⚠ THIS IS BEST-EFFORT AND DELIBERATELY NOT FAIL-CLOSED. A refused interval request means the chart is on
+    // some other interval — a POLICY miss, which is recorded (`chartIntervalSet`) and counted by the sweep, not a
+    // reason to bank nothing. The FALSIFICATION guard is separate and still refuses: if the engine's claim and
+    // the series' measured spacing disagree, no row is written at all (see the verdict immediately below).
+    const wantSec = chartCfg && chartCfg.enforce !== false ? Number(chartCfg.intervalSec) : 0;
+    const chartIntervalSet = wantSec > 0
+      ? await webtrader.setChartInterval(page, wantSec).catch((e) => ({ ok: false, reason: String((e && e.message) || e), wantSec }))
+      : null;
     const c = await webtrader.readChartBars(page);
     if (!c.bars || c.bars.length < 10) return { chartBars: 0, chartErr: c.error || 'too_few_chart_bars' };
     // ★★ THE INTERVAL IS VERIFIED, NOT TRUSTED (2026-09-25). `intervalSec` is the ENGINE'S CLAIM and the
@@ -314,6 +317,8 @@ async function bankChartBars(userId, symbol, page) {
     }
     return {
       chartBars: rows.length, chartTf: target, chartIntervalSec: c.intervalSec,
+      // What the interval request achieved, or that it could not be made at all. `null` = enforcement off.
+      chartIntervalSet,
       // What the series MEASURED beside what the engine claimed, so "this row is a 1h row" is a fact of the
       // capture rather than a repetition of the engine's assertion.
       chartInterval: ivReport,
@@ -379,12 +384,12 @@ async function captureBySearch(userId, settings, page, { only = null, chartsOnly
   const burst = Math.max(1, Math.min(5, Number(settings.capture?.burstTicks) || 3));
   // chartsOnly: focus+bank under a per-symbol hard deadline (ADR-8) so one slow symbol cannot eat the sweep.
   const bankFor = async (sym) => {
-    if (!chartsOnly) return bankChartBars(userId, sym.symbol, page);
+    if (!chartsOnly) return bankChartBars(userId, sym.symbol, page, settings.chart);
     return withTimeout((async () => {
       const f = await webtrader.searchInstrument(page, sym.symbol, settings);
       if (!f || !f.hit) throw new Error('focus_miss');
       await page.waitForTimeout(1200);
-      return bankChartBars(userId, sym.symbol, page);
+      return bankChartBars(userId, sym.symbol, page, settings.chart);
     })(), CHART_VISIT_DEADLINE_MS, `chart:${sym.symbol}`);
   };
   for (const sym of symbols) {
@@ -667,7 +672,7 @@ async function captureDynamic(userId, settings, page) {
         ms: q.ms, urlAtStart: q.urlAtStart,
       }).catch(() => {});
       if (String((settings.bridge || {}).watchlistUrl || '') !== url) {
-        settings = await store.saveSettings(userId, { bridge: { ...(settings.bridge || {}), watchlistUrl: url } });
+        settings = await store.saveSettings(userId, { bridge: { ...(settings.bridge || {}), watchlistUrl: url } }, { by: 'machine' });
       }
     } catch (e) {
       await store.logEvent(userId, 'telemetry', { source: 'watchlist_quote_source', error: String(e.message || e).slice(0, 140) }).catch(() => {});
@@ -713,7 +718,7 @@ async function captureDynamic(userId, settings, page) {
     } catch { /* sweep optional */ }
     if (sweepResult) {
       settings = await updateUniverse(userId, settings, sweepResult.names, { seedSymbols: !universe.length });
-      await store.saveSettings(userId, { bridge: { ...(settings.bridge || {}), lastSweepAt: new Date().toISOString() } });
+      await store.saveSettings(userId, { bridge: { ...(settings.bridge || {}), lastSweepAt: new Date().toISOString() } }, { by: 'machine' });
       const byName = new Map(sweepResult.ticks.map((t) => [t.symbol, t]));
       const recovered = [];
       for (const m of [...missing]) {
@@ -819,7 +824,7 @@ async function captureOnce(userId, settings, providedPage) {
         // wake (~9-12 min; measured 313/410 settings_write rows in 72 h were timestamp-only). `at` now
         // means "when the map last CHANGED"; no consumer needs a read-stamp.
         if (hrefMapChanged((settings.bridge || {}).hrefMap, map.hrefs)) {
-          await store.saveSettings(userId, { bridge: { hrefMap: { at: map.at, hrefs: map.hrefs } } });
+          await store.saveSettings(userId, { bridge: { hrefMap: { at: map.at, hrefs: map.hrefs } } }, { by: 'machine' });
           await store.logEvent(userId, 'telemetry', { source: 'href_map', hrefs: map.hrefs.length, at: map.at });
         }
       } catch { /* href map optional */ }

@@ -1,8 +1,10 @@
 // trading/agent/changeAudit.js — ★★ THE GUARD `epoch.js` CLAIMS TO HAVE AND DOES NOT.
 //
-// WHY THIS EXISTS. `epoch.js`'s own header states: "`assertRegistryCoverage` (see `test/epoch-registry.test.js`)
+// WHY THIS EXISTS. `epoch.js`'s header USED TO claim: "`assertRegistryCoverage` (see `test/epoch-registry.test.js`)
 // fails when a task row that CLOSED carries a landing date newer than the newest entry." **That function does not
-// exist, and the test it names cannot fail on a missing boundary because it never looks for one.** It is a comment.
+// exist, and the test it names cannot fail on a missing boundary because it never looks for one.** It was a comment.
+// (The header was corrected 2026-10-27 to name THIS module. The history stays here, because it is the reason the
+// module exists at all - and because a stale claim deleted quietly is a stale claim free to return.)
 //
 // The cost was measured on 2026-10-02: the registry had not been touched since 2026-09-27 while SIX behaviour
 // changes landed after it — including `size-contract-scale`, which changed the definition of the risk unit itself.
@@ -15,11 +17,17 @@
 // same thing in prose ("the date the behaviour changed, not the date the row was filed"), and a check built on it
 // would fire 218 times and be switched off within a day. It is accepted as EVIDENCE, reported as advisory.
 //
-// So the guard reasons from two things that ARE datable:
+// So the guard reasons from three things that ARE datable:
 //   · `settings_write` rows that touch a POLICY key — a definite behaviour change, precisely timestamped;
 //   · `trading/**` file mtimes — a proxy, and the ONLY signal that catches a code-only boundary like EXE-19
-//     (which shipped with no task row and no settings write).
-// Neither is sufficient alone; together they cannot be crossed silently.
+//     (which shipped with no task row and no settings write);
+//   · `sql/migrations/**` file mtimes — added 2026-10-26, after two migrations (052, 053) crossed a declared freeze
+//     boundary while this guard printed "nothing unaccounted for". Neither of the first two CAN see a schema change:
+//     DDL is applied in SSMS, which touches no settings row and no file under trading/.
+// ⚠⚠ AND THE THIRD SOURCE HAS A LIMIT THAT MUST BE STATED WHEREVER ITS FINDINGS ARE READ: an mtime says when a
+// migration was WRITTEN, not when it was APPLIED. One authored in September and run today is invisible to all three
+// sources. So schema changes are reported ADVISORY and never asserted as a boundary — see the finding's `note`.
+// No source is sufficient alone; together a boundary cannot be crossed silently WITHOUT BEING NAMED.
 //
 // ⚠ SEVERITY IS THE DESIGN. A `settings_write` on a policy key after the newest entry is a BOUNDARY the registry
 // does not know about ⇒ the registry is stale ⇒ not ok. Code changes are ADVISORY, because a comment or a test
@@ -43,11 +51,13 @@ const day = (d) => (d instanceof Date ? d : new Date(d)).toISOString().slice(0, 
 //   settingsWrites  [{ id, at, keys: [...] }]
 //   codeChanges     [{ file, at }]
 //   closedTasks     [{ id, name, at }]   advisory only — see the header on bulk closures
+//   schemaChanges   [{ file, at }]       advisory only — an MTime is "written", not "applied" (see above)
 //   freeze          { at, note } | null  a declared POLICY FREEZE: after `at`, ANY change is a finding
 function unaccounted({
   newestLandedAt,
   settingsWrites = [],
   codeChanges = [],
+  schemaChanges = [],
   closedTasks = [],
   policy = DEFAULT_POLICY,
   bookkeeping = BOOKKEEPING_KEYS,
@@ -97,7 +107,25 @@ function unaccounted({
     });
   }
 
-  // 3. CLOSED TASKS — advisory ONLY, and the report says why rather than presenting them as boundaries.
+  // 3. SCHEMA CHANGES under sql/migrations/** — advisory, and the ONLY signal that sees a migration at all.
+  // ⚠ NAMED SEPARATELY FROM CODE ON PURPOSE. A schema change alters the SUBSTRATE every forward measurement sits on,
+  // so it is a different kind of event from a `trading/**` edit. But an mtime cannot distinguish "written" from
+  // "applied", so it cannot be asserted as a boundary — and saying that IN the finding is the point: an absent
+  // statement reads as a clean result, which is exactly how 052 and 053 passed this guard untouched.
+  const schemaAfter = schemaChanges.filter((c) => after(c.at));
+  const migrations = [...new Set(schemaAfter.map((c) => c.file))];
+  if (migrations.length) {
+    findings.push({
+      severity: freeze ? 'freeze_breach' : 'advisory',
+      at: new Date(Math.max(...schemaAfter.map((c) => new Date(c.at).getTime()))).toISOString(),
+      what: `${migrations.length} migration file(s) under sql/migrations/ changed after ${boundary}`,
+      files: migrations.slice(0, 8),
+      note: 'an mtime is when the file was WRITTEN, not when the DDL was APPLIED — a migration authored earlier and run later is invisible to every source here',
+      fix: 'if this was APPLIED it is a boundary: register it in epoch.js FEATURES, because a schema change moves the substrate every forward measurement sits on. If it was only authored, say so where the next reader will see it',
+    });
+  }
+
+  // 4. CLOSED TASKS — advisory ONLY, and the report says why rather than presenting them as boundaries.
   const tasks = closedTasks.filter((t) => after(t.at));
   if (tasks.length) {
     const days = [...new Set(tasks.map((t) => day(t.at)))].sort();

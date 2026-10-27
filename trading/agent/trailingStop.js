@@ -445,12 +445,52 @@ function distanceForCount({ symbol, count }) {
   return { ok: true, distance: +(u.pip * n + u.offset).toFixed(4), pip: u.pip, offset: u.offset, measuredAt: u.measuredAt };
 }
 
+// ★★ CALIBRATION (2026-10-20) — THE COUNT IS NOT A DISTANCE, SO MEASURE THE TICKET INSTEAD OF ASSUMING ITS OFFSET.
+//
+// `pipsForTarget` inverts a fitted model (`distance = pip x count + offset`) whose offset is measured per
+// instrument and whose cause is explicitly UNIDENTIFIED (see the table's own note: "asked for at 800 arrives at
+// ~927, 16% WIDER"). Gold's row says offset 0.79, measured 2026-09-30. On the first armed engage (Gold #1338,
+// 2026-10-20T01:33Z) that model asked for 305 pips and the card read a distance of 3.216 against the 3.84
+// intended - an effective offset of ~0.166, not 0.79 - so `setPositionTrail` refused, correctly, 61 times.
+//
+// The fix does not need a better constant. ONE read-back at a known count identifies the ticket's actual mapping,
+// because the model is affine and only the offset is unknown:
+//     observed = pip x count + offset_true   =>   offset_true = observed - pip x count
+//     corrected = count + (target - observed) / pip
+// which is the first-order correction `count + round((target - observed)/pip)`. It converges in one step for any
+// affine control and needs no prior measurement, so it cannot go stale the way the table can.
+//
+// ⚠ REFUSES RATHER THAN CLAMPS. A correction that leaves the venue's own [minCount, maxCount] window is refused,
+// and so is a zero/negative correction: a count the desk cannot justify is the defect the unit table exists to
+// prevent, and a clamp would silently substitute a different trail than the one requested.
+function calibrateCount({ count, pip, observedDistance, targetDistance, minCount = null, maxCount = null } = {}) {
+  const c = num(count), p = num(pip), obs = num(observedDistance), tgt = num(targetDistance);
+  if (c == null || !(p > 0)) return { ok: false, reason: 'bad_inputs' };
+  if (obs == null || tgt == null || !(obs > 0) || !(tgt > 0)) return { ok: false, reason: 'unmeasured' };
+  const delta = (tgt - obs) / p;
+  if (!Number.isFinite(delta)) return { ok: false, reason: 'unmeasured' };
+  const next = Math.round(c + delta);
+  if (!(next > 0)) return { ok: false, reason: 'corrected_not_positive', corrected: next };
+  if (minCount != null && next < minCount) return { ok: false, reason: 'corrected_below_venue_minimum', corrected: next, minCount };
+  if (maxCount != null && next > maxCount) return { ok: false, reason: 'corrected_above_venue_maximum', corrected: next, maxCount };
+  if (next === c) return { ok: false, reason: 'no_change', corrected: next, delta };
+  return {
+    ok: true, corrected: next, delta: +delta.toFixed(4),
+    // What the affine model now says the ticket will mean at the corrected count. This is PREDICTED, not read —
+    // the caller must still read the card back and verify before committing.
+    predictedDistance: +(p * next + (obs - p * c)).toFixed(4),
+    impliedOffset: +(obs - p * c).toFixed(4),
+  };
+}
+
 module.exports = {
   trailLevelFor, moneyAt, trailLevelFromMoney, distanceFromReadback, distanceFromPercent, pipFromPair, plan,
   verifyStopRelationship,
   pipsFromReadback, verifyReadback, DEFAULT_MULTIPLE, DEFAULT_TOLERANCE_PCT, PROBE_PIPS, PROBE_FLOOR,
   // TRD-TRL-3: the measured unit table, the count it implies, and what a count means
   PIP_UNITS, pipUnitsFor, pipsForTarget, distanceForCount,
+  // 2026-10-20: one measured read-back turns the unmeasured offset into arithmetic
+  calibrateCount,
 };
 
 // ⚠ THIS BLOCK WAS DUPLICATED BY AN EDIT AND IS DELETED — see git history.

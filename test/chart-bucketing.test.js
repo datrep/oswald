@@ -41,6 +41,15 @@ function twelve5m() {
   return bars;
 }
 
+// TWO 30-minute bars whose union has the SAME open / high / low / close as the native hour above. 1800 is the
+// interval that still merges INTO a 1h bucket, now that 5m and 1m have timeframes of their own.
+function two30m() {
+  return [
+    { DT: H0, Open: 100, High: 110, Low: 95, Close: 99, Volume: null },
+    { DT: H0 + 1800000, Open: 99, High: 103, Low: 90, Close: 105, Volume: null },
+  ];
+}
+
 test('a native 1h chart writes one source bar per bucket', () => {
   const b = bucketChartBars(NATIVE, 3600);
   assert.equal(b.target, '1h');
@@ -64,13 +73,23 @@ test('a 30m chart is MAPPED to 1h, not a fall-through — and merges exactly two
   assert.equal(b.merge.merged, true);
 });
 
-test('a 5m chart is a FALL-THROUGH — and the flag names it rather than leaving it inferable', () => {
+test('a 5m chart has its OWN timeframe now — and a genuinely unmapped interval still reports fall-through', () => {
+  // 2026-10-21: `300` joined the map. Until then it fell through to 1h and twelve 5m bars became one row,
+  // which is why the finer structure could never be measured. It is now a first-class series.
   const b = bucketChartBars(twelve5m(), 300);
-  assert.equal(b.target, '1h', 'the mapping still sends it to 1h — the mapping is deliberately UNCHANGED');
-  assert.equal(b.fallThrough, true, '300 is not in the map, so the 1h target was a substitution');
-  assert.equal(b.nativePerBucket, 12);
-  assert.deepEqual(b.merge.histogram, { 12: 1 }, 'twelve source bars built that one row');
-  assert.equal(b.merge.merged, true);
+  assert.equal(b.target, '5m', '300 maps to its own timeframe');
+  assert.equal(b.bucketMs, 300000);
+  assert.equal(b.fallThrough, false, '300 IS in the map');
+  assert.equal(b.nativePerBucket, 1);
+  assert.equal(b.merge.buckets, 12, 'twelve 5m bars are twelve buckets, not one merged hour');
+  assert.equal(b.merge.merged, false);
+
+  // ⚠ AND THE FALL-THROUGH FLAG MUST STILL MEAN SOMETHING. 20 minutes is not on the ladder, so the substitution
+  // to 1h must still be NAMED rather than left inferable — the case the original test existed to protect.
+  const twenty = bucketChartBars(twelve5m(), 1200);
+  assert.equal(twenty.target, '1h', 'an unmapped interval is still substituted');
+  assert.equal(twenty.fallThrough, true, 'and the flag says so');
+  assert.equal(twenty.nativePerBucket, 3, 'three 20m bars per hour');
 });
 
 test('mapped intervals produce their own timeframe', () => {
@@ -112,8 +131,11 @@ test('an UNKNOWN interval is a fall-through, and an ABSENT one is not', () => {
 test('★ an aggregated hour and a native hour are INDISTINGUISHABLE by OHLC — so the merge count is the only proof', () => {
   // This is the non-vacuity test for TRD-GRD-5. If the two rows differed, the range-fidelity question could
   // have been answered from the stored data and the row would not have needed a new recorded field at all.
+  //
+  // ⚠ THE MERGE NOW COMES FROM 30m. Since 5m and 1m gained their own timeframes, 1800 -> '1h' is the remaining
+  // interval that still merges INTO an hour, so it is the case that keeps this test meaningful.
   const native = bucketChartBars(NATIVE, 3600).rows;
-  const aggregated = bucketChartBars(twelve5m(), 300).rows;
+  const aggregated = bucketChartBars(two30m(), 1800).rows;
 
   assert.equal(native.length, 1);
   assert.equal(aggregated.length, 1);
@@ -122,7 +144,7 @@ test('★ an aggregated hour and a native hour are INDISTINGUISHABLE by OHLC —
 
   // ...and the difference that remains is exactly the field the row asked to be recorded.
   assert.deepEqual(bucketChartBars(NATIVE, 3600).merge.histogram, { 1: 1 });
-  assert.deepEqual(bucketChartBars(twelve5m(), 300).merge.histogram, { 12: 1 });
+  assert.deepEqual(bucketChartBars(two30m(), 1800).merge.histogram, { 2: 1 });
 
   // And volume cannot carry it: the chart's volume is 0 and 0 == 0 on both sides.
   assert.equal(Number(aggregated[0].volume), 0);
@@ -131,20 +153,20 @@ test('★ an aggregated hour and a native hour are INDISTINGUISHABLE by OHLC —
 
 test('every bucket starts exactly on its boundary, and a partial hour is its own bucket', () => {
   // Alignment is the half of the row's gate that PASSED (measured: 0 of 22,739 rows off the hour). Pinned here
-  // so the floor cannot regress into a rounding.
+  // so the floor cannot regress into a rounding. 25 half-hours is 12 full buckets plus one partial.
   const bars = [];
-  for (let i = 0; i < 25; i++) bars.push({ DT: H0 + i * 300000, Open: 1, High: 2, Low: 0, Close: 1, Volume: null });
-  const b = bucketChartBars(bars, 300);
-  assert.equal(b.merge.buckets, 3, '25 five-minute bars span three hour buckets');
+  for (let i = 0; i < 25; i++) bars.push({ DT: H0 + i * 1800000, Open: 1, High: 2, Low: 0, Close: 1, Volume: null });
+  const b = bucketChartBars(bars, 1800);
+  assert.equal(b.merge.buckets, 13, '25 half-hour bars span twelve full hour buckets and one partial');
   for (const r of b.rows) {
     assert.equal(r.barStart.getUTCMinutes(), 0, `bucket start must be on the hour, got ${r.barStart.toISOString()}`);
     assert.equal(r.barStart.getUTCSeconds(), 0);
     assert.equal(r.barStart.getTime() % HOUR, 0);
   }
-  // 12 + 12 + 1
-  assert.deepEqual(b.merge.histogram, { 12: 2, 1: 1 });
+  // 12 full buckets of two, then the partial one
+  assert.deepEqual(b.merge.histogram, { 2: 12, 1: 1 });
   assert.equal(b.merge.min, 1);
-  assert.equal(b.merge.max, 12);
+  assert.equal(b.merge.max, 2);
 });
 
 test('an empty series reports nothing rather than a merge of zero', () => {
@@ -159,11 +181,11 @@ test('an empty series reports nothing rather than a merge of zero', () => {
 
 test('the mapping decision was NOT taken silently, and the bucketing is not restated', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'trading', 'plus500', 'capture.js'), 'utf8');
-  // ★ The map is UNCHANGED. TRD-GRD-5 lets the owner decide between correcting the mapping and pinning the
-  // capture to a native interval; changing it here would have taken that decision in a refactor, and the
-  // measured reason it must not be taken casually is in the task row.
-  assert.match(src, /TF_MAP = Object\.freeze\(\{ 900: '15m', 1800: '1h', 3600: '1h', 14400: '4h', 86400: '1d' \}\)/,
-    'the mapping must be unchanged, and now frozen so a silent edit is a visible one');
+  // ★ The map is a DECLARED DECISION, and on 2026-10-21 it was declared differently: 60 -> '1m' and 300 -> '5m'
+  // join it, because storing only 1h meant 59 of every 60 one-minute bars were destroyed at write time. The pin
+  // is exact so any further change to the mapping has to be visible in this line.
+  assert.match(src, /TF_MAP = Object\.freeze\(\{ 60: '1m', 300: '5m', 900: '15m', 1800: '1h', 3600: '1h', 14400: '4h', 86400: '1d' \}\)/,
+    'the mapping is frozen so a silent edit is a visible one');
   assert.match(src, /const bucketed = bucketChartBars\(c\.bars, c\.intervalSec\)/,
     'bankChartBars must DELEGATE the bucketing');
   // ★ COUNTED, not merely present-or-absent. The first version of this assertion demanded ZERO occurrences and
@@ -176,7 +198,7 @@ test('the mapping decision was NOT taken silently, and the bucketing is not rest
   assert.match(src, /chartMerge: bucketed\.merge/, 'the merge arithmetic must be reported in the capture result');
   // The 5m bucket must exist now that the function can target a declared timeframe it previously could not
   // reach: BUCKET_MS used to omit '5m' because nothing mapped to it.
-  assert.match(src, /BUCKET_MS = Object\.freeze\(\{ '5m': 300000/);
+  assert.match(src, /BUCKET_MS = Object\.freeze\(\{ '1m': 60000, '5m': 300000/);
 });
 
 test('★ the clean case is RECORDED, not merely absent — the GRD-4 heartbeat', () => {

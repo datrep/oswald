@@ -143,13 +143,18 @@ async function captureOnce(userId, settings, { page: providedPage } = {}) {
     return await withTimeout((async () => {
       const storeView = async ({ view, symbol, text, note, urlAfter }) => {
         const p = parser.parseAnalysis(text, { view });
-        const id = await store.insertAnalysesNote(userId, {
+        const w = await store.insertAnalysesNote(userId, {
           kind: p.kind, symbol, title: p.title, url: urlAfter || ANALYSES_ROUTE, source: 'capture',
           rawText: text.slice(0, RAW_CAP), parseStatus: p.parseStatus,
           note: p.reason ? `capture: ${p.reason}` : note,
         });
-        if (p.levels.length) await store.insertAnalysisLevels(userId, id, p.levels);
-        const rec = { id, view, kind: p.kind, levels: p.levels.length, parseStatus: p.parseStatus };
+        // ⚠ LEVELS ONLY ON A REAL INSERT. A suppressed note stored its levels against the ORIGINAL row; passing the
+        // null id would write orphans, and re-inserting against the original would duplicate them.
+        if (w.inserted && p.levels.length) await store.insertAnalysisLevels(userId, w.id, p.levels);
+        const rec = {
+          id: w.id, inserted: w.inserted, view, kind: p.kind,
+          levels: w.inserted ? p.levels.length : 0, parseStatus: p.parseStatus,
+        };
         notes.push(rec);
         // VISION LANE (owner-directed 2026-10-04) — best-effort, never blocks the text lane.
         try {

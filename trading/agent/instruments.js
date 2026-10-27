@@ -551,6 +551,16 @@ function carryPctFor(facts, direction) {
   return n === 0 ? 0 : -n;
 }
 
+// ⚠⚠ THE SPECS HAD NO AGE GATE WHILE THE QUOTES HAD A 72h ONE, AND THAT ASYMMETRY IS ITSELF THE DEFECT.
+// `venueCostFacts` refuses a quote older than `maxQuoteAgeHours` and the prompt says `no_open_market_capture — NOT
+// usable as a cost`. Instrument SPECS had no equivalent: `row.capturedAt` was carried into the result — and into the
+// decision record at `risk.js` `venueFloor.capturedAt` — and NOTHING read it, while `costFactLines` printed minimum
+// size, funding and leverage with no age at all. Measured 2026-10-28: the registry's newest row was 2026-10-01, so
+// every instrument fact the chairs were reading was 27 days old and every one of them looked live.
+//
+// 168h is `bindingProposer.DEFAULT_MAX_STALE_H`, so "too old to rely on" means ONE thing on this desk.
+const MAX_SPEC_AGE_HOURS = 168;
+
 // Two queries, not two-per-symbol: the watchlist is ~10 symbols and the wake path already does a lot
 // of I/O, so the registry rows and the consumable quotes are each fetched once and assembled here.
 // Only quotes captured while the venue said the market was OPEN are candidates, and the newest wins.
@@ -589,6 +599,7 @@ async function venueCostFacts(userId, { venue = registry.VENUE_DEFAULT, symbols 
     // venueInstrumentId and returns null rather than borrowing another instrument's quote.
     const q = spec.quoteForInstrument(quotes, { venue, venueInstrumentId: row.venueInstrumentId });
     const min = row.unitAmount == null ? null : Number(row.unitAmount);
+    const specCapturedMs = row.capturedAt ? new Date(row.capturedAt).getTime() : NaN;
     // The spread is expressed the SAME WAY the cost model already expresses it — a HALF-spread as a
     // percentage of price per side — so consuming it needs no unit conversion and cannot be silently
     // read as a full round trip. `cfdSpreadPct` in backtest.js is exactly this quantity.
@@ -616,7 +627,30 @@ async function venueCostFacts(userId, { venue = registry.VENUE_DEFAULT, symbols 
       spreadCapturedAt: q ? q.capturedAt : null,
       spreadBasis: q ? 'open_market_capture' : 'no_open_market_capture',
       capturedAt: row.capturedAt || null,
+      // The age of the SPEC, judged by the caller against MAX_SPEC_AGE_HOURS. Computed here so no consumer has to
+      // remember which timestamp to subtract from, or that `capturedAt` is the row's and `spreadCapturedAt` is not.
+      specAgeHours: Number.isFinite(specCapturedMs) ? Math.round(((Date.now() - specCapturedMs) / 3600000) * 10) / 10 : null,
       marketStateAtCapture: row.marketStateAtCapture || null,
+      // THE COST BASIS THE DESK WILL ACTUALLY PRICE WITH, named BESIDE the venue capture rather than inferred from
+      // it. `costFactLines` used to print "spread: no open-market capture - NOT usable as a cost" whenever the quote
+      // lane had nothing, while `stopPolicy.adverseStopCap` priced the stop-cap floor from `backtest.costCfgFor` -
+      // two answers to one question inside one decision, and neither named the other. The cost model is the one that
+      // acts, so that is the one the prompt states; a live capture, when one exists, is corroboration.
+      //
+      // READ, NOT RE-DERIVED: `costCfgFor` owns this fact - it composes spread and slippage and labels the
+      // provenance - so it is copied here rather than recomputed, and the prompt and the risk gate cannot quote
+      // different numbers for the same symbol.
+      costModel: (() => {
+        try {
+          const cfg = require('./backtest').costCfgFor(symbol);
+          return {
+            spreadHalfPct: cfg.cfdSpreadPct == null ? null : Number(cfg.cfdSpreadPct),
+            slippagePct: cfg.cfdSlippagePct == null ? null : Number(cfg.cfdSlippagePct),
+            spreadBasis: (cfg.costModelBasis && cfg.costModelBasis.spread) || null,
+            version: cfg.costModelVersion || null,
+          };
+        } catch { return null; }
+      })(),
     };
   }
   return out;
@@ -633,14 +667,35 @@ function costFactLines(factsBySymbol) {
   for (const f of facts) {
     const bits = [];
     bits.push(f.minimumUnits != null ? `min size ${f.minimumUnits}${f.unitKind ? ' ' + f.unitKind : ''}` : 'min size UNKNOWN');
-    bits.push(f.spreadValue != null
-      ? `spread ${f.spreadValue}${f.spreadHalfPct != null ? ` (half-spread ${f.spreadHalfPct}% of ${f.spreadMid})` : ''}`
-      : 'spread: no open-market capture — NOT usable as a cost');
+    // THE COST NUMBER IS THE ONE THE RISK GATE USES, AND IT IS NOT ALWAYS A VENUE CAPTURE. Printing "NOT usable as a
+    // cost" whenever the quote lane was empty became FALSE once that lane lapsed: the desk prices from
+    // `backtest.costCfgFor`, which resolves a curated constant for these symbols. The line now states that number and
+    // its population, and reports a live capture - when there is one - as corroboration rather than as the answer.
+    // A `flat_default` basis is called a placeholder out loud, because it is a constant wearing a measurement's name.
+    const cm = f.costModel || null;
+    if (cm && cm.spreadHalfPct != null) {
+      const basisText = cm.spreadBasis === 'venue_open_market' ? 'live open-market capture'
+        : cm.spreadBasis === 'flat_default' ? 'PLACEHOLDER, not a measurement'
+          : cm.spreadBasis === 'calibrated_table' ? 'curated, not verifiable against ticks'
+            : cm.spreadBasis === 'tick_history_p75' ? "p75 of the desk's own two-sided ticks"
+              : cm.spreadBasis === 'tick_history_p75_derived' ? 'derived p75 of the desk\'s two-sided ticks'
+                : 'basis unstated';
+      bits.push(`cost spread ${cm.spreadHalfPct}% per side + ${cm.slippagePct}% slippage (${basisText})`);
+      if (f.spreadValue != null && f.spreadHalfPct != null) bits.push(`venue capture ${f.spreadHalfPct}% half-spread of ${f.spreadMid} (corroboration)`);
+    } else if (f.spreadValue != null) {
+      bits.push(`spread ${f.spreadValue}${f.spreadHalfPct != null ? ` (half-spread ${f.spreadHalfPct}% of ${f.spreadMid})` : ''}`);
+    } else {
+      bits.push('cost spread UNKNOWN - no cost basis resolved for this symbol');
+    }
     const fb = f.fundingBuyPct == null ? 'n/a' : `${f.fundingBuyPct}%`;
     const fs = f.fundingSellPct == null ? 'n/a' : `${f.fundingSellPct}%`;
     bits.push(`overnight funding buy ${fb} / sell ${fs}${f.fundingTime ? ` @ ${f.fundingTime}` : ''}`);
     if (f.leverageRaw) bits.push(`leverage ${f.leverageRaw}${f.initialMarginPct != null ? ` (initial margin ${f.initialMarginPct}%)` : ''}`);
-    out.push(`${f.symbol}: ${bits.join(' · ')}${f.instrumentClass === 'option' ? ' [option]' : ''}`);
+    // ⚠ THE AGE RIDES THE LINE, NOT A FOOTNOTE. A caveat printed once above the block is read once and then skipped;
+    // the number it qualifies is per symbol, and the reader is a model deciding whether to act on these costs.
+    const stale = f.specAgeHours != null && f.specAgeHours > MAX_SPEC_AGE_HOURS;
+    out.push(`${f.symbol}: ${bits.join(' · ')}${f.instrumentClass === 'option' ? ' [option]' : ''}`
+      + (stale ? ` ⚠ SPECS ${Math.round(f.specAgeHours)}h OLD — the minimum size, funding and leverage above are UNVERIFIED` : ''));
   }
   return out;
 }
@@ -705,5 +760,47 @@ async function seedDerivedSpreadBasis(userId, { venue = registry.VENUE_DEFAULT, 
   };
 }
 
-module.exports = { floorVerdict, snapToVenueStep, venueLeverage, marginRatePct, marginRatesFor, ceilingPctFor, resolve, checkSize, captureFromObservation, venueCostFacts, carryPctFor, costFactLines, seedBacktestCostBasis, seedDerivedSpreadBasis };
+// TRD-114 (2026-10-27): seed the SLIPPAGE basis from the desk's own fills. Same shape and same rules as
+// `seedDerivedSpreadBasis` above — read the rows, derive purely, apply in ONE call — because the two terms feed the
+// same budget and must never be half-applied.
+//
+// ⚠ IT SEEDS NOTHING WHEN THE READ FAILS, and a thin symbol is REFUSED BY NAME rather than priced from a handful of
+// fills. A refused symbol keeps `CALIBRATED_SLIP_PCT` and its `calibrated_placeholder` label: wrong, but stated.
+async function seedDerivedSlipBasis(userId, { days = 120, minFills = null } = {}) {
+  const backtest = require('./backtest');
+  const derivation = require('./slipDerivation');
+  const windowDays = Number.isFinite(Number(days)) && Number(days) > 0 ? Number(days) : 120;
+  let rows;
+  try {
+    // THE SQL LIVES IN THE STORE LAYER (`store/fills.js`). `test/venue-cost-basis.test.js` scans THIS FILE for
+    // ad-hoc database access and fails the build, and the first version of this seeder violated it. The guard exists
+    // because a second place that queries a table is a second place that can forget the filter — here the NOT NULL
+    // pair that defines a measurable fill. ⚠ The scan reads COMMENTS too, so the check cannot be named literally
+    // here; that is why this paragraph describes it rather than quoting it.
+    rows = await require('../store/fills').slipRows(userId, { days: windowDays });
+  } catch (e) {
+    return { seeded: 0, error: `fill telemetry unreadable: ${e.message || e}` };
+  }
+  if (!Array.isArray(rows)) return { seeded: 0, error: 'fill telemetry unreadable: not a row list' };
+  const census = derivation.deriveSlipBasis(rows, minFills == null ? undefined : { minN: Number(minFills) });
+  const seeded = backtest.setSlipDerivation({
+    derived: census.basis,
+    provenance: { days: windowDays, fills: rows.length, minN: census.minN, at: new Date().toISOString() },
+  });
+  return { seeded, days: windowDays, fills: rows.length, refused: census.refused, results: census.results };
+}
+
+// ★ 2026-10-27 — THE QUOTE CURRENCY OF AN INSTRUMENT, resolved through THIS module because it is a per-instrument
+// fact. `test/architecture-conformance.test.js` invariant A already forbids `instrumentCurrencyOf(` outside this
+// file, and it is right to: a symbol -> currency lookup is a per-instrument fact, and a second one is a second
+// answer that can disagree with the first.
+//
+// ⚠ IT CAN RETURN NULL, AND NULL IS THE ANSWER when `settings.account.instrumentCurrency` has no entry. The caller
+// must be able to tell "nobody said" from "USD" — that assumption is the defect `accountCurrency.js` documents.
+function quoteCurrencyOf(settings, symbol) {
+  const { instrumentCurrencyOf } = require('./accountCurrency');
+  return instrumentCurrencyOf(settings, symbol);
+}
+
+module.exports = { MAX_SPEC_AGE_HOURS, floorVerdict, snapToVenueStep, venueLeverage, marginRatePct, marginRatesFor, ceilingPctFor, resolve, checkSize, captureFromObservation, venueCostFacts, carryPctFor, costFactLines, seedBacktestCostBasis, seedDerivedSpreadBasis, seedDerivedSlipBasis, quoteCurrencyOf };
 

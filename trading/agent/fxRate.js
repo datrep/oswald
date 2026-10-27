@@ -41,10 +41,33 @@
 const GATE_STRONG = 10;
 const GATE_WEAK = 3;
 
+// ★★ 2026-10-27 — THE BAND AND THE GATE ARE PER-CURRENCY, AND EXACTLY ONE IS DECLARED.
+//
+// This module derives SGD per ONE UNIT of the instrument's quote currency, so both constants are properties of the
+// PAIR, not of the module. The originals were USD/SGD's and were applied to every pair: EUR/SGD (~1.5) sits at the
+// top of 1.10-1.55, GBP/SGD and SGD/JPY fall outside it entirely, and "$10 of move" is a different amount of money
+// in each. The owner's own case is the one that matters — a French or German stock quotes in EUR, so its rate is
+// SGD-per-EUR and nothing about USD/SGD's band applies to it.
+//
+// ⚠⚠ AND THE DANGEROUS PART WAS NOT THE BAND. `deriveRate` took EVERY pair into one median without grouping, so a
+// single EUR position among USD ones would have blended ~1.29 with ~1.50 into a number that still PASSED the band —
+// a plausible wrong rate, which is the one outcome this module exists to prevent. Grouping is therefore checked
+// before anything else.
+//
+// ⚠ IT FAILS CLOSED: a currency with no entry is REFUSED by name rather than handed USD's parameters, because
+// assuming EUR/SGD trades like USD/SGD is the same "assume a currency" defect `accountCurrency.js` documents.
+// Adding a currency here is a deliberate act with a stated band, not an inheritance.
+const PAIR_PARAMS = {
+  USD: { min: 1.10, max: 1.55, gateStrong: GATE_STRONG, gateWeak: GATE_WEAK },
+};
+const DEFAULT_CURRENCY = 'USD';
+
 // A sanity band, NOT a policy. USD/SGD has traded roughly 1.2-1.45 for years; the band is deliberately wider
 // than that so a real regime move is REPORTED rather than clipped, and anything outside it is a refusal
 // carrying the observed value — the same shape as `accountCurrency.convertible()`, which refuses rather than
 // guesses. Clamping here would turn a wrong derivation into a plausible number, which is the whole defect.
+// ⚠ MOVED INTO `PAIR_PARAMS` (2026-10-27) as the `USD` entry. A single module-level band was a claim that every
+// pair trades in USD/SGD's range, which is false for EUR, GBP and JPY — see the header there.
 const PLAUSIBLE_MIN = 1.10;
 const PLAUSIBLE_MAX = 1.55;
 
@@ -79,11 +102,13 @@ function pairRate(a, b) {
   const rateB = finite(b.rate);
   if (size == null || size <= 0 || sign == null) return null;
   if (pnlA == null || pnlB == null || rateA == null || rateB == null) return null;
-  const usdMove = size * sign * (rateB - rateA);
-  if (!(Math.abs(usdMove) > 0)) return null; // a flat price implies nothing and must not divide
-  const rate = (pnlB - pnlA) / usdMove;
+  const move = size * sign * (rateB - rateA);
+  if (!(Math.abs(move) > 0)) return null; // a flat price implies nothing and must not divide
+  const rate = (pnlB - pnlA) / move;
   if (!Number.isFinite(rate) || rate <= 0) return null;
-  return { rate, usdMove, symbol: a.symbol || null };
+  // ⚠ `move` — NOT `usdMove`. The quantity is a price move in the INSTRUMENT'S quote currency, which is USD only
+  // while every instrument happens to be USD-quoted. The old name was a unit claim the code could not keep.
+  return { rate, move, symbol: a.symbol || null };
 }
 
 function median(values) {
@@ -95,29 +120,62 @@ function median(values) {
 
 // `pairs` = array of {a, b} sample pairs, one per position, from `pairRate`-shaped inputs.
 // Returns a rate or a NAMED refusal. Never throws, never clamps.
-function deriveRate(pairs) {
+//
+// `currency` is the instrument currency the caller WANTS priced. It is optional because today no sample carries one
+// (see accountPoller: `settings.account.instrumentCurrency` is unset), and refusing outright would switch the live
+// rate off — but the outcome states which it was, so "we knew" and "we assumed" are never the same answer.
+function deriveRate(pairs, { currency = null } = {}) {
   const all = [];
   const rejected = [];
+  const recorded = new Set();
   for (const p of pairs || []) {
+    const cur = p && p.a && p.a.currency ? String(p.a.currency).toUpperCase() : null;
+    if (cur) recorded.add(cur);
     const r = pairRate(p && p.a, p && p.b);
     if (!r) { rejected.push({ symbol: (p && p.a && p.a.symbol) || null, why: 'pair_unusable' }); continue; }
-    all.push(r);
+    all.push({ ...r, currency: cur });
   }
-  if (!all.length) return { ok: false, reason: 'no_usable_pairs', n: 0 };
 
-  let gate = GATE_STRONG;
-  let usable = all.filter((r) => Math.abs(r.usdMove) >= gate);
+  // ⚠⚠ BLENDING FIRST — THIS IS THE WHOLE POINT OF THE CURRENCY WORK. Two different quote currencies in one median
+  // produces a number that is neither rate and can still pass a plausibility band. Refuse, and name them.
+  const distinct = [...recorded].sort();
+  if (distinct.length > 1) {
+    return { ok: false, reason: 'mixed_currencies', currencies: distinct, n: all.length,
+      note: 'positions quoting in different currencies cannot share one rate; derive per currency' };
+  }
+  if (currency && distinct.length === 1 && distinct[0] !== String(currency).toUpperCase()) {
+    return { ok: false, reason: 'currency_mismatch', asked: String(currency).toUpperCase(), recorded: distinct[0] };
+  }
+
+  const effective = String(currency || distinct[0] || DEFAULT_CURRENCY).toUpperCase();
+  const params = PAIR_PARAMS[effective];
+  if (!params) {
+    // ⚠ FAIL CLOSED. Handing a GBP pair USD's 1.10-1.55 band would REFUSE a correct rate as implausible, and
+    // handing it a wider band would ACCEPT a wrong one. Neither is knowable from here, so neither is guessed.
+    return { ok: false, reason: 'currency_parameters_missing', currency: effective, n: all.length,
+      note: 'no plausibility band or value gate is declared for this currency — add one deliberately in PAIR_PARAMS rather than inheriting USD\'s' };
+  }
+  const basis = distinct.length ? 'recorded_currency' : (currency ? 'caller_supplied' : 'assumed_default');
+
+  // A sample with no recorded currency cannot be shown to belong here, but excluding it would silently shrink the
+  // population. Counted, so the ambiguity travels with the number instead of being resolved by a guess.
+  const unrecorded = all.filter((r) => r.currency == null).length;
+
+  if (!all.length) return { ok: false, reason: 'no_usable_pairs', n: 0, currency: effective, basis };
+
+  let gate = params.gateStrong;
+  let usable = all.filter((r) => Math.abs(r.move) >= gate);
   let gateUsed = 'strong';
   if (usable.length < MIN_SAMPLES) {
-    gate = GATE_WEAK;
-    usable = all.filter((r) => Math.abs(r.usdMove) >= gate);
+    gate = params.gateWeak;
+    usable = all.filter((r) => Math.abs(r.move) >= gate);
     gateUsed = 'weak';
   }
   if (usable.length < MIN_SAMPLES) {
     // Refuse rather than fall back to an ungated average: an ungated set is the biased one, and a biased rate
     // silently resizes every ticket. The caller must handle this, not the module.
     return { ok: false, reason: 'insufficient_signal', n: usable.length, candidates: all.length,
-      gate: gateUsed, need: MIN_SAMPLES };
+      gate: gateUsed, need: MIN_SAMPLES, currency: effective, basis };
   }
 
   const rates = usable.map((r) => r.rate);
@@ -126,19 +184,20 @@ function deriveRate(pairs) {
   const hi = Math.max(...rates);
   const out = {
     ok: true, rate, n: usable.length, candidates: all.length, gate: gateUsed,
-    usdMoveMin: Math.min(...usable.map((r) => Math.abs(r.usdMove))),
+    currency: effective, basis, unrecordedSamples: unrecorded,
+    moveMin: Math.min(...usable.map((r) => Math.abs(r.move))),
     lo, hi, spreadPct: +(((hi - lo) / rate) * 100).toFixed(2),
     rejected: rejected.length,
   };
-  if (!(rate >= PLAUSIBLE_MIN && rate <= PLAUSIBLE_MAX)) {
+  if (!(rate >= params.min && rate <= params.max)) {
     // REPORTED, not clipped. The observed value travels with the refusal so the operator can see what the
     // desk thinks the rate is, instead of a plausible number standing in for a wrong one.
-    return { ...out, ok: false, reason: 'outside_plausible_band', band: [PLAUSIBLE_MIN, PLAUSIBLE_MAX] };
+    return { ...out, ok: false, reason: 'outside_plausible_band', band: [params.min, params.max] };
   }
   return out;
 }
 
 module.exports = {
   pairRate, deriveRate, dirSign,
-  GATE_STRONG, GATE_WEAK, PLAUSIBLE_MIN, PLAUSIBLE_MAX, MIN_SAMPLES,
+  GATE_STRONG, GATE_WEAK, MIN_SAMPLES, PAIR_PARAMS, DEFAULT_CURRENCY,
 };

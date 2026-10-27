@@ -1,7 +1,7 @@
 // `changeAudit` — the guard `epoch.js` claims to have and does not.
 //
-// WHY. `epoch.js`'s header names `assertRegistryCoverage` and says it "fails when a task row that CLOSED carries a
-// landing date newer than the newest entry". **That function did not exist.** The registry sat untouched from
+// WHY. `epoch.js`'s header used to name `assertRegistryCoverage` and say it "fails when a task row that CLOSED
+// carries a landing date newer than the newest entry". **That function did not exist.** The registry sat untouched from
 // 2026-09-27 while six behaviour changes landed after it — including `size-contract-scale`, which changed the
 // definition of the risk unit itself — and a study scoped by it pooled four sizing rules and reported one number.
 //
@@ -119,4 +119,58 @@ test('★ NO boundary at all must REFUSE, not report clean — and must not REND
 test('summaryLine states the WINDOW it judged — the defect is a number without one', () => {
   assert.match(summaryLine({ ok: true, pending: false, boundary: B, findings: [], blocking: 0 }), /after 2026-09-27/);
   assert.match(summaryLine({ ok: false, boundary: B, findings: [{ severity: 'unregistered_boundary' }], blocking: 1 }), /BLOCKING/);
+});
+
+// ── THE THIRD SOURCE: sql/migrations/** ─────────────────────────────────────────────────────────────────────
+//
+// ⚠ WHY THESE EXIST. On 2026-10-26 migrations 052 and 053 were applied to the live database ACROSS a declared
+// freeze boundary, and this guard printed "nothing unaccounted for after 2026-10-26T22:31:00Z". That report was
+// true of its two sources and wrong about the system: DDL is applied in SSMS, so it touches no settings row and
+// no file under `trading/`. The guard could not see the one class of change that alters the substrate every
+// forward measurement sits on. These tests pin that it now can — AND that it does not overclaim.
+
+test('★ a migration touched after the boundary is REPORTED — the source that was blind to 052/053', () => {
+  const r = unaccounted({
+    newestLandedAt: B, now: NOW,
+    schemaChanges: [{ file: 'sql/migrations/052_constraint_versions.sql', at: '2026-10-26T22:32:00Z' }],
+  });
+  const f = r.findings.find((x) => /migration file/.test(x.what));
+  assert.ok(f, 'a migration after the boundary must be NAMED, not silently ignored');
+  assert.equal(f.severity, 'advisory');
+  assert.deepEqual(f.files, ['sql/migrations/052_constraint_versions.sql']);
+  assert.match(f.fix, /if this was APPLIED/i);
+});
+
+test('★ …but it must NOT claim the migration landed — "written" is not "applied"', () => {
+  // An mtime records when the file was WRITTEN. A migration authored in September and run in October is invisible
+  // to every source here. Asserting it as a boundary would be the same defect in the other direction: a number
+  // standing in for a fact it cannot establish.
+  const r = unaccounted({ newestLandedAt: B, now: NOW, schemaChanges: [{ file: 'sql/migrations/054_x.sql', at: '2026-10-26T22:32:00Z' }] });
+  const f = r.findings.find((x) => /migration file/.test(x.what));
+  assert.match(f.note, /WRITTEN, not when the DDL was APPLIED/);
+  assert.equal(r.ok, true, 'advisory must not block — whether it landed is exactly what the note cannot answer');
+  assert.equal(r.blocking, 0);
+});
+
+test('a migration OLDER than the boundary is silent — the guard must not cry on the standing corpus', () => {
+  const r = unaccounted({ newestLandedAt: B, now: NOW, schemaChanges: [{ file: 'sql/migrations/024_trading_agent.sql', at: '2026-09-01T00:00:00Z' }] });
+  assert.equal(r.findings.length, 0);
+  assert.equal(r.ok, true);
+});
+
+test('★ inside a freeze a migration IS a breach — the window admits no exceptions by source', () => {
+  const r = unaccounted({
+    newestLandedAt: B, freeze: { at: '2026-10-02T03:00:00Z' }, now: NOW,
+    schemaChanges: [{ file: 'sql/migrations/053_constraint_bounded_start.sql', at: '2026-10-02T03:10:00Z' }],
+  });
+  assert.equal(r.ok, false, 'a substrate change inside the window invalidates it like any other');
+  assert.equal(r.findings[0].severity, 'freeze_breach');
+});
+
+test('no schemaChanges supplied at all is not the same as "no migrations exist" — and neither may block', () => {
+  // The caller that predates this source passes nothing. It must behave exactly as before, never throw and never
+  // imply that schema was checked.
+  const r = unaccounted({ newestLandedAt: B, now: NOW });
+  assert.equal(r.ok, true);
+  assert.equal(r.findings.filter((f) => /migration/.test(f.what)).length, 0);
 });

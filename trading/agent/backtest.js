@@ -94,6 +94,13 @@ const CALIBRATED_SPREAD_HALF_PCT = {
   Bitcoin: 0.0750, Gold: 0.0097, Oil: 0.0364, Silver: 0.0468, Sugar: 0.0817,
   'Arabica Coffee': 0.0378, SGX: 0.2507,
   Ethereum: 0.1251, Solana: 0.9014, BNB: 1.0005, SHEIN: 0.4467, 'PAX Gold': 0.1851,
+  // ADDED 2026-10-27, AND ITS POPULATION IS NOT THE OTHERS'. The twelve above are p75s of the desk's own two-sided
+  // tick history. Soybeans' is a MEDIAN OF SIX VENUE SUBMIT LABELS (`Trades.spreadSubmitPct`, median round trip
+  // 0.094147% -> 0.0471% per side) because the tick lane has nothing usable for it. Named rather than blended: two
+  // half-spreads drawn from different populations are not the same quantity (AGENTS.md 6a), and it is labelled
+  // wherever it is reported. BEFORE THIS the symbol fell to `flat_default` 0.10 - 2.1x the measured cost, charged
+  // to every Soybeans trade and to any study that priced one.
+  Soybeans: 0.0471,
 };
 const CALIBRATED_SLIP_PCT = 0.05; // placeholder until fill telemetry matures
 
@@ -116,6 +123,37 @@ const CALIBRATED_SLIP_PCT = 0.05; // placeholder until fill telemetry matures
 // term only; the budget stays `2 x (spread + slip) x 100` through `roundTripBpsFromCfg`. Substituting a
 // derived spread for the round trip would loosen all three gates above at once (Gold 11.94 -> 3.08).
 let SPREAD_DERIVATION = { derived: {}, unverifiable: new Set(), provenance: null };
+
+// ── TRD-114 (2026-10-27): THE SLIPPAGE TERM, DERIVED FROM FILLS ───────────────────────────────────────────────
+// `CALIBRATED_SLIP_PCT` is a flat 0.05% placeholder applied per side to EVERY symbol, and it is 84% of Gold's
+// modelled round-trip budget. Measured over 120 days of real entries, `slippagePct` is 0.88-0.98x the venue's own
+// half-spread — the decision price is a MID and the fill lands at the touch, so the movement the placeholder charges
+// for is the spread crossing the spread term ALREADY CHARGES.
+//
+// ⚠ `agent/slipDerivation` subtracts the half-spread and floors at zero; this is only the application step. It is a
+// SEPARATE map from the spread derivation because the two have different units and different populations, and one
+// setter for both is how a number gets applied in the wrong slot.
+let SLIP_DERIVATION = { derived: {}, provenance: null };
+function setSlipDerivation({ derived = {}, provenance = null } = {}) {
+  const map = {};
+  for (const [symbol, v] of Object.entries(derived || {})) {
+    const pct = Number(v && typeof v === 'object' ? v.pct : v);
+    // ZERO IS A VALID, MEASURED ANSWER here (the fill landed at the touch or inside it), unlike a spread of zero
+    // which is a free trade. An entry that is not a finite number is DROPPED, so it falls back to the placeholder.
+    if (!Number.isFinite(pct) || pct < 0) continue;
+    const n = v && typeof v === 'object' ? Number(v.n) : null;
+    map[symbol] = { pct, n: Number.isFinite(n) ? n : null };
+  }
+  SLIP_DERIVATION = { derived: map, provenance: provenance && typeof provenance === 'object' ? { ...provenance } : null };
+  return Object.keys(map).length;
+}
+function getSlipDerivation() {
+  return { derived: { ...SLIP_DERIVATION.derived }, provenance: SLIP_DERIVATION.provenance ? { ...SLIP_DERIVATION.provenance } : null };
+}
+function derivedSlipFor(symbol) {
+  const d = SLIP_DERIVATION.derived[symbol];
+  return d && Number.isFinite(d.pct) && d.pct >= 0 ? d : null;
+}
 function setSpreadDerivation({ derived = {}, unverifiable = [], provenance = null } = {}) {
   const map = {};
   for (const [symbol, v] of Object.entries(derived || {})) {
@@ -190,9 +228,15 @@ function costCfgFor(symbol) {
   const swapClockMinuteUtc = onVenueBasis
     ? (clockFromRegistry == null ? DEFAULT_FUNDING_MINUTE_UTC : clockFromRegistry)
     : null;
+  // TRD-114: a MEASURED residual for this symbol wins over the flat placeholder, and says which it used. A symbol
+  // with no measurement keeps `CALIBRATED_SLIP_PCT` and its label — a silently-unseeded symbol must not look
+  // identical to a measured one, which is the same rule the venue basis follows.
+  const slipDerived = derivedSlipFor(symbol);
+  const slip = slipDerived ? slipDerived.pct : CALIBRATED_SLIP_PCT;
+  const slipBasis = slipDerived ? 'derived_fill_telemetry' : 'calibrated_placeholder';
   return {
     cfdSpreadPct: spread == null ? DEFAULTS.cfdSpreadPct : spread,
-    cfdSlippagePct: CALIBRATED_SLIP_PCT,
+    cfdSlippagePct: slip,
     ...(venueBuy != null ? { cfdSwapBuyPct: venueBuy } : {}),
     ...(venueSell != null ? { cfdSwapSellPct: venueSell } : {}),
     cfdSwapClockMinuteUtc: swapClockMinuteUtc,
@@ -215,6 +259,10 @@ function costCfgFor(symbol) {
       // becomes a permanent constant.
       ...(usedDerived && derived.n != null ? { spreadSample: derived.n } : {}),
       funding: hasFunding ? 'venue_per_side' : 'flat_placeholder',
+      // TRD-114: which slippage number priced this run, and from how many fills. Without `slippageSample` a
+      // measured residual and the flat placeholder produce identical-looking labels on two different runs.
+      slippage: slipBasis,
+      ...(slipDerived && slipDerived.n != null ? { slippageSample: slipDerived.n } : {}),
       swapClock: onVenueBasis
         ? (clockFromRegistry == null ? 'venue_time_default' : 'venue_funding_time')
         : 'utc_midnight',
@@ -540,7 +588,7 @@ async function runBacktest(userId, { symbol, venue = 'plus500', timeframe = '1h'
   };
 }
 
-module.exports = { runBacktest, sweep, runTurtle, worksheet, monteCarlo, loadSeries, DEFAULTS, RANGES, costCfgFor, COST_MODEL_VERSION, CALIBRATED_SPREAD_HALF_PCT, COST_MODEL_VERSION_VENUE, COST_MODEL_VERSION_DERIVED, setVenueCostBasis, getVenueCostBasis, setSpreadDerivation, getSpreadDerivation, swapPctFor, swapClockBasisOf };
+module.exports = { runBacktest, sweep, runTurtle, worksheet, monteCarlo, loadSeries, DEFAULTS, RANGES, costCfgFor, COST_MODEL_VERSION, CALIBRATED_SPREAD_HALF_PCT, CALIBRATED_SLIP_PCT, COST_MODEL_VERSION_VENUE, COST_MODEL_VERSION_DERIVED, setVenueCostBasis, getVenueCostBasis, setSpreadDerivation, getSpreadDerivation, setSlipDerivation, getSlipDerivation, derivedSlipFor, swapPctFor, swapClockBasisOf };
 
 // TRD-11: parameter sweep — "backtest the strategy across a grid, and only
 // the profitable variants are shown up top". Deterministic, no LLM, capped.

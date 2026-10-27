@@ -36,6 +36,10 @@ let lastAccepted = null;  // 2026-09-11: last PLAUSIBLE reading (flicker guard)
 // `acceptSample` too and has no settings in hand — and a payload that carries the unit on one write path and
 // not the other is how a reader learns to distrust the field.
 let accountCurrency = null;
+// ★ 2026-10-27 — the SETTINGS the currency was read from, kept because the FX pair needs the PER-INSTRUMENT quote
+// currency too (`settings.account.instrumentCurrency`) and `fxPairObserve` has no settings in hand. Same reasoning
+// as `accountCurrency` above: module-scoped so both write paths agree, never re-read on the hot path.
+let lastSettings = null;
 let rejected = 0;         // consecutive rejections (telemetry once per run)
 let lastTickAt = 0;       // 2026-09-11: fine-equity-tick cadence (<=5s writes)
 let lastPruneAt = 0;      // hourly retention prune
@@ -476,7 +480,17 @@ function fxPairObserve(pairs, key, row, pnl) {
   const size = row.size == null || row.size === '' ? null : Number(row.size);
   const p = pnl == null || pnl === '' ? null : Number(pnl);
   if (!Number.isFinite(rate) || !Number.isFinite(size) || !Number.isFinite(p)) return null;
-  const point = { symbol: row.name || null, direction: row.direction || null, size, pnl: p, rate };
+  // ★ 2026-10-27 — THE QUOTE CURRENCY TRAVELS WITH THE SAMPLE.
+  // `fxRate` derives SGD per ONE UNIT of the instrument's currency, so a pair's band and its value gate belong to
+  // that currency, and two currencies cannot share one median. Without this field the derivation had nothing to
+  // group on and would have blended a EUR position into a USD median — a plausible wrong rate.
+  // ⚠ NULL IS THE HONEST ANSWER when `settings.account.instrumentCurrency` has no entry: `accountCurrency.js`
+  // refuses to assume USD, and `fxRate` reports `basis: 'assumed_default'` rather than pretending it knew.
+  // ⚠ RESOLVED THROUGH `instruments.js`, NOT LOOKED UP HERE. A symbol -> currency lookup is a per-instrument fact,
+  // and invariant A in `test/architecture-conformance.test.js` forbids a second producer of one. That guard caught
+  // this line on its first run.
+  const currency = require('./instruments').quoteCurrencyOf(lastSettings, row.name);
+  const point = { symbol: row.name || null, direction: row.direction || null, size, pnl: p, rate, currency };
   const cur = pairs.get(key);
   if (!cur) { pairs.set(key, { a: point, b: null, closedAt: null }); return null; }
   cur.b = point;
@@ -919,6 +933,8 @@ function start(userId = 1) {
         cfg = (settings && settings.account) || {};
         // TRD-PNL-4 (#1484): the declared unit, from the SAME read the cadence comes from.
         accountCurrency = currencyOf(settings);
+        // 2026-10-27: and the settings themselves, so an FX sample can name its instrument's quote currency.
+        lastSettings = settings || null;
         // TRD-106: the click-through is gated on the kill tier, so the tier must be read somewhere — and
         // it must NOT be read per iteration (the query-per-second this cache exists to avoid), nor from a
         // second source, or the two would drift and one of them would be wrong at the worst moment.

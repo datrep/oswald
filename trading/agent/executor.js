@@ -81,7 +81,7 @@ function fillAnchorPlan({ settings, strategyId = null, levels, decisionPrice, fi
   return { act: true, reason: null, target, strategyId };
 }
 
-async function openTrade(userId, settings, { symbol, direction, size, decisionId = null, note = null, stopPrice = null, takeProfitPrice = null, strategyId = null, origin = 'agent', decisionPrice = null, decisionPriceAsOf = null, priceVenue = null, pairId = null }, { keepOpen = false } = {}) {
+async function openTrade(userId, settings, { symbol, direction, size, decisionId = null, note = null, stopPrice = null, takeProfitPrice = null, strategyId = null, origin = 'agent', decisionPrice = null, decisionPriceAsOf = null, priceVenue = null, pairId = null, venueInstrumentId = null }, { keepOpen = false } = {}) {
   symbol = String(symbol || '').trim();
   if (!symbol) return { placed: false, reason: 'symbol_required' };
   if (!['buy', 'sell'].includes(direction)) return { placed: false, reason: 'direction_must_be_buy_or_sell' };
@@ -566,6 +566,14 @@ async function openTrade(userId, settings, { symbol, direction, size, decisionId
       const ms = new Date(fill.filledAt).getTime() - new Date(dpAsOf).getTime();
       return Number.isFinite(ms) ? Math.max(0, Math.round(ms / 1000)) : null;
     })();
+    // ⚠ THE VENUE'S OWN ID WINS WHEN THERE IS ONE — see the note on the row below. `chartSymbol` is
+    // `<instrumentId>_<side>` read while the ticket was open; the risk resolution is the fallback, and for an OPTION
+    // there is no fallback at all because the composite contract name has no registry row.
+    const chartInstrumentId = require('../plus500/chartIdentity').chartInstrumentId;
+    const fromChart = chartInstrumentId(fill && fill.chartSymbol);
+    const tradeInstrumentId = fromChart != null
+      ? fromChart
+      : (venueInstrumentId == null || venueInstrumentId === '' ? null : String(venueInstrumentId));
     const id = await store.createTrade(userId, {
       symbol, direction, size: sizeNum,
       units: fill.units ?? null,
@@ -590,6 +598,14 @@ async function openTrade(userId, settings, { symbol, direction, size, decisionId
       spreadSubmitSource: submitSpread.source,
       signalToFillSec,
       anchorAgeSec: anchorAge == null ? null : +Number(anchorAge).toFixed(3),
+      // Migration 055: the instrument the SIZE was resolved against, recorded at entry. NULL for callers that have no
+      // resolution (manual route, pair legs) — absent is honest, and `constraintAudit` falls back to its symbol map.
+      //
+      // ⚠ THE VENUE'S OWN ID WINS WHEN THERE IS ONE, and for options it is the ONLY one that can exist. The
+      // `venueInstrumentId` argument came from the risk resolution, which for an option cannot resolve at all: the
+      // composite contract name ("Oil | Call 94 | Sep W2") has no registry row. `fill.chartSymbol` is read off the
+      // chart at submit, so it names the instrument the order was actually placed on.
+      venueInstrumentId: tradeInstrumentId,
     });
     await store.logEvent(userId, 'fill_telemetry', {
       symbol, direction, size: sizeNum, decisionPrice: dp || null, fillPrice: fill.price ?? null,
@@ -856,6 +872,9 @@ async function openTrade(userId, settings, { symbol, direction, size, decisionId
         takeProfitPrice: tp.value,
         rejectReason: String(e.message || e).slice(0, 120),
         pairId: pairId || null,
+        // The rejected row describes the SAME instrument the attempt was for, so it carries the id too — a blocked
+        // entry with no instrument is the same unjoinable row one status earlier.
+        venueInstrumentId: venueInstrumentId == null ? null : String(venueInstrumentId),
       });
     } catch { /* rejected/unconfirmed row is best-effort */ }
     if (e && e.demoGuard) return { placed: false, reason: 'not_demo' };

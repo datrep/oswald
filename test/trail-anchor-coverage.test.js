@@ -49,7 +49,12 @@ test('★★ EVERY `distanceFromPercent` call anchors `entry` to the SAME readin
   // ★ THE ONE LEGITIMATE EXCEPTION (TRD-TRL-12b, 2026-10-18): the POST-ENTRY edit card anchors its percent to
   // the position's ENTRY price, measured live on 2026-10-08 — so the engage path inside `setPositionTrail` MUST
   // pass the trade's entry, not the current price. Every other site (unsubmitted tickets) keeps the rule above.
-  // The exception is pinned by SHAPE: exactly one entryRate/post.price site, and it must sit inside that function.
+  //
+  // ★ 2026-10-20 — THERE ARE NOW TWO OF THEM, ON PURPOSE. The calibration pass re-types the count once and takes a
+  // SECOND reading of the same card (`post2`). Both readings are the same instrument state on the same ticket, so
+  // the rule that matters is unchanged: `entry` must be the ticket's entry and `price` must be THAT READING. The
+  // pin is therefore "at least one engage site, every one of them entryRate + its own card read", not "exactly
+  // one" — the count was incidental, the pairing is the property.
   const start = webtrader.indexOf('async function setPositionTrail');
   const nextFn = webtrader.indexOf('\nasync function ', start + 10);
   const engageBody = start > -1 ? webtrader.slice(start, nextFn > -1 ? nextFn : webtrader.length) : '';
@@ -66,15 +71,15 @@ test('★★ EVERY `distanceFromPercent` call anchors `entry` to the SAME readin
     const inEngage = engageBody.includes(s);
     if (inEngage) {
       engageSites += 1;
-      // trade-entry anchored: entry must be enteringRate and price must be the card's current reading
-      if (entry[1] !== 'entryRate' || price[1] !== 'post.price') {
-        offenders.push(`engage site must be entry: entryRate / price: post.price — got entry: ${entry[1]} price: ${price[1]}`);
+      // trade-entry anchored: entry must be the ticket entry, price must be THAT card reading (post / post2 / ...)
+      if (entry[1] !== 'entryRate' || !/^post\d*\.price$/.test(price[1])) {
+        offenders.push(`engage site must be entry: entryRate / price: post-price — got entry: ${entry[1]} price: ${price[1]}`);
       }
       continue;
     }
     if (entry[1] !== price[1]) offenders.push(`entry: ${entry[1]}  vs  price: ${price[1]}   -> ${s}`);
   }
-  assert.equal(engageSites, 1, `expected exactly ONE trade-entry anchored site (the engage card), found ${engageSites}`);
+  assert.ok(engageSites >= 1, `expected at least ONE trade-entry anchored site (the engage card), found ${engageSites}`);
   assert.deepStrictEqual(
     offenders,
     [],

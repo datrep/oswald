@@ -898,6 +898,28 @@ async function readChartTitle(page) {
   }).catch(() => null);
 }
 
+// The venue's OWN string for the selected instrument — `<instrumentId>_<side>` (`11_Sell` for Gold). It is the same
+// field `readChartBars` already returns, hoisted into a read of its own because an order needs it and paying for the
+// whole bar series to get one string is absurd.
+//
+// ⚠ IT IS A READ, NOT AN INTERACTION. No click, no navigation, no ticket touch — the value is page state that is
+// already there. ⚠ AND IT IS THE ONLY KEY THAT CAN NAME AN OPTION: the desk stores the venue's composite contract
+// name (`Oil | Call 94 | Sep W2`), which resolves to nothing in `Instruments`, so a registry lookup cannot supply it.
+// ⚠ A NULL HERE IS EXPECTED AND HARMLESS when ChartIQ has not mounted; the caller records nothing and falls back.
+async function readChartSymbol(page) {
+  return page.evaluate(() => {
+    try {
+      const containers = (typeof CIQ !== 'undefined' && CIQ.ChartEngine && CIQ.ChartEngine.registeredContainers)
+        ? CIQ.ChartEngine.registeredContainers : {};
+      for (const k of Object.keys(containers)) {
+        const c = containers[k] && containers[k].stx && containers[k].stx.chart;
+        if (c && c.symbol) return String(c.symbol).slice(0, 64);
+      }
+    } catch { /* an unmounted engine is an absence, not an error */ }
+    return null;
+  }).catch(() => null);
+}
+
 // ★★ WHAT INTERVAL IS THE CHART ON, AND CAN IT BE PINNED? (2026-09-25 — MEASURED: IT CANNOT.)
 //
 // `readChartBars` reports `layout.interval * unitSec` from whatever the SHARED TAB was last left on, and
@@ -971,6 +993,100 @@ function barSpacingSec(bars) {
     if (Number.isFinite(d) && d > 0 && (min == null || d < min)) min = d;
   }
   return min == null ? null : min / 1000;
+}
+
+// ★ THE CHART INTERVAL IS SET BY CLICKING, AND PROVED BY MEASURING (2026-10-22).
+//
+// WHY NOT `stx.setPeriodicity`. It was tried and measured (header above): on this venue the engine has no
+// `dataCallback` and no `quoteDriver`, so `setPeriodicity` records the new layout and silently fails to reload.
+// Driving it would write rows labelled 1h, built from another interval's bars, self-certifying the wanted
+// `sourceIntervalSec` — a falsified provenance, worse than an unknown one. The owner confirmed the MENU path
+// does work when clicked, and this drives the same menu a human does: a real Playwright click (dispatched as an
+// input event, not `el.click()`) on the `cq-item` whose text is the wanted interval.
+//
+// NOTHING HERE TRUSTS THE CLICK. The click is a REQUEST; `readChartIntervalState` then re-measures the series'
+// own bar spacing, and only that measurement is returned as the result. `ok: false` means the chart is on some
+// other interval and the caller must record that rather than assume the request worked.
+const CHART_INTERVAL_LABELS = Object.freeze({
+  60: '1 Minute', 300: '5 Minutes', 900: '15 Minutes', 3600: '1 Hour',
+});
+
+// What the chart is on right now: the series' own spacing (the fact), the menu's marked item (the venue's
+// claim), and how many bars are loaded — so a reload is visible rather than inferred from a timeout.
+async function readChartIntervalState(page) {
+  return page.evaluate(() => {
+    const containers = (typeof CIQ !== 'undefined' && CIQ.ChartEngine && CIQ.ChartEngine.registeredContainers)
+      ? CIQ.ChartEngine.registeredContainers : {};
+    let engine = null;
+    for (const id of Object.keys(containers)) {
+      const e = containers[id] && containers[id].stx;
+      if (e && e.chart && e.chart.masterData && e.chart.masterData.length) { engine = e; break; }
+    }
+    if (!engine) return { error: 'no_chart_engine' };
+    const md = engine.chart.masterData || [];
+    let min = null;
+    for (let i = 1; i < Math.min(md.length, 30); i++) {
+      const a = Number(md[i - 1] && md[i - 1].DT), b = Number(md[i] && md[i].DT);
+      const d = b - a;
+      if (Number.isFinite(d) && d > 0 && (min == null || d < min)) min = d;
+    }
+    const active = document.querySelector('cq-menu.ciq-period cq-item.ciq-active');
+    return {
+      spacingSec: min == null ? null : min / 1000,
+      activeLabel: active ? String(active.textContent || '').trim() : null,
+      bars: md.length,
+    };
+  });
+}
+
+// Ask the venue for an interval and report what the series actually became. Never throws on a menu miss:
+// a failure to change the interval is a POLICY miss the caller must record, not a reason to lose the capture.
+async function setChartInterval(page, wantSec, { timeoutMs = 15000 } = {}) {
+  const want = Number(wantSec);
+  const label = CHART_INTERVAL_LABELS[want];
+  if (!label) return { ok: false, reason: 'unsupported_interval', wantSec: want, label: null };
+  const before = await readChartIntervalState(page).catch((e) => ({ error: String((e && e.message) || e) }));
+  if (before.error) return { ok: false, reason: before.error, wantSec: want, label, before, after: null };
+  if (Number(before.spacingSec) === want) return { ok: true, changed: false, reason: null, wantSec: want, label, before, after: before };
+
+  const item = () => page.locator('cq-menu.ciq-period cq-item')
+    .filter({ hasText: new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) });
+  const clickItem = async () => {
+    if (!(await item().count())) return false;
+    await item().first().click({ timeout: 4000 });
+    return true;
+  };
+  const waitFor = async (ms) => {
+    const deadline = Date.now() + ms;
+    let st = await readChartIntervalState(page).catch(() => null);
+    while (Date.now() < deadline) {
+      if (st && Number(st.spacingSec) === want) return st;
+      await page.waitForTimeout(400);
+      st = await readChartIntervalState(page).catch(() => null);
+    }
+    return st;
+  };
+
+  // A closed menu keeps its items in the DOM, and a click on a hidden item does nothing — so the item is tried
+  // directly first, and if the spacing has not moved the menu is opened and it is tried once more.
+  let after = null;
+  try { if (await clickItem()) after = await waitFor(timeoutMs); } catch { /* fall through to the menu path */ }
+  if (!after || Number(after.spacingSec) !== want) {
+    try {
+      const opener = page.locator('cq-menu.ciq-period .ciq-menu-label, cq-menu.ciq-period .ciq-menu-icon');
+      if (await opener.count()) await opener.first().click({ timeout: 3000 });
+      else await page.locator('cq-menu.ciq-period').click({ timeout: 3000 });
+      await page.waitForTimeout(400);
+    } catch { /* the menu may already be open, or may not open this way — the verdict below decides */ }
+    try { await clickItem(); } catch { /* verdict below */ }
+    after = await waitFor(timeoutMs);
+  }
+  const ok = !!after && Number(after.spacingSec) === want;
+  // ★ LEAVE THE PAGE AS IT WAS FOUND IF THE REQUEST FAILED. Opening the resolutions menu to retry leaves it
+  // open when the retry also misses, and an open overlay swallows the next sweep's instrument search — so a
+  // failed set must not cost the capture of every symbol that follows it.
+  if (!ok) await page.keyboard.press('Escape').catch(() => {});
+  return { ok, changed: ok, reason: ok ? null : 'spacing_unchanged', wantSec: want, label, before, after };
 }
 
 // TRD-9 H: read the FULL bar series from the ChartIQ engine (masterData holds
@@ -2114,8 +2230,13 @@ async function placeOrder(page, settings, { symbol, direction, size, stopPrice =
 
   const posId = String(fresh.testid || '').replace('PositionRow.', '') || null;
   const valueM = (fresh.text || '').match(/Value:\s*\$?([\d,]+(?:\.\d+)?)/i);
+  // 2026-10-27 (migration 055): the instrument this order was ACTUALLY placed on, read from the chart while the ticket
+  // for it is still open — closest to the submit, which is the only moment the shared tab is provably on this
+  // instrument. Read raw here; `executor` parses the id, so this file reports what the page says and nothing more.
+  const chartSymbol = await readChartSymbol(page);
   return {
     positionId: posId,
+    chartSymbol,
     units: 'Contracts',
     price: submitRate,
     value: valueM ? parseFloat(valueM[1].replace(/,/g, '')) : null,
@@ -2843,20 +2964,26 @@ async function setPositionTrail(page, settings, trade, { trailDistance, stopPric
 
     // ── THE WRITE THAT COMMITS NOTHING: one count, native setter only (keyboard.type and fill never reach this
     // control's model — measured 2026-09-30; the tell is the venue re-rendering the field with its own formatter).
+    // ⚠ ONE HOME FOR THE TYPING. The calibration pass below types a second count into the same control, and a rule
+    // with two homes disagrees with itself — so both go through `typeCount`, and the settle delay lives here too
+    // (the SPA recomputes asynchronously: a read before it is a read of the past).
+    const typeCount = async (v) => {
+      await page.evaluate((val) => {
+        const el = document.querySelector('#trailing-stop-pips');
+        if (!el) return;
+        el.focus();
+        const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        nativeSet.call(el, val);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.blur();
+      }, String(v));
+      await jitterDelay(500, 800);
+    };
     const want = plan.pips;
     const expected = distanceForCount({ symbol, count: want });
     out.expectedDistance = expected.ok ? expected.distance : null;
-    await page.evaluate((v) => {
-      const el = document.querySelector('#trailing-stop-pips');
-      if (!el) return;
-      el.focus();
-      const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      nativeSet.call(el, v);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      el.blur();
-    }, String(want));
-    await jitterDelay(500, 800); // the SPA recomputes asynchronously: a read before it is a read of the past
+    await typeCount(want);
 
     const post = await readTrailPanel(page);
     const fieldNum = post && post.fieldRaw != null ? parseFloat(String(post.fieldRaw).replace(/[^\d.-]/g, '')) : null;
@@ -2874,7 +3001,43 @@ async function setPositionTrail(page, settings, trade, { trailDistance, stopPric
     out.card.post = post && { money: post.money, percentRaw: post.percentRaw, price: post.price, fieldRaw: post.fieldRaw, fieldVia: post.fieldVia, readDistance, expectedDistance: out.expectedDistance, band, entryUsed: entryRate };
 
     if (!held) { out.reason = `pip_field_did_not_take_count (raw ${post && post.fieldRaw})`; return out; } // nothing committed
-    if (!proportional) { out.reason = 'trail_not_verified_before_commit'; return out; }                        // nothing committed
+    // ★★ 2026-10-20: CALIBRATE INSTEAD OF ASSUMING THE OFFSET.
+    //
+    // The first armed engage (Gold #1338) asked for 305 pips, the card read a distance of 3.216 against the 3.84
+    // intended, and this line refused — correctly — 61 times over two hours, because the fitted offset for Gold
+    // (0.79, measured 2026-09-30) no longer described the venue's arithmetic (the ticket implied ~0.166). The
+    // offset's cause is UNIDENTIFIED in the table's own note, so a new constant would go stale the same way.
+    //
+    // One read-back at a known count identifies an affine control exactly, so the count is corrected by
+    // `(target - observed) / pip` and typed ONCE more. ⚠ If the second write does not land, or the card still
+    // disagrees, the refusal below is EXACTLY the old behaviour — this pass can only turn a refusal into a
+    // verified placement, never an unverified commit.
+    //
+    // ⚠⚠ COMMIT ONLY. A `commit: false` call is a READ — the staged-rollout mode and the diagnostics both use it —
+    // so it must not type into the card at all. Read-only calls therefore keep the old refusal when the card
+    // disagrees, and the correction is only ever attempted on a call that is already going to write.
+    let verified = proportional;
+    if (!proportional && commit) {
+      const cal = require('../agent/trailingStop').calibrateCount({
+        count: want, pip: Number(plan.pip), observedDistance: readDistance, targetDistance: out.expectedDistance,
+      });
+      out.calibration = cal;
+      if (!cal.ok) { out.reason = 'trail_not_verified_before_commit'; return out; }
+      await typeCount(cal.corrected);
+      const post2 = await readTrailPanel(page);
+      const dist2 = post2
+        ? distanceFromPercent({ direction, entry: entryRate, price: post2.price, percentFraction: post2.percentFraction })
+        : { ok: false, reason: 'unreadable' };
+      const read2 = dist2.ok ? dist2.distance : null;
+      const held2 = post2 && post2.fieldRaw != null && Math.round(Number(post2.fieldRaw)) === cal.corrected;
+      const prop2 = !!(held2 && read2 != null && Math.abs(read2 - out.expectedDistance) <= band);
+      out.calibration.readAfter = read2;
+      out.card.post2 = post2 && { fieldRaw: post2.fieldRaw, fieldVia: post2.fieldVia, readDistance: read2, held: held2, proportional: prop2 };
+      if (!prop2) { out.reason = 'trail_not_verified_before_commit'; return out; } // the old refusal, unchanged
+      verified = true;
+      out.pips = cal.corrected;   // what the venue now actually holds
+    }
+    if (!verified) { out.reason = 'trail_not_verified_before_commit'; return out; } // nothing committed
 
     if (!commit) { out.ok = true; out.reason = 'verified_read_only'; return out; } // the staged-rollout mode
 
@@ -3113,7 +3276,7 @@ module.exports = {
   URLS, DEFAULT_SELECTOR_MAP, selectorMap, CONN_ERROR_TEXT,
   CATEGORY_URLS, CATEGORY_FALLBACKS, SYMBOL_CATEGORY,
   gotoPage, withConnRetry, isLoggedIn, waitForLogin, assertDemo, recoverTradePage, readAccount, readAccountStatus, readTable,
-  readPositions, readOrders, readTradeInstruments, readChartTitle, readChartBars, readInstrumentTable, waitForTable, matchRow, searchInstrument, searchExists, healthCheck, readTicket, readHrefMap,
+  readPositions, readOrders, readTradeInstruments, readChartTitle, readChartSymbol, readChartBars, readInstrumentTable, waitForTable, matchRow, searchInstrument, searchExists, healthCheck, readTicket, readHrefMap,
   // 2026-10-05 (#1511): the app-button park (client-side route change, no document load — "soft navigation").
   softParkOpenPositions,
   readOrderBookShape,
@@ -3138,6 +3301,8 @@ module.exports = {
   // The chart-interval verdict (2026-09-25): `layout.interval` is a CLAIM the engine makes before it
   // attempts a reload and cannot report a failure for, so the series is measured beside it.
   CHART_UNIT_SEC, chartIntervalVerdict, barSpacingSec,
+  // The chart-interval SET (2026-10-22): the menu click plus the same measurement as the proof it took.
+  CHART_INTERVAL_LABELS, readChartIntervalState, setChartInterval,
   placeOrder, closePosition, openInstrument, readInstrumentAlerts, createPriceAlert, readPlus500Alerts, readPositionsLive, readInstrumentSentiment,
   readClosedPositions,
   // TRD-EXE-16: navigation-only instrument focus, so a session can be learned before a decision depends on it.

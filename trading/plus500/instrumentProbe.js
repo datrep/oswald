@@ -19,6 +19,9 @@
 'use strict';
 
 const browser = require('./browser');
+// The verdict rules live in a pure module because THIS file top-level-requires ./browser: a test that loaded it
+// would try to attach to the desk's live Chrome. See probeVerdict.js for why `ok` is not a constant.
+const { probeVerdict } = require('./probeVerdict');
 
 // Runs in the page. Kept dependency-free and defensive: an unexpected DOM shape must produce a
 // partial report, never a thrown error that hides what WAS readable.
@@ -246,6 +249,26 @@ async function probeCurrentPage(page) {
       // `short(...)` with different budgets (60 for sPick, 50 for listItems), so the comparison is made on
       // a common prefix rather than on the raw strings — otherwise a long value would fail to match itself.
       unitAmountLabel: (() => {
+        // ★★ 2026-10-27 — THE VENUE PUBLISHES THIS DIRECTLY, ONE SELECTOR AWAY, AND IT WAS NULL ON ALL 44 ROWS.
+        //
+        // Migration 045 added the column to hold THE VENUE'S OWN WORD for column-0. The lookup below matched a
+        // `listItems` entry whose VALUE equalled the stat box — an elaborate route that CANNOT fire, because the
+        // venue does not repeat the number in its labelled pair list. Measured on the live sidebar (Gold and
+        // Soybeans, 2026-10-27): the stat box has a SIBLING with its own testid,
+        // `sidebar.rates-and-values.column-0.label`, whose text is "Unit amount" on both.
+        //
+        // ⚠ WHAT THAT WORD SETTLES. The desk calls this a MINIMUM TRADE SIZE; the venue calls it a UNIT AMOUNT.
+        // Those are different claims. Recording their word is what lets a later reader see that the ledger's
+        // `minimum_trade_size` is OUR interpretation of their field rather than a term they use — which is exactly
+        // the provenance this column exists for.
+        //
+        // ⚠ AND A CORRECTION TO MY OWN EARLIER READING: the UNIT word ("Troy Ounces", "Bushels") was never missing.
+        // It comes from `column-0.sub-value` into `unitKind`, straight off the page, so the ledger's `valueUnit` does
+        // carry the venue's own word. What was absent was the FIELD's name, not the unit's.
+        const labelled = sPick('sidebar.rates-and-values.column-0.label');
+        if (labelled != null) return labelled;
+        // Fallback for a sidebar shape that predates the label testid. If it ever fires, the label is being inferred
+        // from a coincidence rather than read, so it is kept SECOND and never preferred.
         const boxed = sPick('sidebar.rates-and-values.column-0.value');
         if (boxed == null) return null;
         const norm = (v) => String(v == null ? '' : v).trim().slice(0, 40);
@@ -619,8 +642,17 @@ async function run({ force = false, label = '', select = false, scan = false, sy
 
     if (scan) {
       const res = await scanChain(page, { max: Number(scan) || 25 });
+      const verdict = probeVerdict({
+        mode: 'scan',
+        rowsOnPage: res.counts.rowsOnPage,
+        scanned: res.counts.scanned,
+        // ⚠ `withSpec` lives at `checks.totals`, not at `totals` — the dispatch used to read the latter and got
+        // `undefined` on every run, which read as "not applicable" rather than "field name wrong".
+        withSpec: res.checks && res.checks.totals ? res.checks.totals.withSpec : null,
+      });
       const out = {
-        ok: true,
+        ok: verdict.ok,
+        reason: verdict.reason,
         at: new Date().toISOString(),
         market,
         mode: 'scan',
@@ -636,8 +668,15 @@ async function run({ force = false, label = '', select = false, scan = false, sy
     // bodyLen here, which is the signature that separates "the SPA gives up after N navigations" from
     // "a poller stole the tab between two requests".
     const pageAfter = await readPageState();
+    const verdict = probeVerdict({
+      mode: 'probe',
+      tableFound: inv.tableFound,
+      contractExpected: !!(select || symbol),
+      contractFound: !!inv.contract,
+    });
     const out = {
-      ok: true,
+      ok: verdict.ok,
+      reason: verdict.reason,
       at: new Date().toISOString(),
       market,
       // TRD-66: the before/after evidence, so the transition point is recorded by the desk that caused it

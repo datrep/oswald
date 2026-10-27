@@ -65,7 +65,11 @@ test('★ all six size<->risk sites go through the helpers — none re-spells th
   assert.match(risk, /sizeForRisk\(maxRiskPct \/ 100, expectedLossDist\)/, 'risk cap clamp');
   assert.match(risk, /riskPctOf\(floorUnits, expectedLossDist\)/, 'riskAtFloorPct');
   assert.match(risk, /riskPctOf\(v\.size, expectedLossDist\)/, 'resolvedRiskPct');
-  assert.match(risk, /sizeForRisk\(Number\(risk\.riskPerTradePct \?\? 1\) \/ 100, 2 \* atrV\)/, 'baseSize');
+  // ⚠ THE RULE IS "GOES THROUGH sizeForRisk", NOT "SPECIFIES 2 * atrV". The old pattern spelled the argument
+  // out literally, so when `risk.atrStopMultiple` was wired (2026-10-18, it had been a dead dial) this pin
+  // failed on a change that made the code MORE honest rather than less. The denominator is now any single
+  // identifier/product; what may never come back is the bare `(equity * pct) / distance` above.
+  assert.match(risk, /sizeForRisk\(Number\(risk\.riskPerTradePct \?\? 1\) \/ 100, [A-Za-z0-9_]+(?: \* [A-Za-z0-9_]+)?\)/, 'baseSize');
 });
 
 test('★ BOTH helpers carry notionalK, and it is defined ABOVE them — not re-derived', () => {

@@ -243,10 +243,17 @@ test('UNSEEDED IS UNCHANGED: the fallbacks behave exactly as before this lane ex
   assert.deepEqual(bt.costCfgFor('Gold'), {
     cfdSpreadPct: 0.0097, cfdSlippagePct: 0.05, cfdSwapClockMinuteUtc: null,
     costModelVersion: 'v2',
-    costModelBasis: { spread: 'tick_history_p75', funding: 'flat_placeholder', swapClock: 'utc_midnight' },
+    // TRD-114 added `slippage` to the basis label. Unseeded means the flat placeholder prices the symbol, and the
+    // label says so — the point of the field is that a measured basis and a placeholder can never look alike.
+    costModelBasis: {
+      spread: 'tick_history_p75', funding: 'flat_placeholder',
+      slippage: 'calibrated_placeholder', swapClock: 'utc_midnight',
+    },
   });
   assert.deepEqual(bt.costCfgFor('ZZZ-NOT-AN-INSTRUMENT'), { costModelVersion: 'v1-flat' });
   assert.equal(bt.getSpreadDerivation().audited, false);
+  // An unseeded slippage lane is ALSO unchanged: no residual, placeholder price.
+  assert.deepEqual(bt.getSlipDerivation().derived, {});
 });
 
 test('a provenance-less seed cannot relabel anything (an audit that did not happen is not an audit)', () => {

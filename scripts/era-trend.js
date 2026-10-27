@@ -35,6 +35,20 @@ const BOUNDARIES = [
   // The engage-verification fix changes a path that is DISABLED at deploy (`engageOnTouch.enabled:false`), so it
   // does not alter any live decision — annotated, never a boundary. It becomes one only when the trail is armed.
   { at: '2026-10-18T15:45:00Z', id: 'trail-engage-verify', label: 'trail engage verification anchored to entry (INERT)', behavior: false, major: false },
+  // Instrument-set change, same class as the T2 prune: Soybeans entries paused (scope []), journal #269255 at
+  // 16:14:23Z. Prices, exits and sizing are untouched, but the tradable SET changed, so pooled rows after this
+  // point are not comparable with rows before it for per-symbol questions -> a MAJOR boundary, fresh sample.
+  { at: '2026-10-18T16:14:23Z', id: 'soybeans-pause', label: 'Soybeans entries paused (instrument set change)', behavior: true, major: true },
+  // ★ THE STOP-WIDTH ERA (2026-10-18T19:18:10Z, settings journal #271364): atrStopMultiple 2 -> 4 and the
+  // adverse cap 1.5% -> 2.5% so the cap stops overriding the dial. Every stop is ~2x wider in price terms, so
+  // no per-trade expectancy question can pool rows across this line - MAJOR. Pre-registration, gates and kill
+  // rule: trading/docs/stop-width-prereg-2026-10-19.md.
+  { at: '2026-10-18T19:18:10Z', id: 'stop-width-4x', label: 'stop width 2x -> 4x ATR (cost-in-R halves)', behavior: true, major: true },
+  // ★ THE TRAIL ERA (2026-10-19T22:02:12Z, settings journal #288318): engageOnTouch armed — a position that
+  // touches +0.75R gets a venue lock there plus a 0.15R trail. Exit decisions move from the desk signal to the
+  // venue for those positions, so rows either side are not poolable for exit or give-back questions. Pre-reg and
+  // frozen baselines: trading/docs/trail-decision-2026-10-19.md.
+  { at: '2026-10-19T22:02:12Z', id: 'trail-armed', label: 'trail armed (lock 0.75R, trail 0.15R)', behavior: true, major: true },
 ];
 
 const ARTIFACT = path.join(__dirname, '..', 'logs', 'era-trend.json');

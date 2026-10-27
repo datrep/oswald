@@ -156,6 +156,19 @@ async function applyClose(userId, trade, row, settings, clocks = {}) {
     quoteCurrency: instrumentCurrencyOf(settings, trade.symbol), // recorded per instrument, or null
     fx: fx ? fx.fx : null,                          // stamped account-sample rate nearest the close
   });
+  // ★ ORIGIN='venue' P&L IS WITHHELD FROM THE LEDGER (2026-10-26, owner decision: "venue rows are not on your
+  // jurisdiction... there should be nothing that resulted in -1.1k from the agent, which is what is shown").
+  //
+  // WHY THE NUMBER IS WRONG RATHER THAN MERELY SOMEONE ELSE'S: a `venue` row is a position MIRRORED from the
+  // account that the desk never opened, so `openPrice` is the price at mirror time, NOT the true entry. The
+  // difference is the position's whole life before we noticed it, which is why 12 closed venue rows summed to
+  // **-1,120.97** while the account itself moved **+55.69** over the same span. A column that can be summed into
+  // an order-of-magnitude-wrong answer is worse than an empty one.
+  //
+  // ⚠ NOTHING IS DESTROYED. The venue's own figure still rides on the `trade_closed` event below as `netPnl`, so
+  // the fact is still recorded and still auditable — it is only kept out of `Trades.grossPnl`, which is the
+  // column every performance query sums. That is the difference between withholding a number and losing it.
+  const withholdPnl = trade.origin === 'venue';
   await store.updateTrade(userId, trade.id, {
     closePrice: row.closeRate ?? null,
     closeFillPrice,
@@ -165,7 +178,7 @@ async function applyClose(userId, trade, row, settings, clocks = {}) {
     // `venue_rate` closes sit exactly on a minute boundary. Naming it lets `autopsy`'s window flag the row
     // instead of silently sampling the path against a guessed end.
     closeAtSource: sourceForVenueClose(row.reason),
-    grossPnl: row.netPnl ?? null,
+    grossPnl: withholdPnl ? null : (row.netPnl ?? null),
     status: 'closed',
     // Phase 3 (migration 036): the venue's OWN funding adjustment. This is the ground truth the
     // stated-rate prediction gets validated against — `grossPnl` above already has it subtracted,
@@ -177,7 +190,8 @@ async function applyClose(userId, trade, row, settings, clocks = {}) {
       ? nightsFor(trade.openAt, closedAt, clocks[trade.symbol] == null ? DEFAULT_FUNDING_MINUTE_UTC : clocks[trade.symbol])
       : null,
     // Say WHERE this close came from — the venue closed it, we only recorded it.
-    note: `venue closed — ${row.reason || 'reason not shown'}`,
+    note: `venue closed — ${row.reason || 'reason not shown'}`
+      + (withholdPnl ? ' · P&L WITHHELD: origin=venue, openPrice is the mirror price not the true entry (2026-10-26)' : ''),
     ...(holdingMinutes != null ? { holdingMinutes } : {}),
   });
   await log.write(userId, 'trade_closed', {

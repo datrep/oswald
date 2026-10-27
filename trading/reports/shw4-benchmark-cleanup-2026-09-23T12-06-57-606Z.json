@@ -1,0 +1,516 @@
+{
+  "correction": "benchmarkLongR 0 -> NULL where realisedR IS NULL (fabricated by rOf(null) === 0)",
+  "predicate": "userId = @u AND benchmarkLongR = 0 AND realisedR IS NULL",
+  "appliedAt": "2026-09-23T12:06:57.606Z",
+  "rowsAffected": 50,
+  "shapeBefore": {
+    "total": 626,
+    "b_null": 576,
+    "fabricated": 50,
+    "zero_with_real_r": 0,
+    "other_vals": 0,
+    "with_real_r": 0
+  },
+  "rows": [
+    {
+      "id": 2,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-16T08:21:55.546Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 5,
+      "symbol": "Silver",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-16T08:21:55.623Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 12,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-16T09:03:20.753Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 23,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-16T18:31:23.586Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 38,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-17T17:32:08.753Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 39,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-17T20:03:28.433Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 50,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-17T21:11:21.723Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 51,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-18T00:08:37.616Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 62,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-18T00:08:37.620Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 76,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-18T02:18:15.980Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 84,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-18T03:05:28.853Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 96,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-18T06:14:55.453Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 104,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-18T12:09:43.046Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 105,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-18T12:09:43.050Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 138,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.356Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 149,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.356Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 160,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.360Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 169,
+      "symbol": "Bitcoin",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-21T03:09:52.500Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 170,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-21T03:09:52.950Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 171,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.420Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 181,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-21T05:21:06.473Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 182,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.420Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 193,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.420Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 203,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-21T09:19:43.410Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 204,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.420Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 226,
+      "symbol": "Bitcoin",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-21T13:13:21.356Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 227,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-21T13:13:21.363Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 228,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.420Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 229,
+      "symbol": "Oil",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-20T20:38:22.423Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 262,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-21T21:12:11.310Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 266,
+      "symbol": "Sugar",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-21T22:16:46.676Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 274,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-21T23:16:01.180Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 277,
+      "symbol": "Silver",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T00:22:20.390Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 278,
+      "symbol": "Sugar",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-22T00:22:20.390Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 286,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T03:04:45.053Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 290,
+      "symbol": "Sugar",
+      "venue": "plus500",
+      "direction": "buy",
+      "scoredAt": "2026-09-22T04:14:22.313Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 298,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T05:22:58.316Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 301,
+      "symbol": "Silver",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T13:45:30.116Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 309,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T15:25:06.270Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 320,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T17:02:58.673Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 323,
+      "symbol": "Silver",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T18:10:28.326Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 331,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T19:11:47.580Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 342,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T21:25:03.610Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 353,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-22T23:28:31.260Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 364,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-23T01:25:41.313Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 376,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-23T03:00:07.506Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 388,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-23T05:14:16.850Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 401,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-23T07:05:04.640Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 404,
+      "symbol": "Silver",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-23T08:14:33.120Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    },
+    {
+      "id": 413,
+      "symbol": "Gold",
+      "venue": "plus500",
+      "direction": "sell",
+      "scoredAt": "2026-09-23T10:18:55.910Z",
+      "realisedR": null,
+      "old_benchmarkLongR": 0,
+      "new_benchmarkLongR": null
+    }
+  ]
+}

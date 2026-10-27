@@ -66,12 +66,47 @@ function decideEngage({ trade, price, peakFavR = null, settings }) {
   };
 }
 
+// ── THE COMMIT GATE ──────────────────────────────────────────────────────────────────────────────────────────
+// ★★ 2026-10-19: THE BRIDGE GATE MOVED OFF THE DECISION AND ONTO THE COMMIT.
+//
+// It used to guard the whole tick, so the loop SAMPLED only while the bridge was idle. Measured on the first armed
+// engage (Silver #1336, 22:02-22:49Z): the excursion sat on the +0.75R lock for three minutes, crossing above it
+// four times (0.745 -> 0.782 -> 0.747 -> 0.759), and the loop never sampled — one `missed_window` at 22:13:04 and
+// nothing else; the bridge reported RESTING only from 22:55:40Z. A phase sweep over the same tick series says the
+// engage condition is reachable in **88% of phases overall and 100% for that trade**, so the policy was never too
+// tight: the sampler was not running.
+//
+// The DECISION reads nothing but `PriceTicks` from the desk's own database, so it needs no bridge at all. Only the
+// venue write does. The gate therefore sits immediately before `setPositionTrail`, records WHY it blocked instead
+// of vanishing silently, and retries on the next 60 s tick while the lock is still valid — `missed_window` still
+// refuses a lock that would land on the wrong side of the market, so retrying cannot invent a bad fill.
+function commitGate({ bridgeState = null, wakeInProgress = false } = {}) {
+  if (wakeInProgress) return { ok: false, reason: 'wake_in_progress' };
+  if (bridgeState && !['RESTING', 'OPERATIONAL'].includes(bridgeState)) {
+    return { ok: false, reason: 'bridge_busy', state: bridgeState };
+  }
+  return { ok: true, reason: null };
+}
+
 // ── THE LOOP ────────────────────────────────────────────────────────────────────────────────────────────────
-// 60 s cadence. The ONLY venue-interacting branch is the engage itself; every other tick is reads from the desk's
-// own tick store (the same source the near-stop cut gate uses) plus the bridge-state gate. Skip-class refusals
-// are logged ONCE per (trade, reason) so a structurally-unengageable position cannot spam the event stream.
+// 60 s cadence. The decision half reads the desk's own tick store and nothing else; the ONLY venue-interacting
+// branch is the engage itself, gated by `commitGate` immediately before it. Skip-class refusals are logged ONCE
+// per (trade, reason) so a structurally-unengageable position cannot spam the event stream.
 const ENGAGE_TICK_MS = 60 * 1000;
 const skipLogged = new Set();
+
+// ★★ 2026-10-20: A REFUSED WRITE IS NOT RETRIED EVERY MINUTE.
+//
+// Gold #1338 produced 61 `trail_engage_failed` events between 23:50Z and 01:38Z, one per tick, each carrying a
+// full card read — 122 KB of the same fact. The refusal was CORRECT every time (the venue's offset did not match
+// the fitted table), but a stuck position must produce a READABLE record, not a stream that buries every other
+// event in it. So a refused engage now parks that trade for FAIL_COOLDOWN_MS; the DECISION still runs every tick,
+// because the peak watermark must stay current or a later touch would be judged against a stale excursion.
+// A successful engage parks for DONE_COOLDOWN_MS: the trail is set, its distance does not depend on the peak, and
+// re-writing the same card every minute is pure risk with no upside.
+const ENGAGE_FAIL_COOLDOWN_MS = 5 * 60 * 1000;
+const ENGAGE_DONE_COOLDOWN_MS = 60 * 60 * 1000;
+const parkUntil = new Map(); // tradeId -> epoch ms before which the venue is not touched
 
 function startLoop(userId) {
   const peak = new Map(); // tradeId -> peak favourable excursion (R), the touch watermark
@@ -84,11 +119,11 @@ function startLoop(userId) {
       if ((settings.kill || {}).tier === 'hard') return;
       if (settings.paper && settings.paper.enabled) return; // sim mode has no venue
       const waker = require('./waker');
-      if (waker.status().inProgress) return; // the bridge is deciding — never contend with a wake
       const bs = (() => {
         try { return JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'bridge-state.json'), 'utf8')); } catch { return null; }
       })();
-      if (bs && bs.state && !['RESTING', 'OPERATIONAL'].includes(bs.state)) return;
+      // ⚠ NO EARLY RETURN ON BRIDGE STATE HERE — see commitGate above. The decision must sample on time even when
+      // the bridge is navigating or a wake is running, or the peak watermark is built from a biased subset of ticks.
 
       const store = require('../store');
       const ticks = require('../store/ticks');
@@ -108,8 +143,22 @@ function startLoop(userId) {
           }
           continue;
         }
+        // ⚠ AFTER the decision, never before it: `d.peakFavR` above is the watermark, and the watermark has to be
+        // right even while the venue is parked.
+        if ((parkUntil.get(t.id) || 0) > Date.now()) continue;
         // FIRE — the only venue-interacting branch. pageLock + the shared tab; `commit: true` is the single write,
         // and setPositionTrail refuses to commit anything its pre-write verification cannot confirm.
+        // ⚠ THE GATE IS HERE, NOT AT THE TOP OF THE TICK: a blocked commit is recorded and retried next tick while
+        // the lock still holds, instead of the whole sample being skipped.
+        const gate = commitGate({ bridgeState: bs ? bs.state : null, wakeInProgress: waker.status().inProgress });
+        if (!gate.ok) {
+          const gkey = `${t.id}:${gate.reason}`;
+          if (!skipLogged.has(gkey)) {
+            skipLogged.add(gkey);
+            await store.logEvent(userId, 'trail_engage_blocked', { tradeId: t.id, symbol: t.symbol, ...gate, decision: d }).catch(() => {});
+          }
+          continue;
+        }
         const pageLock = require('../plus500/pageLock');
         const browser = require('../plus500/browser');
         await pageLock.acquire('ticket', { waitMs: 60000 });
@@ -127,6 +176,7 @@ function startLoop(userId) {
         await store.logEvent(userId, out && out.ok ? 'trail_engaged' : 'trail_engage_failed', {
           tradeId: t.id, symbol: t.symbol, decision: d, result: out,
         }).catch(() => {});
+        parkUntil.set(t.id, Date.now() + (out && out.ok ? ENGAGE_DONE_COOLDOWN_MS : ENGAGE_FAIL_COOLDOWN_MS));
         const tg = require('../lib/http').telegramAlert;
         if (out && out.ok) {
           await tg(`OSWALD TRD-TRL-9 trail engaged (lock075_t15).\n#${t.id} ${t.symbol} ${t.direction}\nlock ${d.lockLevel} (${d.lockR}R), trail ${d.trailR}R (${d.pips} pips)\nread-back verified against the venue.`).catch(() => {});
@@ -143,4 +193,4 @@ function startLoop(userId) {
   console.log('[trading] trail engage loop started (TRD-TRL-9; inert unless risk.trailingStop.engageOnTouch.enabled)');
 }
 
-module.exports = { decideEngage, startLoop };
+module.exports = { decideEngage, commitGate, startLoop };

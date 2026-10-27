@@ -5,7 +5,7 @@
 
 const { getPool, sql } = require('../db');
 
-const BAR_TIMEFRAMES = ['5m', '15m', '1h', '4h', '1d'];
+const BAR_TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
 // ★ WHAT INTERVAL DID THIS ROW'S BAR ACTUALLY COME FROM? (design doc §4.1 — the interval-provenance defect)
 //
@@ -18,7 +18,7 @@ const BAR_TIMEFRAMES = ['5m', '15m', '1h', '4h', '1d'];
 //
 // `PriceBars.sourceIntervalSec` (migration 043) is the sampling interval, in SECONDS, of the series the row
 // was built FROM. With it recorded, `native` is DERIVED rather than asserted.
-const TIMEFRAME_SECONDS = Object.freeze({ '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 });
+const TIMEFRAME_SECONDS = Object.freeze({ '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 });
 
 // A bar's interval provenance. `native: null` means UNKNOWN — deliberately neither true nor false, so a
 // consumer cannot read a missing record as a pass (§3: every fact carries its basis, and "not vouched for"
@@ -189,8 +189,8 @@ async function upsertAggBars(userId, { venue, symbol, fromTf = '1h', toTf = '4h'
   if (!BAR_TIMEFRAMES.includes(fromTf) || !BAR_TIMEFRAMES.includes(toTf)) {
     throw new Error(`upsertAggBars: invalid timeframes ${fromTf} -> ${toTf}`);
   }
-  const hours = { '5m': 0.0834, '15m': 0.25, '1h': 1, '4h': 4, '1d': 24 }[fromTf];
-  const bucketHours = { '5m': 0.0834, '15m': 0.25, '1h': 1, '4h': 4, '1d': 24 }[toTf];
+  const hours = { '1m': 0.0167, '5m': 0.0834, '15m': 0.25, '1h': 1, '4h': 4, '1d': 24 }[fromTf];
+  const bucketHours = { '1m': 0.0167, '5m': 0.0834, '15m': 0.25, '1h': 1, '4h': 4, '1d': 24 }[toTf];
   if (!(bucketHours > hours)) throw new Error(`upsertAggBars: ${toTf} must be larger than ${fromTf}`);
   // 043: an aggregated row's source interval is the SOURCE series' — a 1h->4h bar is not native to 4h, and
   // the column says so rather than leaving a reader to assume the bucket size is the sampling interval.

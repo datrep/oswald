@@ -70,6 +70,48 @@ const DEFAULT_SETTINGS = {
   // contract says any retuning voids it, and that track is the only reason survgold/survoil are trusted. The
   // dial is on the risk panel; moving it is annotated on every capped ticket so the track stays separable.
   takeProfitAnchor: 'declared',
+  // ★ THE DECLARED REWARD:RISK (2026-10-24). Default **1.5** — the constant `exitLevels.LEVEL_RR` has always
+  // held, and the ratio the frozen TRD-29 candidates were validated at. Non-positive or non-numeric resolves back
+  // to 1.5 via `exitLevels.resolveTakeProfitRR` rather than becoming NaN inside a price.
+  //
+  // ⚠ WHICH RATIO IS RIGHT DEPENDS ON THE ANCHOR ABOVE, and the two interact in a way worth stating plainly. With
+  // `takeProfitAnchor: 'declared'` and a capped stop, the ticket already carries MORE than the declared ratio
+  // (measured post-cap: 24 of 27 tickets carried more than 1.5R, and the 3.0R-and-wider ones touched their target
+  // 0 times in 10). Raising this number under `'declared'` pushes the target out by the cap factor as well, so
+  // the two dials multiply rather than add. Under `'placed'` the ticket carries exactly this ratio, which is the
+  // form the exit-geometry sweep measured — 5,359 Donchian breakouts, bracket mean +0.031R at 1.41R, +0.055R at
+  // 2.0R, +0.075R at 3.0R, monotone, paired z 3.3 and 4.1 before the clustering correction, both halves positive.
+  //
+  // ⚠ THE PRODUCER OF THOSE NUMBERS IS NOT IN THE REPO. They came from a session-local script (`temp/trail-grid.js`)
+  // and `temp/` is not retained, so this is a REPORT of a measurement whose script no longer exists — a claim to
+  // re-derive, not a fact to cite. Reproducing it needs the same footing the original used: `PriceBars` 1h (the
+  // series `quant` actually reads — `IND_VENUE_PREF` puts yahoo first), a Donchian-20 breakout on the close,
+  // excluding the forming bar. Until it is re-derived, treat the deltas above as unverified.
+  takeProfitRR: 1.5,
+    // ★★ TRD-114 (2026-10-27) — PRICE THE COST MODEL FROM MEASURED FILLS INSTEAD OF A FLAT PLACEHOLDER.
+    // Default **FALSE**: this is an owner switch, not a boot-time inference.
+    //
+    // WHAT IT CHANGES. `CALIBRATED_SLIP_PCT = 0.05` is charged per side on EVERY symbol and is **84% of Gold's
+    // modelled round-trip budget** (10.00 bps of 11.94). Measured over 120 days of real entries, the desk's
+    // `slippagePct` is 0.88-0.98x the venue's own HALF-spread — `decisionPrice` is a mid and the fill lands at the
+    // touch, so the movement the placeholder charges for is the spread crossing that the spread term ALREADY
+    // charges for. `agent/slipDerivation` subtracts the half-spread and floors at zero; on the live data the
+    // residual is 0.0000% for Gold, Silver, Oil and Ethereum (n=21..37), with Bitcoin, Sugar, Coffee, Soybeans and
+    // SGX refused by name for being below 20 fills.
+    //
+    // ⚠ SO SWITCHING THIS ON LOOSENS FOUR GATES AT ONCE — venue admission, the net-edge screen, the stop cap and
+    // `maxCostShareOfR` — because all four read `backtest.costCfgFor`. Gold's modelled round trip falls 11.94 ->
+    // 1.94 bps (a 6.2x reduction), Silver 19.36 -> 9.36, Oil 17.28 -> 7.28, Ethereum 35.02 -> 25.02. Bitcoin and any
+    // thin symbol keep the placeholder and keep their `calibrated_placeholder` label, so a run says which basis
+    // priced it.
+    //
+    // ⚠ AND IT IS THE ONE NUMBER IN THIS FAMILY THAT WAS PUBLISHED WRONG ONCE ALREADY (2026-10-27: a round trip was
+    // compared against a spread and the difference was called a 6.76x spread error — that difference WAS this
+    // placeholder). The measurement above is the corrected one and is reproducible with
+    // `temp/slippage-provenance.js`.
+    //
+    // ROLLBACK: set it back to false. Nothing is persisted, so the next boot simply stops seeding the basis.
+    costBasis: { useMeasuredSlippage: false },
     // ★ 2026-09-28 — ACCEPT THE VENUE FLOOR'S RISK INSTEAD OF REFUSING THE TICKET. Default **FALSE**, i.e.
     // the veto in `instruments.checkSize` is unchanged unless an owner turns this on.
     //
@@ -345,6 +387,32 @@ const DEFAULT_SETTINGS = {
   // ≥1 enabled, parity gate, budget consumer strategy_tune).
   tuner: { enabled: false, intervalHours: 24, maxChangesPerRun: 3, model: null },
   providers: { enabled: ['binance', 'okx', 'yahoo'], minIntervalSec: 60 }, // TRD-5: public REST market data + 60s staleness gate; TRD-9 adds yahoo
+  // ★ THE CHART INTERVAL, DECLARED (2026-10-22). Before this the capture inherited whatever interval the last
+  // navigation left the venue's chart tab on, mid-sweep and per symbol: measured over 2026-09-20..10-22, the
+  // single '1h' series was built from 60s (981 rows), 300s (988), 600s (2010), 900s (703) and native 3600s (58),
+  // plus 1,246 rows with no declared source at all — 1% native.
+  //
+  // `intervalSec` is REQUESTED from the venue's own resolutions menu and VERIFIED by re-measuring the series'
+  // bar spacing; the click is never trusted (webtrader.setChartInterval). 60s is the chart's native interval and
+  // is now storable in its own right (store BAR_TIMEFRAMES has '1m'), so a 1-minute read is kept as 1m rows and
+  // rolled up to 1h, instead of 59 of every 60 bars being discarded at write time.
+  //
+  // `enforce:false` disables the request entirely — the capture then behaves exactly as it did before and the
+  // interval is merely recorded.
+  chart: { intervalSec: 60, enforce: true },
+  // ★ ECONOMIC CALENDAR SYNC (2026-10-25). `agent/calendar.js` was built in September with NO scheduled
+  // caller, so it only ever ran when someone pressed the UI button — measured 2026-10-25, `CorporateEvents`
+  // held 2 rows from 2026-09-15/16 and nothing since. These are the knobs on the loop the boot block now runs.
+  //
+  // ⚠ WHAT A `macro` ROW DOES, because it was changed deliberately and the wrong reading is the intuitive one:
+  // it is CONTEXT handed to the chairs as `scheduledEvents`, NOT an entry lock. The `no_entry` state that
+  // existed briefly in September was removed because it vetoed a whole FOMC day on a claim nobody had
+  // measured. So `intervalHours` controls how fresh that CONTEXT is, not how strictly the desk is gated.
+  //
+  // `daysAhead` is the forward window the importer re-reads each cycle. Re-import is idempotent inside that
+  // window (rows for the source are deleted and rewritten), and a failed fetch NEVER deletes — the fetch
+  // throws before the delete runs, so a network failure cannot empty the calendar.
+  calendar: { enabled: true, intervalHours: 12, daysAhead: 21 },
   bridge: { paused: false, pausedAt: null, consecutiveFails: 0, captureOnWake: true }, // A1 UI fallback pause
   selectors: { version: 1, map: {} }, // A1: hot-patchable selector map (P2)
 };
@@ -376,7 +444,10 @@ async function getSettings(userId) {
   return mergeSettings(stored);
 }
 
-async function saveSettings(userId, settings) {
+// `by` is the WRITER's namespace: 'operator' (the default, so every existing route keeps its meaning) or 'machine'
+// for an automated loop. ADR-0001 / `store/ownership.js` decides what a machine write may touch; this function only
+// RECORDS a crossing. It never refuses, because a classification question must not fail a live save.
+async function saveSettings(userId, settings, { by = 'operator' } = {}) {
   const pool = await getPool();
   // Deep-merge the patch over the existing stored settings so partial updates
   // (e.g. {risk:{maxPositions:0}}) don't wipe the watchlist / llm blocks.
@@ -384,6 +455,8 @@ async function saveSettings(userId, settings) {
     .query('SELECT settings FROM TradingSettings WHERE userId = @userId');
   let existing = {};
   try { existing = JSON.parse(cur.recordset[0]?.settings || '{}'); } catch { existing = {}; }
+  const ownership = require('./store/ownership');
+  const scopeViolations = ownership.machineWriteViolations({ before: existing, patch: settings, by });
   const merged = deepMerge(existing, settings ?? {});
   const json = JSON.stringify(merged);
   await pool.request()
@@ -399,7 +472,19 @@ async function saveSettings(userId, settings) {
   // ★ TRD-RSK-8: the JOURNAL is written FIRST of the two, because it is the one record that cannot be
   // reconstructed from anything else — the dead-scope report can be recomputed from the settings, the fact
   // that a write happened cannot.
-  await journalSettingsWrite(userId, existing, merged).catch(() => {});
+  await journalSettingsWrite(userId, existing, merged, settings).catch(() => {});
+  // ★ ADR-0001: a MACHINE write that crossed an ownership line. Its own event kind, because "an automated writer
+  // removed an operator's entry" is a different fact from "settings changed" and must be queryable as one. Bounded
+  // to the paths in `store/ownership.js`, and deliberately not a refusal — see that module's header.
+  if (scopeViolations.length) {
+    await logEvent(userId, 'settings_scope_violation', {
+      by,
+      violations: scopeViolations,
+      note: 'an automated writer touched a namespace it does not own. The write was NOT refused: the state is '
+        + 'reportable and adjustable, and failing a live save over a classification question would take the desk '
+        + 'down to protect a convention. Correct the writer or reclassify the key in store/ownership.js.',
+    }).catch(() => {});
+  }
   await reportDeadScopeWrite(userId, existing, merged).catch(() => {});
   return getSettings(userId);
 }
@@ -420,10 +505,17 @@ async function saveSettings(userId, settings) {
 //
 // ⚠ The diff/redaction/caps live in `settingsDiff.js` (pure, no DB, no logger) so the rule is testable directly.
 // Secrets are NEVER copied here — see that module's header.
-async function journalSettingsWrite(userId, before, after) {
+async function journalSettingsWrite(userId, before, after, patch = null) {
   const payload = settingsDiff.settingsWriteEvent(before, after);
   if (!payload) return null;   // a no-op save is not a signal
+  // ADR-0001 / `store/ownership.js`: WHICH NAMESPACES THIS WRITE TOUCHED, as a category on the event. Measured
+  // 2026-10-27: `bridge.consecutiveFails` was written 22 times in 4 days against 2 real changes of the pause, and
+  // none of that was visible without reading 27 individual diffs. Classifying the REQUESTED patch (not the merged
+  // result) keeps it to what the caller asked to change. NOT a refusal: a classification question must not fail a
+  // live save — the same trade `reportDeadScopeWrite` already declined.
+  const scope = patch ? require('./store/ownership').describe(patch) : null;
   await logEvent(userId, 'settings_write', Object.assign({}, payload, {
+    ...(scope ? { scope } : {}),
     note: 'every settings write is journalled because TradingSettings has no other record: updatedAt cannot say '
       + 'what changed or by whom. Credential-looking keys record the change and never the value (TRD-RSK-8).',
   }));
@@ -573,8 +665,27 @@ async function listRecentNewsItems(userId, { sinceHours = 48, limit = 300 } = {}
 
 // TRD-PRM-1 P1 (2026-10-04): the premium-analyses ledger's WRITE side (open-work §4.24; migration 047).
 // Append-only by convention — corrections are NEW rows; nothing here updates or deletes. No consumer.
+//
+// ⚠⚠ 2026-10-27 — IT NOW KEEPS AGENTS.md §4's PROMISE. As a capture ledger it owes a writer-owned dedupe key, and it
+// had NEITHER a hash nor a guard: this was a plain `INSERT ... VALUES` and `plus500/analysesCapture.js` did not check
+// before calling it. Measured 2026-10-27 over every row ever written: 163 rows over 34 distinct titles.
+//
+// ⚠ THE KEY IS THE OBSERVATION, NOT THE ROW. The inputs are what makes two captures THE SAME READ: the view, the
+// instrument, the heading the page stated, the URL, the lane that produced it, and the text. ⚠ NORMALISED ON PURPOSE
+// — the DOM re-renders line wrapping differently between runs, and a hash that moved with the wrapping would
+// suppress nothing. ⚠ IT EXCLUDES `note` AND `parseStatus`: those describe the CAPTURE, not the analysis, and
+// including them would make the key change when the parser improved rather than when the venue said something new.
+function analysesNoteHash(note = {}) {
+  const { createHash } = require('node:crypto');
+  return createHash('sha256').update([
+    note.kind || '', note.symbol || '', note.title || '', note.url || '', note.source || '',
+    String(note.rawText || '').replace(/\s+/g, ' ').trim(),
+  ].join('|')).digest('hex');
+}
+
 async function insertAnalysesNote(userId, note) {
   const pool = await getPool();
+  const rowHash = analysesNoteHash(note);
   const r = await pool.request()
     .input('userId', sql.Int, userId)
     .input('kind', sql.NVarChar(24), note.kind)
@@ -585,10 +696,17 @@ async function insertAnalysesNote(userId, note) {
     .input('rawText', sql.NVarChar(sql.MAX), note.rawText || null)
     .input('parseStatus', sql.NVarChar(40), note.parseStatus || 'manual')
     .input('note', sql.NVarChar(600), note.note || null)
-    .query(`INSERT INTO AnalysesNotes (userId, kind, symbol, title, url, source, rawText, parseStatus, note)
+    .input('rowHash', sql.Char(64), rowHash)
+    .query(`INSERT INTO AnalysesNotes (userId, kind, symbol, title, url, source, rawText, parseStatus, note, rowHash)
             OUTPUT INSERTED.id
-            VALUES (@userId, @kind, @symbol, @title, @url, @source, @rawText, @parseStatus, @note)`);
-  return Number(r.recordset[0] && r.recordset[0].id) || null;
+            SELECT @userId, @kind, @symbol, @title, @url, @source, @rawText, @parseStatus, @note, @rowHash
+             WHERE NOT EXISTS (SELECT 1 FROM AnalysesNotes WHERE userId = @userId AND rowHash = @rowHash)`);
+  const id = Number(r.recordset[0] && r.recordset[0].id) || null;
+  // ⚠⚠ THREE OUTCOMES, NOT TWO, BECAUSE BOTH CALLERS IMMEDIATELY WRITE `AnalysisLevels` KEYED ON THIS ID. A
+  // suppressed note has NO id, and passing null would write orphan levels — so the distinction is returned rather
+  // than inferred from a falsy number. `duplicate` cannot mean "failed": with this statement the only way to affect
+  // zero rows is the NOT EXISTS finding a match.
+  return id ? { id, inserted: true, duplicate: false } : { id: null, inserted: false, duplicate: true };
 }
 
 async function insertAnalysisLevels(userId, noteId, levels) {
@@ -959,9 +1077,13 @@ async function createTrade(userId, fields) {
     // 2026-10-18 (migration 050): 'weekend' | 'weekday' derived from the ENTRY time unless the caller states
     // it. Nullable column, but this writer never leaves it NULL for a new row.
     .input('sessionClass', sql.NVarChar(24), fields.sessionClass ?? sessionClassOf(fields.openAt ?? new Date()))
-    .query(`INSERT INTO Trades (userId, venue, symbol, direction, size, units, openPrice, openAt, status, plus500PositionId, decisionId, note, currentRate, floatingPnl, origin, stopPrice, takeProfitPrice, filledAt, rejectReason, fillDelayMs, strategyId, slippagePct, pairId, closeSource, spreadSignalPct, signalTickAgeSec, spreadSubmitPct, spreadSubmitSource, signalToFillSec, anchorAgeSec, sessionClass)
+    // 2026-10-27 (migration 055): the venue's own instrument id for THIS trade, recorded at entry. NULLable and no
+    // backfill — an old row's absence means the entry predates the column, and `constraintAudit` falls back to its
+    // symbol map for those.
+    .input('venueInstrumentId', sql.NVarChar(64), fields.venueInstrumentId ?? null)
+    .query(`INSERT INTO Trades (userId, venue, symbol, direction, size, units, openPrice, openAt, status, plus500PositionId, decisionId, note, currentRate, floatingPnl, origin, stopPrice, takeProfitPrice, filledAt, rejectReason, fillDelayMs, strategyId, slippagePct, pairId, closeSource, spreadSignalPct, signalTickAgeSec, spreadSubmitPct, spreadSubmitSource, signalToFillSec, anchorAgeSec, sessionClass, venueInstrumentId)
             OUTPUT INSERTED.id
-            VALUES (@userId, @venue, @symbol, @direction, @size, @units, @openPrice, @openAt, @status, @plus500PositionId, @decisionId, @note, @currentRate, @floatingPnl, @origin, @stopPrice, @takeProfitPrice, @filledAt, @rejectReason, @fillDelayMs, @strategyId, @slippagePct, @pairId, @closeSource, @spreadSignalPct, @signalTickAgeSec, @spreadSubmitPct, @spreadSubmitSource, @signalToFillSec, @anchorAgeSec, @sessionClass)`);
+            VALUES (@userId, @venue, @symbol, @direction, @size, @units, @openPrice, @openAt, @status, @plus500PositionId, @decisionId, @note, @currentRate, @floatingPnl, @origin, @stopPrice, @takeProfitPrice, @filledAt, @rejectReason, @fillDelayMs, @strategyId, @slippagePct, @pairId, @closeSource, @spreadSignalPct, @signalTickAgeSec, @spreadSubmitPct, @spreadSubmitSource, @signalToFillSec, @anchorAgeSec, @sessionClass, @venueInstrumentId)`);
   return Number(r.recordset[0]?.id);
 }
 
@@ -1582,7 +1704,7 @@ module.exports = {
   getSettings, saveSettings,
   logEvent, listEvents, listEventsAll, latestEvent, queryEvents,
   listRecentNewsItems,
-  insertAnalysesNote, insertAnalysisLevels, countRecentAnalyses,
+  insertAnalysesNote, analysesNoteHash, insertAnalysisLevels, countRecentAnalyses,
   EVENT_QUERY_CAP, llmUsageSince,
   createPrompt, listPrompts, patchPromptDecision, logPromptError,
   listAlerts, createAlert, updateAlert, deleteAlert, markAlertTriggered,

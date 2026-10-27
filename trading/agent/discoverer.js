@@ -188,7 +188,9 @@ async function runDiscovery(userId, settings, { force = false } = {}) {
 
   let applied = false;
   if (added.length || evicted || faded || dropped.length) {
-    await store.saveSettings(userId, { watchlist: { symbols: final } });
+    // ADR-0001: an automated writer declares its namespace. `store/ownership` then checks the ENTRY-LEVEL rule —
+    // this rewrite preserves every manual entry verbatim and may only add, change or drop `source: 'ai'` ones.
+    await store.saveSettings(userId, { watchlist: { symbols: final } }, { by: 'machine' });
     applied = true;
   }
 

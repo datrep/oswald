@@ -1,0 +1,87 @@
+{
+  "at": "2026-09-23T19:32:01.958Z",
+  "mode": "apply",
+  "user": 1,
+  "blocks": [
+    {
+      "victim": "SGX",
+      "source": "Sands China",
+      "timeframe": "1h",
+      "from": "2026-09-02 07:00:00",
+      "to": "2026-09-07 23:59:59",
+      "adjudication": "SGX reads 14.09-14.17 against its own 25.4 -> 22.9 before and 24.9 -> 22.0 after; that level is Sands China's own daily average on the same days (13.74 -> 14.09 -> 14.04). Sands China's series is smooth throughout, so Sands China is the source.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Silver",
+      "source": "CK Hutchison",
+      "timeframe": "1h",
+      "from": "2026-09-02 07:00:00",
+      "to": "2026-09-17 07:00:00",
+      "adjudication": "Silver reads 68.4-69.8 through 09-03..09-16, matching CK Hutchison day for day, and breaks its own downtrend (68.92 -> 64.39 before, 66.52 -> 65.45 after). CK Hutchison holds 67-70 across the whole period.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Gasoline",
+      "source": "SGX",
+      "timeframe": "1h",
+      "from": "2026-09-08 01:00:00",
+      "to": "2026-09-17 08:00:00",
+      "adjudication": "Gasoline reads 22.2-24.9 against 3.01-3.21 on both sides, and the block carries only ~7 bars per session against 21-23 on its own days — a DIFFERENT INSTRUMENT'S SESSION, not a price move. SGX holds 22.0-24.9 throughout.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Sinopec",
+      "source": "Gold",
+      "timeframe": "1h",
+      "from": "2026-09-23 08:00:00",
+      "to": "2026-09-23 12:00:00",
+      "adjudication": "Sinopec reads 4300-4322 against 4.4-4.9 on every other day (2157.8 is its corrupted 09-23 daily mean). Gold's own 1h bars are intact at that level.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Sinopec",
+      "source": "Gold",
+      "timeframe": "1d",
+      "from": "2026-09-19 00:00:00",
+      "to": "2026-09-24 00:00:00",
+      "adjudication": "Sinopec 1d 2026-09-20 reads 4376.40/4381.44/4368.45/4372.39 against 4.4-4.9 elsewhere. NOT a plain copy: its 09-23 row WELDS Sinopec's real open (4.470) to Gold's high/close (4322.400/4300.930), because the daily aggregation consumed the poisoned 1h rows above.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Sands China",
+      "source": "Gold",
+      "timeframe": "1d",
+      "from": "2026-09-19 00:00:00",
+      "to": "2026-09-24 00:00:00",
+      "adjudication": "Sands China 1d 2026-09-20 is byte-identical to Sinopec's same-day row (ids 1681295 and 1681296, CONSECUTIVE — one pass), against 12.0-12.8 on every other day.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Sinopec",
+      "source": "Gold",
+      "timeframe": "1d",
+      "barStart": "2026-09-23 00:00:00",
+      "adjudication": "high 4322.400 equals Gold 1h 08:00 high exactly, while open 4.470 is Sinopec's own level; high/low = 977 against a trailing daily reference of ~4.45. A blended row, so not byte-identical to any source bar.",
+      "flagged": 0,
+      "ids": []
+    },
+    {
+      "victim": "Sinopec",
+      "source": "Gold",
+      "timeframe": "1h",
+      "barStart": "2026-09-23 13:00:00",
+      "adjudication": "reads 4309.48/4310.05/4297.79/4300.93 against Sinopec's own trailing reference of 4.442 — a 968x level break. It is the FORMING hour, captured mid-aggregation, which is why it differs from Gold's now-complete 13:00 bar and escaped the byte-identical join. Found by the trailing-reference scan after the first pass, and it was the ONLY visible level anomaly left across every plus500 symbol.",
+      "flagged": 1,
+      "ids": [
+        1681256
+      ]
+    }
+  ]
+}

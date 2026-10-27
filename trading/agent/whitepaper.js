@@ -140,57 +140,121 @@ async function bundleSections(userId, { maxChars = { weekly: 900, monthly: 500, 
   return Object.keys(out).length ? out : null;
 }
 
-// Black-swan detector: >10% daily gap on any watchlist symbol, or a
-// CorporateEvents halt/earnings today. Regenerates all tiers + Telegram.
+// ★ ONE SOURCE COULD FABRICATE A BLACK SWAN, AND ONE DID (2026-10-23).
+//
+// The detector read yahoo 1h only. Measured that day, Natural Gas day-on-day: **yahoo +10.02%**, the venue's own
+// series **-2.98%**, and its chart series **-3.05%** — and the two series were already 13% apart on 2026-10-22
+// itself. A 10% threshold sitting on a series that is 13% adrift fires forever on nothing. It fired 29 times in
+// 3h38m, once per wake, announcing a crash that did not happen.
+//
+// So the gap is now measured PER VENUE and reported through a median, which is robust to exactly one bad source,
+// and two venues that disagree by more than the threshold make the reading UNMEASURABLE rather than alarming —
+// silence, not a guess. `verified` says whether more than one venue was even available to agree.
+//
+// Pure, so the rule is pinned by a test rather than by a wake at 03:00.
+function blackSwanVerdict(perVenueGaps, thresholdPct) {
+  const entries = Object.entries(perVenueGaps || {}).filter(([, g]) => g != null && Number.isFinite(g.gapPct));
+  if (!entries.length) return { fire: false, reason: 'no_data', verified: false };
+  const gaps = entries.map(([, g]) => g.gapPct).sort((a, b) => a - b);
+  const median = gaps.length % 2 ? gaps[(gaps.length - 1) / 2] : (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2;
+  const spread = gaps[gaps.length - 1] - gaps[0];
+  const best = entries.slice().sort((a, b) => Math.abs(b[1].gapPct) - Math.abs(a[1].gapPct))[0];
+  if (entries.length >= 2 && spread > thresholdPct) {
+    return { fire: false, reason: 'venues_disagree', verified: false, median: +median.toFixed(2), spread: +spread.toFixed(2), perVenue: Object.fromEntries(entries.map(([v, g]) => [v, g.gapPct])) };
+  }
+  const fire = Math.abs(median) > thresholdPct;
+  return {
+    fire, reason: fire ? 'gap' : 'below_threshold', verified: entries.length >= 2,
+    gapPct: +median.toFixed(2), venue: entries.length >= 2 ? 'median' : best[0],
+    perVenue: Object.fromEntries(entries.map(([v, g]) => [v, g.gapPct])),
+  };
+}
+
+// Daily closes from a venue's own 1h series. `limit` is 400 hourly bars — enough for 16 days, which is all a
+// two-day gap needs; the old 12,000 read was 100k+ rows per wake for a comparison of two numbers.
+async function dailyCloses(userId, symbol, venue, limit = 400) {
+  const bars = await store.listBars(userId, { timeframe: '1h', symbol, venue, limit });
+  if (!bars || bars.length < 48) return null;
+  const byDay = new Map();
+  for (const b of bars) {
+    const c = Number(b.closePrice);
+    if (!Number.isFinite(c) || c <= 0) continue;
+    const d = new Date(b.barStart);
+    byDay.set(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()), c); // ascending — last close wins
+  }
+  const days = [...byDay.entries()].sort((a, b) => a[0] - b[0]);
+  if (days.length < 2) return null;
+  const [prevDay, prev] = days[days.length - 2];
+  const [lastDay, last] = days[days.length - 1];
+  if (!(prev > 0)) return null;
+  return { gapPct: +(((last - prev) / prev) * 100).toFixed(2), prevDay, lastDay };
+}
+
+// Black-swan detector: a >threshold daily gap AGREED BY THE VENUES, or a CorporateEvents halt/earnings today.
+// Fires AT MOST ONCE PER SYMBOL PER GAP-DAY, and says what actually happened rather than what was attempted.
 async function detectBlackSwan(userId, settings, _quantResult, _liveEquity) {
   try {
     const symbols = (settings.watchlist?.symbols || []).map((s) => s.symbol);
+    const threshold = Number(settings.whitepaper?.blackSwanGapPct ?? 10);
+    // ★ ONE ALERT PER SYMBOL PER GAP-DAY. Without this the detector re-derives the same static comparison on every
+    // wake and fires again: 29 firings in 3h38m on 2026-10-23, one every 7.8 minutes, each attempting three tier
+    // regenerations and 83 `budget_cap` errors between them.
+    const recent = await store.listEvents(userId, { kind: 'black_swan', limit: 60 }).catch(() => []);
+    const already = new Set((recent || []).map((e) => e.payload && e.payload.dedupeKey).filter(Boolean));
+
     let hit = null;
     for (const symbol of symbols) {
-      // 2026-09-10: compute the daily gap from 1h-DERIVED closes (last two
-      // UTC days) instead of trusting the 1d table — provider-native 1d rows
-      // can be degenerate (o=h=l=c) or duplicate the aggregator's rows, which
-      // produced a false "Arabica Coffee −10.9%" black swan on 2026-09-10.
-      const bars = await store.listBars(userId, { timeframe: '1h', symbol, venue: 'yahoo', limit: 12000 });
-      if (bars.length < 48) continue;
-      const byDay = new Map();
-      for (const b of bars) {
-        const c = Number(b.closePrice);
-        if (!Number.isFinite(c) || c <= 0) continue;
-        const d = new Date(b.barStart);
-        byDay.set(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()), c); // ascending — last close wins
+      const perVenue = {};
+      for (const venue of ['plus500', 'plus500_chart', 'yahoo']) {
+        const d = await dailyCloses(userId, symbol, venue).catch(() => null);
+        if (d) perVenue[venue] = d;
       }
-      const days = [...byDay.entries()].sort((a, b) => a[0] - b[0]);
-      if (days.length < 2) continue;
-      const prev = days[days.length - 2][1];
-      const last = days[days.length - 1][1];
-      if (prev > 0 && Math.abs((last - prev) / prev) * 100 > Number(settings.whitepaper?.blackSwanGapPct ?? 10)) {
-        hit = { symbol, gapPct: +(((last - prev) / prev) * 100).toFixed(2) };
-        break;
-      }
+      const verdict = blackSwanVerdict(perVenue, threshold);
+      if (!verdict.fire) continue;
+      const dayKey = new Date(perVenue[Object.keys(perVenue)[0]].lastDay).toISOString().slice(0, 10);
+      const dedupeKey = `${symbol}|${dayKey}`;
+      if (already.has(dedupeKey)) return { blackSwan: false, suppressed: true, dedupeKey };
+      hit = { symbol, gapPct: verdict.gapPct, venue: verdict.venue, verified: verdict.verified, perVenue: verdict.perVenue, dayKey, dedupeKey };
+      break;
     }
     if (!hit) {
       const { getPool, sql } = require('../db');
       const pool = await getPool();
       const today = new Date();
+      const todayKey = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())).toISOString().slice(0, 10);
       const r = await pool.request()
         .input('userId', sql.Int, userId)
-        .input('today', sql.Date, new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())))
+        .input('today', sql.Date, new Date(`${todayKey}T00:00:00Z`))
         .query(`SELECT TOP (1) * FROM CorporateEvents
                 WHERE userId = @userId AND eventType IN ('halt','earnings') AND eventDate = @today`);
-      if (r.recordset.length) hit = { symbol: r.recordset[0].symbol || '*', eventType: r.recordset[0].eventType, note: r.recordset[0].note || 'fundamental event' };
+      if (r.recordset.length) {
+        const ev = r.recordset[0];
+        const dedupeKey = `${ev.symbol || '*'}|${ev.eventType}|${todayKey}`;
+        if (already.has(dedupeKey)) return { blackSwan: false, suppressed: true, dedupeKey };
+        hit = { symbol: ev.symbol || '*', eventType: ev.eventType, note: ev.note || 'fundamental event', dayKey: todayKey, dedupeKey };
+      }
     }
     if (!hit) return { blackSwan: false };
+
     await store.logEvent(userId, 'black_swan', hit);
-    // Force-regenerate ALL tiers immediately (weekly/monthly/yearly). ★ AND IT NOW DOES (TRD-WP-1 / #1502):
-    // this comment claimed "force" for months while the call ran the period-throttled path, so inside a period
-    // it rewrote NOTHING. `force: true` is the difference between the comment and the code.
-    await ensureCurrent(userId, settings, { force: true });
-    await telegramAlert(`OSWALD black swan: ${hit.symbol} ${hit.gapPct != null ? hit.gapPct + '% gap' : hit.eventType}. White papers regenerated.`).catch(() => {});
-    return { blackSwan: true, hit };
+    // Force-regenerate ALL tiers immediately (weekly/monthly/yearly). ★ AND IT NOW DOES (TRD-WP-1 / #1502): this
+    // comment claimed "force" for months while the call ran the period-throttled path.
+    const results = await ensureCurrent(userId, settings, { force: true });
+    // ★ AND THE ALERT NOW SAYS WHAT HAPPENED. It used to print "White papers regenerated" unconditionally — on
+    // 2026-10-23 it said that 29 times while the budget cap had blocked every attempt since 11:10, so 25 of those
+    // messages described a regeneration that did not occur.
+    const written = (results || []).filter((r) => r && r.payload).length;
+    const tiers = ['weekly', 'monthly', 'yearly'];
+    const what = written === tiers.length
+      ? 'White papers regenerated.'
+      : `White papers NOT regenerated (${written}/${tiers.length} tiers; see whitepaper errors).`;
+    const gapText = hit.gapPct != null ? `${hit.gapPct}% gap` : hit.eventType;
+    const src = hit.venue ? ` (${hit.venue}${hit.verified ? ', venues agree' : ', single venue'})` : '';
+    await telegramAlert(`OSWALD black swan: ${hit.symbol} ${gapText}${src}. ${what}`).catch(() => {});
+    return { blackSwan: true, hit, written };
   } catch (e) {
     return { blackSwan: false, error: String(e.message || e).slice(0, 120) };
   }
 }
 
-module.exports = { generate, ensureCurrent, latest, bundleSections, detectBlackSwan, periodFor, periodGate };
+module.exports = { generate, ensureCurrent, latest, bundleSections, detectBlackSwan, periodFor, periodGate, blackSwanVerdict };

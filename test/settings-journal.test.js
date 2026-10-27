@@ -149,13 +149,17 @@ test('the journal is BOUNDED, and states the truncation rather than hiding it', 
 test('saveSettings journals the write, AFTER the database write, and best-effort', () => {
   const src = code(STORE);
   const merge = src.indexOf('MERGE TradingSettings');
-  const journal = src.indexOf('await journalSettingsWrite(userId, existing, merged)');
+  const journal = src.indexOf('await journalSettingsWrite(userId, existing, merged');
   assert.ok(merge > -1, 'the settings write must still be a MERGE');
   assert.ok(journal > -1, 'saveSettings must journal the write');
   assert.ok(merge < journal, 'the journal is written AFTER the settings are committed');
   // Best-effort: a journaling failure must never fail a live save.
-  assert.match(src, /journalSettingsWrite\(userId, existing, merged\)\.catch\(\(\) => \{\}\)/,
+  assert.match(src, /journalSettingsWrite\(userId, existing, merged(?:, settings)?\)\.catch\(\(\) => \{\}\)/,
     'the journal must be best-effort — a failed journal cannot be allowed to fail a settings save');
+  // ★ ADR-0001: the REQUESTED patch is passed through so the event can carry the namespaces it touched. The MERGED
+  // result cannot supply that: it is the whole settings object, so every write would appear to touch every scope.
+  assert.match(src, /journalSettingsWrite\(userId, existing, merged, settings\)/,
+    'the requested patch must reach the journal, or `scope` has nothing to classify');
   // ★ ORDER vs the pre-existing reporter: the journal goes FIRST, because the fact that a write happened
   // cannot be recomputed from the settings while the dead-scope report can.
   const dead = src.indexOf('await reportDeadScopeWrite(userId, existing, merged)');

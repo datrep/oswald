@@ -15,13 +15,27 @@ const API_URL = 'https://api.deepseek.com/chat/completions';
 
 // REROUTE 2026-09-12 — ONE source of truth for the desk's LLM id.
 // Live probe of GET /models returns exactly: `deepseek-flash` | `deepseek-v4-pro`.
-// Both are served AS REQUESTED (no alias drift) and BOTH are THINKING models —
-// reasoning_tokens bill INSIDE max_tokens (at cap 5: empty answer, finish_reason=length).
-// So the per-consumer caps + isTruncatedEmpty retry are correct at either tier;
-// never lower them. NOTE: `deepseek-v4.1-flash` does NOT exist (HTTP 400
-// invalid_request_error: "The supported API model names are deepseek-flash,
-// deepseek-v4-pro"). Override without a code change: DEEPSEEK_MODEL=<id>.
+// Both are served AS REQUESTED (no alias drift). reasoning_tokens bill INSIDE max_tokens (at cap 5: empty
+// answer, finish_reason=length), so the per-consumer caps + isTruncatedEmpty retry stay correct at either tier;
+// never lower them. NOTE: `deepseek-v4.1-flash` does NOT exist (HTTP 400 invalid_request_error: "The supported
+// API model names are deepseek-flash, deepseek-v4-pro"). Override without a code change: DEEPSEEK_MODEL=<id>.
+//
+// ★★ 2026-10-20 — THE COMMENT ABOVE WAS RIGHT IN SEPTEMBER AND WRONG IN OCTOBER.
+//
+// It said "both are THINKING models", which read as "there is no other mode". The API has since documented BOTH
+// switches and this client sent NEITHER, so every call ran on the server defaults with no way to ask otherwise:
+//
+//   thinking          { type: 'enabled' | 'disabled' }        — the switch
+//   reasoning_effort  'none' | 'low' | 'high' | 'max'         — 'none' DISABLES thinking; default 'high'
+//                                                               ('minimal' -> low; 'medium'/'xhigh' -> high)
+//
+// Both are now passed through, and — this is the part that matters — DEFAULTED TO NOTHING SENT, so the desk
+// behaves exactly as it did before this edit until a caller asks for something else. A client that silently
+// changed the reasoning mode of every decision would be a policy change wearing a refactor's clothes.
+// docs: https://api-docs.deepseek.com/api/create-chat-completion
 const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
+const REASONING_EFFORTS = Object.freeze(['none', 'low', 'high', 'max']);
+const EFFORT_ALIASES = Object.freeze({ minimal: 'low', medium: 'high', xhigh: 'high' });
 
 // 2026-09-10: continuous served-model assertion. api.deepseek.com silently
 // aliases requested models (deepseek-chat/deepseek-reasoner -> deepseek-flash),
@@ -31,7 +45,7 @@ const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
 const MODEL_MISMATCH_LOG_MIN_MS = 15 * 60 * 1000;
 let lastMismatchLog = 0;
 
-async function callChat(messages, { model = DEFAULT_MODEL, temperature = 0.1, maxTokens = 500, timeoutMs = 30000, jsonMode = true, userId = null, label = 'unlabelled' } = {}) {
+async function callChat(messages, { model = DEFAULT_MODEL, temperature = 0.1, maxTokens = 500, timeoutMs = 30000, jsonMode = true, userId = null, label = 'unlabelled', thinking = undefined, reasoningEffort = undefined } = {}) {
   const key = process.env.DEEPSEEK_API_KEY;
   if (!key) throw new Error('DEEPSEEK_API_KEY missing');
   const startedAt = Date.now();
@@ -45,6 +59,16 @@ async function callChat(messages, { model = DEFAULT_MODEL, temperature = 0.1, ma
       max_tokens: maxTokens,
       stream: false,
     };
+    // ★ 2026-10-20: the reasoning controls, sent ONLY when a caller asks for them. `undefined` leaves the body
+    // byte-identical to the pre-change version, which is what keeps this edit behaviour-neutral.
+    // ⚠ An unrecognised effort is IGNORED rather than thrown on: a typo must not take the desk's chair offline.
+    // The effective value is echoed back in the return so a caller can see what it actually got.
+    const wantedEffort = typeof reasoningEffort === 'string'
+      ? (EFFORT_ALIASES[reasoningEffort] || reasoningEffort)
+      : null;
+    const effort = wantedEffort && REASONING_EFFORTS.includes(wantedEffort) ? wantedEffort : null;
+    if (typeof thinking === 'boolean') body.thinking = { type: thinking ? 'enabled' : 'disabled' };
+    if (effort) body.reasoning_effort = effort;
     // TRD-11: jsonMode=false for plain-text reasoning paths (the caller extracts
     // JSON itself). 2026-09-12: BOTH served tiers are thinking models, so the
     // tier no longer implies JSON-mode support — the CALLER decides.
@@ -75,11 +99,17 @@ async function callChat(messages, { model = DEFAULT_MODEL, temperature = 0.1, ma
       completionTokens: data.usage?.completion_tokens ?? 0,
       // Kept even when the provider omits it (null, not 0) — a missing denominator must read as missing.
       promptTokens: data.usage?.prompt_tokens ?? null,
+      // ★ 2026-10-20: the split that says how much of the completion was THINKING. Without it, a call that ran at
+      // effort 'max' and one at 'none' are indistinguishable in the ledger except by total tokens.
+      reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? null,
     };
     recordCallUsage(userId, {
       label, model: served, usage, maxTokens,
-      promptChars: (messages || []).reduce((a, m) => a + String((m && m.content) || '').length, 0),
+      promptChars: promptCharsOf(messages),
       latencyMs: Date.now() - startedAt,
+      // the reasoning mode this call actually ran in — sent, or the server default when nothing was asked for
+      reasoningEffort: effort || (typeof thinking === 'boolean' && thinking === false ? 'disabled' : null),
+      thinkingDisabled: typeof thinking === 'boolean' && thinking === false,
     });
     if (served !== model) {
       const now = Date.now();
@@ -100,6 +130,10 @@ async function callChat(messages, { model = DEFAULT_MODEL, temperature = 0.1, ma
       modelMismatch: served !== model,
       finishReason: data.choices?.[0]?.finish_reason ?? null,
       usage,
+      // what the call asked for (null == the server default applied). Echoed so a caller can assert it got what
+      // it requested without re-deriving it from the request it built.
+      reasoningEffort: effort,
+      thinking: typeof thinking === 'boolean' ? thinking : null,
     };
   } catch (e) {
     // ★ TRD-94b (2026-10-02): REPORT THE PROVIDER FAILURE AT THE CHOKE POINT, NOT AT ONE CALLER.
@@ -138,14 +172,37 @@ async function callChat(messages, { model = DEFAULT_MODEL, temperature = 0.1, ma
 // READS every `llm_usage` row to compute the day's spend (`spentToday`), and `budget.record` already writes one
 // per billed call. Logging this row under that kind would have added a SECOND row for the same tokens and
 // double-counted the day against a cap — a number that does not mean what it says, in the budget.
-function recordCallUsage(userId, { label, model, usage, maxTokens, promptChars, latencyMs }) {
+function recordCallUsage(userId, { label, model, usage, maxTokens, promptChars, latencyMs, reasoningEffort = null, thinkingDisabled = false }) {
   const uid = userId == null ? null : Number(userId);
   if (uid == null || !Number.isFinite(uid)) return;
   store.logEvent(uid, 'llm_call', {
     label, model, maxTokens, promptChars, latencyMs,
     promptTokens: usage.promptTokens, cacheHit: usage.promptCacheHitTokens,
     cacheMiss: usage.promptCacheMissTokens, completionTokens: usage.completionTokens,
+    // ★ 2026-10-20: which reasoning mode the call ran in, and how much of the completion was thinking. A null
+    // effort means NOTHING WAS SENT — the server default (thinking enabled / effort high) applied.
+    reasoningTokens: usage.reasoningTokens,
+    reasoningEffort,
+    thinkingDisabled: thinkingDisabled === true,
   }).catch(() => {});
+}
+
+// ★ 2026-10-20: a message's `content` is a STRING for text and an ARRAY OF BLOCKS once an image is attached.
+// `String([{...}]).length` would have counted "[object Object]" — so the counter walks the blocks and sums the
+// text, and a picture counts as the provider's own image cap rather than as zero. Only used for the ledger.
+function promptCharsOf(messages) {
+  let n = 0;
+  for (const m of messages || []) {
+    const c = m && m.content;
+    if (typeof c === 'string') { n += c.length; continue; }
+    if (!Array.isArray(c)) continue;
+    for (const block of c) {
+      if (!block || typeof block !== 'object') continue;
+      if (typeof block.text === 'string') n += block.text.length;
+      else if (block.type === 'image_url' || block.type === 'image' || block.type === 'file') n += 1024; // the documented per-image ceiling
+    }
+  }
+  return n;
 }
 
 // TRD-94 (2026-09-21): A PROVIDER FAILURE THAT IS RECORDED BUT NOT SURFACED. "DeepSeek HTTP 402 Insufficient
@@ -365,4 +422,4 @@ async function askDecisionWithStub(userId, messages, settings, opts = {}) {
   return { ...parsed, model: 'stub', usage: r.usage, latencyMs: 0, raw: r.text };
 }
 
-module.exports = { callChat, parseDecision, askDecision, askDecisionWithStub, recordCallUsage, meterUsage, isTruncatedEmpty, DEFAULT_MODEL, classifyProviderError };
+module.exports = { callChat, parseDecision, askDecision, askDecisionWithStub, recordCallUsage, meterUsage, isTruncatedEmpty, DEFAULT_MODEL, classifyProviderError, REASONING_EFFORTS, promptCharsOf };

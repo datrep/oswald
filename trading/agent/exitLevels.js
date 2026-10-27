@@ -29,7 +29,29 @@
 'use strict';
 
 // TP distance / stop distance. The desk's declared reward:risk.
+//
+// ⚠ THIS STAYS 1.5 AND IS NOW ONLY THE DEFAULT. `risk.takeProfitRR` overrides it (2026-10-24), resolved by
+// `resolveTakeProfitRR` below so the geometry builder and the audit contract that measures it read ONE value.
+// It is not raised here on purpose: these levels belong to the frozen TRD-29 forward-validation candidates, and
+// their §16.9 contract says any retuning voids them. Moving the desk's ratio is a settings write, annotated on
+// every ticket, so that track stays separable.
 const LEVEL_RR = 1.5;
+
+// ★ THE DECLARED R:R, RESOLVED IN ONE PLACE (2026-10-24). Both `entryLevels` (which BUILDS the levels) and
+// `fieldContracts.venueLevelGeometry` (which CHECKS them against the declaration, and computes the F20 floor as a
+// percentage of it) call this. Two copies of "what ratio does the desk declare" is the same defect class this
+// file documents twice elsewhere: two numbers for one quantity, and no way to tell which is right.
+//
+// An absent, non-numeric or non-positive value resolves to `LEVEL_RR` rather than throwing, because the callers
+// include audit paths that run against historic rows. A ratio the desk cannot express is not a policy, it is a
+// typo, and it must not silently become `NaN` inside a price.
+function resolveTakeProfitRR(risk) {
+  const block = risk == null ? null : risk;
+  const raw = typeof block === 'number' ? block : (block && block.takeProfitRR);
+  if (raw == null || raw === '') return LEVEL_RR;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : LEVEL_RR;
+}
 
 // Venue-native levels from an anchor price. stopDist = 2xATR widened to the
 // min-stop-to-spread floor by risk.js.
@@ -107,7 +129,7 @@ function level(v) {
 //
 // The declared distance is still what SIZING used (`risk.js`), so the dollar risk per trade FALLS by the
 // same ratio instead of being re-levered back up by a smaller stop.
-function entryLevels({ direction, atr14, price, stopDistance, maxAdversePct, takeProfitOffsetPct = 0, takeProfitAnchor = 'declared' } = {}) {
+function entryLevels({ direction, atr14, price, stopDistance, maxAdversePct, takeProfitOffsetPct = 0, takeProfitAnchor = 'declared', takeProfitRR = null } = {}) {
   const dir = direction === 'buy' || direction === 'sell' ? direction : null;
   if (!dir) return { ok: false, reason: 'direction_missing', stopPrice: null, takeProfitPrice: null, stopDist: null };
   const px = num(price);
@@ -163,7 +185,8 @@ function entryLevels({ direction, atr14, price, stopDistance, maxAdversePct, tak
   // does not silently switch the offset off, because a silent change is the failure both of them guard against.
   const tpAnchor = takeProfitAnchor === 'placed' ? 'placed' : 'declared';
   const anchorDist = tpAnchor === 'placed' ? stopDist : declared;
-  const declaredTpDist = LEVEL_RR * anchorDist;
+  const rr = resolveTakeProfitRR(takeProfitRR);
+  const declaredTpDist = rr * anchorDist;
   const tpDist = offsetPct > 0 ? declaredTpDist * (1 - offsetPct / 100) : declaredTpDist;
   const limits = entryLimits(dir, stopDist, px, tpDist);
   if (limits.stopPrice == null || limits.takeProfitPrice == null) {
@@ -180,16 +203,20 @@ function entryLevels({ direction, atr14, price, stopDistance, maxAdversePct, tak
     // behaviour; `placed` = route (2). Carried because the forward track has to be separable at the date the
     // setting changed, or TRD-29's candidate is quietly redefined — the same reason `cappedBy` above exists.
     takeProfitAnchor: tpAnchor,
+    // ★ THE RATIO THIS TICKET WAS BUILT AT, resolved rather than assumed. Historic rows carry their own implied
+    // ratio and this field was not written, so a reader must not infer "1.5" from its absence — it must read
+    // `effectiveRR` (measured) or fall back to `LEVEL_RR` only when the row predates this field.
+    takeProfitRR: rr,
     // ⚠ EXACT, not rounded — it is a COPY of either `stopDist` or `declaredStopDist`, both of which are published
     // exact. Rounding it made the record say the target was measured from 0.9581 while the stop beside it said
     // 0.95808, i.e. two numbers for one quantity, which is the defect class this file already documents twice.
     takeProfitAnchorDist: anchorDist,
     takeProfitDist: +tpDist.toFixed(4),
     declaredTakeProfitDist: +declaredTpDist.toFixed(4),
-    // The realised reward:risk this ticket actually carries. Uncapped and unoffset it is LEVEL_RR; a capped stop
+    // The realised reward:risk this ticket actually carries. Uncapped and unoffset it is `rr`; a capped stop
     // RAISES it and an offset LOWERS it, and the net number is what the chair should be reasoning about.
     // ⚠ Under `takeProfitAnchor: 'placed'` a capped stop NO LONGER raises it — that is the entire point of
-    // route (2), and `effectiveRR` is the field that shows it moving back to LEVEL_RR.
+    // route (2), and `effectiveRR` is the field that shows it holding at `rr`.
     effectiveRR: +(tpDist / stopDist).toFixed(3),
   };
 }
@@ -381,4 +408,4 @@ function staleTickForDecision(freshTick, decisionAsOf) {
   return raw.getTime() <= dec.getTime();
 }
 
-module.exports = { entryLevels, entryLimits, realisedRR, reanchorLevels, levelSpan, level, fillDrift, anchorAgeSec, anchorAgeGate, staleTickForDecision, LEVEL_RR };
+module.exports = { entryLevels, entryLimits, realisedRR, reanchorLevels, levelSpan, level, fillDrift, anchorAgeSec, anchorAgeGate, staleTickForDecision, resolveTakeProfitRR, LEVEL_RR };

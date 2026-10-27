@@ -55,7 +55,15 @@ test('★ the provider prompt size is captured rather than discarded', () => {
   assert.match(src, /promptTokens: data\.usage\?\.prompt_tokens \?\? null/,
     'a missing denominator must read as MISSING (null), not as 0');
   assert.match(src, /recordCallUsage\(userId, \{/);
-  assert.match(src, /promptChars: \(messages \|\| \[\]\)\.reduce/);
+  // ★ 2026-10-20: this used to pin the exact inline expression. The counter moved into `promptCharsOf` because a
+  // message content can be an ARRAY of blocks once an image is attached, and `String([{...}])` counted
+  // "[object Object]" — so the pin now holds the PROPERTY (the size we sent is computed from the messages and
+  // reaches the ledger) rather than the arithmetic that happens to implement it.
+  assert.match(src, /promptChars: promptCharsOf\(messages\)/,
+    'the measured prompt size must still travel to recordCallUsage');
+  const { promptCharsOf } = require('../trading/agent/deepseek');
+  assert.equal(promptCharsOf([{ role: 'system', content: 'abcd' }, { role: 'user', content: 'ef' }]), 6,
+    'and it must still count the characters we actually sent');
 });
 
 test('the label reaches callChat from the chair, or every row reads "unlabelled"', () => {

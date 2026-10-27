@@ -36,7 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  TIMEFRAME_SECONDS, barIntervalProvenance, sourceIntervalOf, upsertProviderBars,
+  TIMEFRAME_SECONDS, BAR_TIMEFRAMES, barIntervalProvenance, sourceIntervalOf, upsertProviderBars,
 } = require('../trading/store/bars');
 
 // Comments stripped: each pin must match CODE, not the comment that explains the code.
@@ -146,9 +146,17 @@ test('an UNRECORDED row reports unknown, which is neither native nor aggregated'
 });
 
 test('TIMEFRAME_SECONDS covers every timeframe the store accepts', () => {
+  // 2026-10-21: `1m` joins the ladder. The pin is deliberately exact, so extending the store REQUIRES this
+  // line to change — which is the point: a timeframe that exists in BAR_TIMEFRAMES but not here would make
+  // `barIntervalProvenance` unable to judge a row it accepted.
   assert.deepStrictEqual(
     TIMEFRAME_SECONDS,
-    { '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 },
+    { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 },
+  );
+  assert.deepStrictEqual(
+    BAR_TIMEFRAMES,
+    Object.keys(TIMEFRAME_SECONDS),
+    'the accepted list and the seconds ladder must stay the same set, in the same order',
   );
 });
 

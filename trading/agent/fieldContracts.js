@@ -23,7 +23,7 @@
 'use strict';
 
 const { getPool, sql } = require('../db');
-const { LEVEL_RR, realisedRR } = require('./exitLevels');
+const { LEVEL_RR, realisedRR, resolveTakeProfitRR } = require('./exitLevels');
 // ★ TRD-F20-EPOCH (2026-09-28): the boundary this file's level check has to respect comes from the epoch
 // REGISTRY, imported by reference. `stop-cap` is the feature whose own `invalidates` says it: "Trades before
 // this carry UNcapped geometry: their `stopPrice` is the declared 2xATR, so a reward:risk computed from them
@@ -221,7 +221,7 @@ async function excursionSigns(userId, { limit = 50 } = {}) {
 // agreement with `LEVEL_RR` — the audit's case (#1046) came in at 0.22 against a declared 1.5, i.e. 15% of
 // the declaration. `0` (or anything non-positive) disables the check, which is how an owner who has decided
 // to accept the TRD-37 drift says so.
-function rrFloor(settings) {
+function rrFloor(settings, rr = resolveTakeProfitRR(settings && settings.risk)) {
   const raw = settings && settings.risk ? settings.risk.minRealisedRrPct : null;
   const pct = Number(raw);
   // Explicit zero is a DECISION ("I accept the TRD-37 drift"), so it disables the check. An unset or
@@ -229,7 +229,10 @@ function rrFloor(settings) {
   // floor of 0 silently disables the check that exists to make an invisible risk visible.
   if (raw != null && raw !== '' && Number.isFinite(pct) && pct === 0) return 0;
   const p = Number.isFinite(pct) && pct > 0 ? pct : 50;
-  return LEVEL_RR * (p / 100);
+  // ⚠ A PERCENTAGE OF THE DECLARED RATIO, which is now a SETTING — so raising `risk.takeProfitRR` raises this
+  // floor in absolute R too (at 3.0 the floor is 1.5R, not 0.75R). That is the intended reading of "not the
+  // trade the desk decided on", but it is a side effect of the ratio change and is named in its epoch entry.
+  return rr * (p / 100);
 }
 
 // --- 3. the venue levels really are the R:R they are labelled as -------------
@@ -243,7 +246,13 @@ function rrFloor(settings) {
 //   3. the implied anchor vs the fill is the known drift, reported as a WARN with the realised
 //      R:R, not as a violation.
 async function venueLevelGeometry(userId, { limit = 50, driftPct = 0.05, settings = null, since = GEOMETRY_SINCE } = {}) {
-  const floor = rrFloor(settings);
+  // ★ THE DECLARATION THIS CHECK MEASURES AGAINST IS READ, NOT ASSUMED (2026-10-24). `LEVEL_RR` was the literal
+  // 1.5, so a desk trading a different `risk.takeProfitRR` would have reported every correct ticket as a
+  // geometry violation — the check would have been measuring its own constant rather than the desk. Resolved
+  // through the SAME function `entryLevels` builds with, so the two cannot disagree.
+  const rr = resolveTakeProfitRR(settings && settings.risk);
+  const rrLabel = `${round(rr, 2)}R as declared`;
+  const floor = rrFloor(settings, rr);
   // ⚠ THE SCOPE IS IN THE `WHERE`, NOT IN A POST-FILTER, AND THAT IS LOAD-BEARING. `TOP (@limit)` takes the
   // newest 50 level-bearing rows BEFORE any date filter ran, so a post-filter would keep reading a window that
   // is 46% pre-epoch (measured 2026-09-28: 23 of those 50) and could let pre-epoch rows crowd a LIVE violation
@@ -282,7 +291,7 @@ async function venueLevelGeometry(userId, { limit = 50, driftPct = 0.05, setting
       // ★ TRD-GEO-1: the OBSERVED anchor, read from the event that recorded it, instead of one inferred from
       // the levels this check is validating. A row without one reports no drift at all rather than a number
       // that cannot look wrong.
-      const g = levelGeometry(t, { driftPct, floor, anchorPrice: t.decisionPrice });
+      const g = levelGeometry(t, { rr, driftPct, floor, anchorPrice: t.decisionPrice });
       if (g.anchorSource === 'observed') out.measured += 1; else out.unmeasurable += 1;
       for (const code of g.bad) out.bad.push(`#${t.id} ${code.replace(/_/g, ' ')}`);
       for (const d of g.drift) {
@@ -311,10 +320,10 @@ async function venueLevelGeometry(userId, { limit = 50, driftPct = 0.05, setting
       : 'none below the floor'}`
     : '';
   if (!liveRows.recordset.length) {
-    return CHECK('field_levels', `venue levels = ${LEVEL_RR}R as declared`, 'ok',
+    return CHECK('field_levels', `venue levels = ${rrLabel}`, 'ok',
       `NOT CHECKED — no post-epoch trade with both levels${priorNote}`);
   }
-  if (live.bad.length) return CHECK('field_levels', `venue levels = ${LEVEL_RR}R as declared`, 'bad', `${live.bad.length} violation(s): ${live.bad.slice(0, 3).join(' · ')}${priorNote}`);
+  if (live.bad.length) return CHECK('field_levels', `venue levels = ${rrLabel}`, 'bad', `${live.bad.length} violation(s): ${live.bad.slice(0, 3).join(' · ')}${priorNote}`);
   // F20: a position whose REALISED ratio is under the floor is not the trade the desk decided on — its risk
   // is a multiple of what was intended. `bad`, not `warn`: it is the one label mismatch in this file that
   // costs money while the position is open, and `warn` is where it has sat, unread, since TRD-37.
@@ -322,7 +331,7 @@ async function venueLevelGeometry(userId, { limit = 50, driftPct = 0.05, setting
   // made `standing` — a post-epoch row below the floor is a LIVE defect and the check exists to catch it. The
   // scope only ever removes rows the `stop-cap` registry entry says are not comparable with it.
   if (live.belowFloor.length) {
-    return CHECK('field_levels', `venue levels = ${LEVEL_RR}R as declared`, 'bad',
+    return CHECK('field_levels', `venue levels = ${rrLabel}`, 'bad',
       `${live.belowFloor.length}/${liveRows.recordset.length} POSITION(S) BELOW THE DECLARED FLOOR (F20): ${live.belowFloor.slice(0, 3).join(' · ')}${priorNote}`);
   }
   if (live.drift.length) {
@@ -332,18 +341,18 @@ async function venueLevelGeometry(userId, { limit = 50, driftPct = 0.05, setting
     const gap = live.unmeasurable
       ? ` (${live.unmeasurable} further row(s) had no observed anchor and were NOT measured)`
       : '';
-    return CHECK('field_levels', `venue levels = ${LEVEL_RR}R as declared`, 'warn',
+    return CHECK('field_levels', `venue levels = ${rrLabel}`, 'warn',
       `geometry is exact, but ${live.drift.length}/${live.measured} measured row(s) were anchored away from the fill (TRD-37, known): ${live.drift.slice(0, 3).join(' · ')}${gap}${priorNote}`);
   }
   // ★ TRD-GEO-1: SAY WHAT WAS NOT MEASURED. An absent measurement that is not named reads as a clean
   // result, which is how the fabricated drift went unnoticed on 27 of 30 rows.
   if (live.unmeasurable) {
-    return CHECK('field_levels', `venue levels = ${LEVEL_RR}R as declared`, 'warn',
+    return CHECK('field_levels', `venue levels = ${rrLabel}`, 'warn',
       `geometry is exact, but the drift was NOT measured for ${live.unmeasurable}/${liveRows.recordset.length} row(s) `
       + '(no observed decision price; deriving one from the levels under test is wrong on every capped ticket - TRD-GEO-1)'
       + priorNote);
   }
-  return CHECK('field_levels', `venue levels = ${LEVEL_RR}R as declared`, 'ok',
+  return CHECK('field_levels', `venue levels = ${rrLabel}`, 'ok',
     `${live.measured} post-epoch row(s) checked, geometry exact and anchored on the fill${priorNote}`);
 }
 
@@ -458,12 +467,38 @@ function scaleOf(row) {
 // and the arithmetic still disagrees) stays `bad`. A recording gap is a `warn` that names itself.
 // ⚠ `carriesScale` is tested on the KEYS, not on `scaleOf(...) !== 1`: a legitimate `fx` of 1 is still a
 // RECORDED scale, and reading it as "unrecorded" would relabel an auditable row.
-function riskUnitArithmetic(rows, { stopMultiple = 2 } = {}) {
+//
+// ★★ 2026-10-18: THE MULTIPLE TRAVELS WITH THE ROW, NOT WITH THE SETTING.
+//
+// `risk.atrStopMultiple` was wired into `risk.js` (it had been dead since the schema) and later changed 2 -> 4.
+// An auditor that reads the CURRENT setting is wrong in both eras: it calls a correct 4x ticket "drift" the
+// moment the setting moves - which is exactly what happened live at 21:57Z, "baseSize 2.022 vs 4.044 from
+// (equity x riskPct) / (atr x 2 x scale 1.55)" - and it would then call every historical 2x row drift after the
+// move. So the multiple is recorded ON each `sizeCalc` (risk.js writes `atrMultiple`) and each row is audited
+// against the one it was actually sized with. The fallback for rows predating the field is 2, because 2 is what
+// every one of them was sized at: the same absent-field discipline as `fx` defaulting to 1.
+const LEGACY_STOP_MULTIPLE = 2;
+function stopMultipleOf(row, fallback = null) {
+  const own = row ? Number(row.atrMultiple) : NaN;
+  if (Number.isFinite(own) && own > 0) return own;
+  const given = Number(fallback);
+  if (Number.isFinite(given) && given > 0) return given;
+  return LEGACY_STOP_MULTIPLE;
+}
+
+function riskUnitArithmetic(rows, { stopMultiple = null, configuredMultiple = null } = {}) {
   const arithmetic = [];
   const unrecorded = [];
+  // Rows written between the 2 -> 4 move and the release that records `atrMultiple` were sized with the NEW
+  // multiple but carry no field. Their arithmetic agrees with the configured multiple and disagrees with the
+  // legacy 2, which is a RECORDING GAP (the size is right, the record is incomplete) and not drift. Collected
+  // separately so the verdict can say which it is - the same distinction the `fx`/`pointValue` gap below makes.
+  const missingMultiple = [];
+  const configured = Number(configuredMultiple) > 0 ? Number(configuredMultiple) : null;
   for (const s of rows || []) {
     if (!s || s.equity == null || s.riskPct == null || s.atr == null || s.baseSize == null) continue;
-    const stopDist = Number(s.atr) * stopMultiple;
+    const k = stopMultipleOf(s, stopMultiple);
+    const stopDist = Number(s.atr) * k;
     // `stopDist * scaleOf(s)` accepts `stopDist` as a non-finite value, which makes `expectedBase` non-finite and
     // the comparison below silently skip the row — an unmeasurable row reported as agreement. Guard it.
     if (!(stopDist > 0)) continue;
@@ -471,10 +506,21 @@ function riskUnitArithmetic(rows, { stopMultiple = 2 } = {}) {
     if (!(expectedBase > 0)) continue;
     const agrees = Math.abs(expectedBase - Number(s.baseSize)) / expectedBase <= 0.01;
     if (agrees) continue;
+    // Before calling it drift, check whether the row was sized at the CONFIGURED multiple but simply did not
+    // record it. That is the one legitimate explanation and it is time-bounded: once the field ships, a missing
+    // field means a row written before the release, and the window closes by itself.
+    const own = Number(s.atrMultiple);
+    if (!(Number.isFinite(own) && own > 0) && configured) {
+      const altBase = (Number(s.equity) * Number(s.riskPct) / 100) / ((Number(s.atr) * configured) * scaleOf(s));
+      if (altBase > 0 && Math.abs(altBase - Number(s.baseSize)) / altBase <= 0.01) {
+        missingMultiple.push(`baseSize ${round(s.baseSize, 3)} matches ${configured}xATR but the row records no atrMultiple`);
+        continue;
+      }
+    }
     const scale = scaleOf(s);
     const carriesScale = Number.isFinite(Number(s.fx)) || Number.isFinite(Number(s.pointValue));
     if (carriesScale) {
-      arithmetic.push(`baseSize ${round(s.baseSize, 3)} vs ${round(expectedBase, 3)} from (equity x riskPct) / (atr x ${stopMultiple}${scale !== 1 ? ` x scale ${round(scale, 6)}` : ''})`);
+      arithmetic.push(`baseSize ${round(s.baseSize, 3)} vs ${round(expectedBase, 3)} from (equity x riskPct) / (atr x ${k}${scale !== 1 ? ` x scale ${round(scale, 6)}` : ''})`);
     } else {
       // The ratio is reported because a clean constant (e.g. 64.5 = 1/0.0155, or 1.55 = fx) reads as "one scale
       // was applied", while a ragged number reads as "something else is wrong". The reader can tell them apart;
@@ -482,7 +528,7 @@ function riskUnitArithmetic(rows, { stopMultiple = 2 } = {}) {
       unrecorded.push(`baseSize ${round(s.baseSize, 3)} vs ${round(expectedBase, 3)} unscaled (ratio ${round(Number(s.baseSize) / expectedBase, 4)})`);
     }
   }
-  return { arithmetic, unrecorded };
+  return { arithmetic, unrecorded, missingMultiple };
 }
 
 function riskUnitExplain(s) {
@@ -508,7 +554,7 @@ function riskUnitExplain(s) {
 // Prefer, in order: the writer's `resolvedRiskPct` (L4, and the number this check is trying to reproduce); the
 // effective stop the writer recorded in its own reason; the `atr x stopMultiple` approximation (the only thing
 // rows before both fixes carry, and now REPORTED so the reader knows which rows rest on it).
-function riskUnitRealised(s, { stopMultiple = 2 } = {}) {
+function riskUnitRealised(s, { stopMultiple = null } = {}) {
   const row = s || {};
   if (Number.isFinite(Number(row.resolvedRiskPct)) && Number(row.resolvedRiskPct) > 0) {
     return { realisedPct: Number(row.resolvedRiskPct), source: 'resolvedRiskPct', stopDist: null };
@@ -523,11 +569,23 @@ function riskUnitRealised(s, { stopMultiple = 2 } = {}) {
     }
   }
   if (row.atr == null || row.equity == null) return { realisedPct: null, source: 'unreadable', stopDist: null };
-  const stopDist = Number(row.atr) * stopMultiple;
+  const stopDist = Number(row.atr) * stopMultipleOf(row, stopMultiple);
   return { realisedPct: (Number(row.finalSize) * stopDist * scaleOf(row) / Number(row.equity)) * 100, source: 'atr', stopDist };
 }
 
-async function riskUnit(userId, { stopMultiple = 2, limit = 20 } = {}) {
+async function riskUnit(userId, { stopMultiple = null, settings = null, limit = 20 } = {}) {
+  // ★★ 2026-10-18: THE AUDITOR MUST READ THE MULTIPLE THE ROW WAS SIZED WITH.
+  //
+  // `risk.atrStopMultiple` was wired into `risk.js` on 2026-10-18 (it had been a dead dial for the life of the
+  // schema). This check kept its own default of 2, and the first sizing event after the setting moved to 4 read
+  // "sizing arithmetic drifted: baseSize 2.022 vs 4.044 from (equity x riskPct) / (atr x 2 x scale 1.55)" - and
+  // the size was CORRECT: exactly half, because the stop doubled. An auditor holding one constant is then wrong
+  // in BOTH eras: it calls a correct new ticket drift, and it would call every historical row drift after the
+  // move. So the multiple travels ON the row (`atrMultiple`, written by risk.js) and `settings` is not consulted
+  // here at all. `stopMultiple` stays as an explicit override for tests and callers that know their geometry.
+  const multiple = Number(stopMultiple) > 0 ? Number(stopMultiple) : null;
+  const configuredRaw = settings && settings.risk ? Number(settings.risk.atrStopMultiple) : NaN;
+  const configuredMultiple = Number.isFinite(configuredRaw) && configuredRaw > 0 ? configuredRaw : null;
   const r = await q((db) => db.request()
     .input('limit', sql.Int, limit)
     .query(`SELECT TOP (@limit) id, JSON_QUERY(payload,'$.sizeCalc') AS sizeCalc
@@ -541,13 +599,13 @@ async function riskUnit(userId, { stopMultiple = 2, limit = 20 } = {}) {
   const inert = [];
   const stopSources = {};
   let unmeasured = 0;
-  const { arithmetic: arithFindings, unrecorded } = riskUnitArithmetic(rows, { stopMultiple });
+  const { arithmetic: arithFindings, unrecorded, missingMultiple } = riskUnitArithmetic(rows, { stopMultiple: multiple, configuredMultiple });
   arithmetic.push(...arithFindings);
   for (const s of rows) {
     if (s.equity == null || s.riskPct == null || s.atr == null || s.baseSize == null) continue;
     // What the trade actually risked, in the same units as riskPct.
     if (Number(s.finalSize) > 0) {
-      const got = riskUnitRealised(s, { stopMultiple });
+      const got = riskUnitRealised(s, { stopMultiple: multiple });
       if (got.realisedPct == null) { unmeasured++; continue; }
       const realisedPct = got.realisedPct;
       stopSources[got.source] = (stopSources[got.source] || 0) + 1;
@@ -570,6 +628,13 @@ async function riskUnit(userId, { stopMultiple = 2, limit = 20 } = {}) {
     }
   }
   if (arithmetic.length) return CHECK('field_risk_unit', 'riskPct = risk the trade took', 'bad', `sizing arithmetic drifted: ${arithmetic.slice(0, 2).join(' · ')}`);
+  // A missing multiple is a RECORDING gap with its own owner, and it is reported ahead of the scale gap because
+  // it is newer and closes sooner: the field ships with the next release, so only rows written in the window
+  // between the settings move and that release can carry this verdict.
+  if (missingMultiple.length) {
+    return CHECK('field_risk_unit', 'riskPct = risk the trade took', 'warn',
+      `${missingMultiple.length} of ${rows.length} sizing event(s) were sized at the CONFIGURED ${configuredMultiple}xATR but do not RECORD the multiple — the size is right, the record is incomplete (atrMultiple ships with this release, so this window closes by itself): ${missingMultiple.slice(0, 2).join(' · ')}`);
+  }
   // ★ A RECORDING GAP IS NOT DRIFT, AND IT MUST NOT READ AS ONE. These rows were sized WITH a scale that
   // `sizeCalc` does not carry, so they can be audited against neither formula. Reported as a warn that names
   // itself and states the ratio, because the sizes are CORRECT — the record is what is incomplete — and because

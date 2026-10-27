@@ -74,12 +74,12 @@ test('★ the gate is what makes it converge: a sub-gate move is EXCLUDED rather
   assert.equal(r.gate, 'weak', 'strong gate had 2 of 3 required samples, so weak was used');
   assert.equal(r.n, CLEARING.length, `exactly the ${CLEARING.length} clearing vectors contribute`);
   assert.equal(r.candidates, VECTORS.length, 'every pair was evaluated as a candidate');
-  assert.ok(r.usdMoveMin >= fx.GATE_WEAK, 'every contributing pair must clear the gate it was admitted under');
+  assert.ok(r.moveMin >= fx.GATE_WEAK, 'every contributing pair must clear the gate it was admitted under');
   // The two blocked vectors are genuinely below the gate, which is WHY they are excluded - assert the fact
   for (const v of BLOCKED) {
     const p = fx.pairRate(pair(v).a, pair(v).b);
     assert.ok(p, `${v.name} is still DERIVABLE - exclusion is a gate decision, not a parse failure`);
-    assert.ok(Math.abs(p.usdMove) < fx.GATE_WEAK, `${v.name} must be below the weak gate`);
+    assert.ok(Math.abs(p.move) < fx.GATE_WEAK, `${v.name} must be below the weak gate`);
   }
 });
 
@@ -139,7 +139,7 @@ test('★★ the REFUSALS — a rate must never become a plausible number by acc
   assert.equal(out.ok, false);
   assert.equal(out.reason, 'outside_plausible_band');
   assert.equal(out.rate, 100, 'the observed value is carried so an operator can see it');
-  assert.deepEqual(out.band, [fx.PLAUSIBLE_MIN, fx.PLAUSIBLE_MAX]);
+  assert.deepEqual(out.band, [fx.PAIR_PARAMS.USD.min, fx.PAIR_PARAMS.USD.max]);
 
   assert.equal(fx.deriveRate([]).reason, 'no_usable_pairs');
   assert.equal(fx.deriveRate(null).reason, 'no_usable_pairs');
@@ -154,7 +154,7 @@ test('★★ no hardcoded rate in ARITHMETIC — asserted against comment-stripp
   assert.doesNotMatch(src, /1\.2812/, 'the old prose figure must not have become code');
   assert.doesNotMatch(src, /12774|12757/, 'nor a literal of the measured value');
   // The rate must come from the data, and the data must come from a difference of two samples.
-  assert.match(src, /\(pnlB - pnlA\) \/ usdMove/, 'the rate is computed from the observed delta');
+  assert.match(src, /\(pnlB - pnlA\) \/ move/, 'the rate is computed from the observed delta');
 });
 
 test('★ the wiring: the derived rate reaches the object risk.js already reads', () => {
@@ -183,4 +183,68 @@ test('★★ P1b: the RATE TIME SERIES — every account sample carries the rate
     'and a refusal is RECORDED as one - an absent key and a failed derivation must not look the same');
   // the currency declaration must survive alongside it, or the series loses the unit it is denominated in
   assert.match(src, /\.\.\.\(accountCurrency \? \{ currency: accountCurrency \} : \{\}\)/, 'the unit still travels');
+});
+
+// ── CURRENCY: THE PART THAT WOULD HAVE BEEN SILENTLY WRONG ───────────────────────────────────────────────────
+//
+// ⚠ THE OWNER'S ADDENDUM, 2026-10-27: a French or German stock quotes in EUR, so its rate is SGD-per-EUR and
+// nothing about USD/SGD's band applies. The band was only half the problem. `deriveRate` took EVERY pair into one
+// median, so a single EUR position among USD ones would have blended ~1.29 with ~1.50 into a number that still
+// PASSED the band — a plausible wrong rate, which is the one outcome this module exists to prevent.
+
+const withCurrency = (v, currency) => {
+  const p = pair(v);
+  return { a: { ...p.a, currency }, b: { ...p.b, currency } };
+};
+
+test('★★ mixed quote currencies are REFUSED, not blended into a plausible average', () => {
+  const pairs = [...CLEARING.slice(0, 3).map((v) => withCurrency(v, 'USD')), withCurrency(CLEARING[3], 'EUR')];
+  const r = fx.deriveRate(pairs);
+  assert.equal(r.ok, false, 'a blend of two pairs is neither rate');
+  assert.equal(r.reason, 'mixed_currencies');
+  assert.deepStrictEqual(r.currencies, ['EUR', 'USD'], 'and it NAMES them, so the fix is obvious');
+});
+
+test('★★ a currency with no DECLARED parameters is refused — it must not inherit USD\'s band', () => {
+  // Handing GBP a 1.10-1.55 band would refuse a correct ~1.8 rate as implausible; widening it silently would accept
+  // a wrong one. Neither is knowable from here, so the module refuses and says which currency is missing.
+  const r = fx.deriveRate(CLEARING.map((v) => withCurrency(v, 'GBP')));
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'currency_parameters_missing');
+  assert.equal(r.currency, 'GBP');
+  assert.match(r.note, /rather than inheriting USD/);
+});
+
+test('a DECLARED currency derives normally, and the result says the currency was recorded', () => {
+  const r = fx.deriveRate(CLEARING.map((v) => withCurrency(v, 'USD')));
+  assert.equal(r.ok, true, `expected a rate, got ${r.reason}`);
+  assert.equal(r.currency, 'USD');
+  assert.equal(r.basis, 'recorded_currency');
+  assert.equal(r.unrecordedSamples, 0);
+});
+
+test('★ with NO recorded currency the default is used, and the result SAYS it was assumed', () => {
+  // ⚠ The assumption is allowed to happen — refusing here would switch the live rate off, because
+  // `settings.account.instrumentCurrency` is unset today. What is not allowed is the assumption being invisible.
+  const r = fx.deriveRate(CLEARING.map(pair));
+  assert.equal(r.ok, true);
+  assert.equal(r.currency, 'USD');
+  assert.equal(r.basis, 'assumed_default', 'an assumed currency must be distinguishable from a recorded one');
+  assert.equal(r.unrecordedSamples, CLEARING.length);
+});
+
+test('unrecorded samples alongside a recorded currency are COUNTED, not silently dropped', () => {
+  const pairs = CLEARING.map((v, i) => (i < 3 ? withCurrency(v, 'USD') : pair(v)));
+  const r = fx.deriveRate(pairs);
+  assert.equal(r.ok, true);
+  assert.equal(r.basis, 'recorded_currency');
+  assert.equal(r.unrecordedSamples, CLEARING.length - 3, 'the ambiguity travels with the number');
+});
+
+test('asking for a currency the evidence does not support is a named mismatch', () => {
+  const r = fx.deriveRate(CLEARING.map((v) => withCurrency(v, 'USD')), { currency: 'EUR' });
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'currency_mismatch');
+  assert.equal(r.asked, 'EUR');
+  assert.equal(r.recorded, 'USD');
 });

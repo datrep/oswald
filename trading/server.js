@@ -319,6 +319,25 @@ store
         ? `NOT seeded: ${r.error}`
         : `${r.seeded} symbol(s) priced from ${r.rows} tick(s) over ${r.days}d at ${r.venue}; ${r.unverifiable.length} curated symbol(s) UNVERIFIABLE (labelled calibrated_table): ${r.unverifiable.join(', ') || 'none'}`))
       .catch((e) => console.error('[trading] TRD-79 derived spread seed failed:', e.message || e));
+    // ⚠⚠ TRD-114 IS SEEDED ONLY WHEN THE OPERATOR HAS ASKED FOR IT. The measurement is unambiguous — the residual
+    // beyond the touch is 0.0000% on Gold, Silver, Oil and Ethereum (n=21..37) — but applying it collapses Gold's
+    // modelled round trip from 11.94 bps to 1.94 bps, and that number feeds venue admission, the net-edge screen,
+    // the stop cap and the cost-per-R ceiling. A cost basis change of that size LOOSENS four gates at once, so it is
+    // an owner decision (`risk.costBasis.useMeasuredSlippage`, default false, in DEFAULT_SETTINGS), not a boot-time
+    // inference. Until it is switched on the flat placeholder stands and every run is labelled
+    // `calibrated_placeholder` — wrong, but unchanged and stated.
+    require('./store').getSettings(1)
+      .then((s) => ((s.risk || {}).costBasis || {}).useMeasuredSlippage === true)
+      .catch(() => false)
+      .then((on) => (on
+        ? require('./agent/instruments').seedDerivedSlipBasis(1)
+          .then((r) => console.log('[trading] TRD-114 derived slippage basis —', r.error
+            ? `NOT seeded: ${r.error}`
+            : `${r.seeded} symbol(s) priced from ${r.fills} fill(s) over ${r.days}d; refused by name: `
+              + `${Object.values(r.refused || {}).flat().join(', ') || 'none'}`))
+          .catch((e) => console.error('[trading] TRD-114 slippage seed failed:', e.message || e))
+        : console.log('[trading] TRD-114 measured slippage basis OFF (risk.costBasis.useMeasuredSlippage !== true) — '
+          + 'the flat 0.05% placeholder still prices every symbol')));
     // TRD-1: wake loop (scheduled + alerts + midnight digest). Reads settings
     // each cycle; wake.enabled=false disables it without a restart.
     require('./agent/waker').start(1).catch((e) => {
@@ -379,6 +398,39 @@ store
         .then((settings) => require('./agent/newsAggregator').runOnce(1, settings))
         .catch((e) => console.error('[trading] news aggregator check failed:', e.message || e));
     }, 15 * 60000).unref();
+    // Economic calendar sync (2026-10-25). `agent/calendar.importCalendar` had NO scheduled caller — only a
+    // manual UI button — so `CorporateEvents` still held 2 rows from 2026-09-15/16 when this was written. A
+    // `macro` row is CONTEXT for the chairs (`sessions.js`, revised 2026-09-15: information, not a lock), so
+    // the five-week gap meant the chairs were told nothing about an approaching FOMC day, not that the desk
+    // traded unlocked. 30-min ticks; the module self-throttles to settings.calendar.intervalHours (12h) via
+    // its own `calendar_sync` event, and records EVERY attempt including failures.
+    setInterval(() => {
+      require('./store').getSettings(1)
+        .then((settings) => require('./agent/calendar').syncScheduled(1, settings))
+        .catch((e) => console.error('[trading] calendar sync failed:', e.message || e));
+    }, 30 * 60000).unref();
+    // Account-reset detector (2026-10-26). The demo account was reset to 4,000 on 2026-10-16 and NOTHING recorded
+    // it — the only trace was a step in EquitySnapshots, so every reporting number had to guess the era boundary
+    // and two of those guesses were wrong. One `account_reset` event IS the boundary; the era is derived from it,
+    // so no settings write is needed and recording a reset cannot itself breach the freeze. Idempotent, so the
+    // boot run catches up after downtime. Also runs the idempotent detect after boot rather than only on a timer:
+    // a reset that happens while the process is down must be found on the way back up.
+    const detectResets = () => require('./agent/accountResets').detectAndRecord(1)
+      .then((r) => { if (r.inserted.length) console.log(`[trading] account reset recorded: ${r.inserted.map((x) => `${x.from} -> ${x.to} at ${x.at}`).join(', ')}`); })
+      .catch((e) => console.error('[trading] account reset detect failed:', e.message || e));
+    setTimeout(detectResets, 20000).unref();
+    setInterval(detectResets, 30 * 60000).unref();
+    // Economic-calendar CAPTURE (2026-10-26): the Dow Jones feed rendered inside the Plus500 SPA, swept into
+    // CalendarEvents. SEPARATE from `calendar.syncScheduled` above, which imports FOMC dates from federalreserve.gov
+    // into `CorporateEvents` — that one feeds the chairs' `scheduledEvents` context, this one is a write-only ledger
+    // with no consumer. 3-hour tick: the feed spans about a week and is re-read idempotently via `rowHash`, so the
+    // cadence only controls how quickly a newly published Actual is picked up. The module holds the page lock and
+    // uses the ONE shared Plus500 tab (a second tab makes the venue sign one of them out).
+    setInterval(() => {
+      require('./store').getSettings(1)
+        .then((settings) => require('./plus500/calendarCapture').runOnce(1, settings))
+        .catch((e) => console.error('[trading] calendar capture failed:', e.message || e));
+    }, 3 * 3600000).unref();
     // Premium-analyses capture (TRD-PRM-1 P1, built 2026-10-04): daily sweep of the Plus500 analyses
     // pages into the write-only ledger (AnalysesNotes + AnalysisLevels; NO consumer — brief §2 P1).
     // 6-h tick; the module self-throttles to once per ~20 h (ledger-based) and skips when the tab is
@@ -388,6 +440,66 @@ store
         .then((settings) => require('./plus500/analysesCapture').runScheduled(1, settings))
         .catch((e) => console.error('[trading] analyses capture check failed:', e.message || e));
     }, 6 * 3600000).unref();
+    // ★ 2026-10-27 — THE DAILY CONTRACT-SPEC REFRESH (funding rates + minimum size).
+    //
+    // `Instruments` is the ONLY lane for `fundingBuyPct`/`fundingSellPct`/`unitAmount`, and it was fed only by a manual
+    // UI probe: measured today, 44 rows across 24 symbols with the newest at **2026-10-01, 26 days stale**. That
+    // reaches the live path through `carryPctFor`, which prices overnight carry on held positions.
+    //
+    // ⚠ IT IS NOT FOR THE SPREAD. The spread is measured from `spreadSubmitPct`/`spreadSignalPct` and needs no probe.
+    // ⚠ ONE SHARED TAB, ONE `ticket` LOCK: `instrumentRefresh` self-throttles to once per 23h AND refuses outside
+    // 02:00-04:59Z, so a refresh cannot meet an active session. The module never throws, so this timer cannot be
+    // killed by a browser hiccup.
+    setInterval(() => {
+      require('./store').getSettings(1)
+        .then((settings) => require('./plus500/instrumentRefresh').runOnce(1, { settings }))
+        .then((r) => { if (r && r.ok) console.log('[trading] instrument refresh —', JSON.stringify(r)); })
+        .catch((e) => console.error('[trading] instrument refresh failed:', e.message || e));
+    }, 3600000).unref();
+    // ★ 2026-10-27 — CONSTRAINT RECONCILIATION, WEEKLY. Compares every assertion in the ledger against the current
+    // registry snapshot and logs drift. READ-ONLY: it never writes a constraint, so a detector cannot become a
+    // producer.
+    //
+    // ⚠ IT REPORTS DRIFT AND DELIBERATELY DOES NOT DATE IT. A change detected between two captures happened
+    // SOMEWHERE in that interval; writing `effectiveFrom = <now>` would assert an instant we do not know. The honest
+    // representation is a bounded interval the schema has nowhere to put, so the finding is named and the dating
+    // question stays open rather than being guessed at.
+    //
+    // ⚠ AND A FAILED READ IS ITS OWN REASON (`read_failed`), never an empty finding set — "we could not look" and
+    // "nothing moved" must not produce the same silence.
+    // ★ 2026-10-26 — THE RECONCILE RUNS AT BOOT AS WELL AS WEEKLY.
+    //
+    // Weekly-only meant the first automatic run after any restart was seven days away, so a reconcile that had
+    // BROKEN stayed invisible for a week — and its silence is indistinguishable from agreement. The boot run is
+    // self-throttled inside the module (see `runOnBoot`), because every run appends an event and the crash guard
+    // restarts dead children: unthrottled, a restart loop would be event spam.
+    // ⚠ STILL BLOCKING ON NOTHING: read-only, never writes a constraint, catches its own failures.
+    setTimeout(() => {
+      require('./agent/constraintReconcile').runOnBoot(1)
+        .then((r) => console.log('[trading] constraint reconcile (boot) —', r.ran ? `${r.why}: ${JSON.stringify(r.result && r.result.census || {})}` : `skipped (${r.why})`))
+        .catch((e) => console.error('[trading] constraint reconcile (boot) failed:', e.message || e));
+    }, 60 * 1000).unref();
+    setInterval(() => {
+      require('./agent/constraintReconcile').runOnce(1)
+        .then((r) => console.log('[trading] constraint reconcile (weekly) —', r.reason, JSON.stringify(r.census || {})))
+        .catch((e) => console.error('[trading] constraint reconcile (weekly) failed:', e.message || e));
+    }, 7 * 24 * 3600000).unref();
+    // ★ 2026-10-27 — THE LEDGER'S CONSUMER, HOURLY. Asks "what constraint applied at this trade, and was it
+    // honoured?" for every closed trade in the window, and appends one `constraint_assessment` event per new one.
+    //
+    // ⚠ NO THROTTLE, UNLIKE THE RECONCILE ABOVE, AND THE REASON IS THE DEDUPE RATHER THAN CONFIDENCE. A run with
+    // nothing new appends NOTHING (it returns `nothing_new` and logs no event), so a crash loop costs three queries
+    // per boot, not a stream of rows. The reconcile needs `shouldRunOnBoot` because it appends a census event every
+    // run whether or not anything changed.
+    //
+    // ⚠ AND `window.truncated` IS REPORTED, because an assessment pass that covered 200 of 247 must never read as
+    // complete. See `constraintAudit.windowPlan`.
+    const runConstraintAudit = (trigger) => require('./agent/constraintAudit').runOnce(1)
+      .then((r) => console.log(`[trading] constraint audit (${trigger}) —`, r.reason,
+        JSON.stringify(r.window || {}), JSON.stringify(r.byVerdict || {})))
+      .catch((e) => console.error(`[trading] constraint audit (${trigger}) failed:`, e.message || e));
+    setTimeout(() => runConstraintAudit('boot'), 150 * 1000).unref();
+    setInterval(() => runConstraintAudit('hourly'), 3600000).unref();
     // TRD-26 fresh-data gate (2026-09-11): this workspace is NOT an always-
     // online server — the gate must survive downtime by itself. One catch-up
     // check shortly after boot, then a 30-min tick; BOTH run even when wakes

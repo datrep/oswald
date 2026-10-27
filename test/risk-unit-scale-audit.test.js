@@ -71,6 +71,6 @@ test('an unmeasurable row is skipped, never counted as agreement', () => {
 });
 
 test('an empty or absent window is not an error', () => {
-  assert.deepEqual(riskUnitArithmetic([]), { arithmetic: [], unrecorded: [] });
-  assert.deepEqual(riskUnitArithmetic(null), { arithmetic: [], unrecorded: [] });
+  assert.deepEqual(riskUnitArithmetic([]), { arithmetic: [], unrecorded: [], missingMultiple: [] });
+  assert.deepEqual(riskUnitArithmetic(null), { arithmetic: [], unrecorded: [], missingMultiple: [] });
 });

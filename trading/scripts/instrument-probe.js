@@ -68,6 +68,17 @@ const call = (method, p, token, body) => new Promise((resolve, reject) => {
 
   try { fs.mkdirSync(path.dirname(RAW), { recursive: true }); fs.writeFileSync(RAW, JSON.stringify(o, null, 2), 'utf8'); } catch { /* best effort */ }
 
+  // ⚠⚠ A RUN THAT OBSERVED NOTHING MUST NOT EXIT 0. `ok` was the literal `true` on every path until 2026-10-27, so
+  // this CLI printed a tidy report over a scan that found no rows and returned success — the operator's only signal
+  // that the venue page was not in a readable state was the corner of an integrity table reading `0 / 0`.
+  // `process.exitCode` rather than `process.exit` on purpose: the report below is STILL worth printing when nothing
+  // was observed (it says which check saw what), so the exit code carries the verdict and the output carries the
+  // evidence.
+  if (o.ok === false) {
+    console.error(`NOTHING OBSERVED: ${o.reason} — the report below still prints, but this run is not a success.`);
+    process.exitCode = 3;
+  }
+
   // --- chain scan: write the universe, then stop ---------------------------------------------
   // A scan answers a different question from a single probe, so it gets its own report: not "which
   // fields exist" but "what is the universe, and is every reading internally consistent".

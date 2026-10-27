@@ -152,7 +152,16 @@ test('THE WIRING: the snap is in the sizing engine, and the veto still owns the 
   assert.match(agg, /finalSize: execSize/, 'the recorded final size must be the SNAPPED one');
 });
 
-test('the correction to the doc that licensed the defect is on the record', () => {
+test('the correction to the doc that licensed the defect is on the record', (t) => {
+  // ⚠ THE SUBJECT IS AN INTERNAL RESEARCH NOTE, NOT A BUILD INPUT. `trading/docs/` is excluded from the delivery on
+  // purpose, so in a delivery tree this guard has nothing to read. It skips ONLY on the delivery's own declaration
+  // (`.delivery.json`), never on the file's absence — otherwise deleting the note would silence the guard, which is
+  // the cheapest possible way to defeat one.
+  const { deliveryExcludes, excludedReason } = require('./support/delivery');
+  if (deliveryExcludes('trading/docs')) {
+    t.skip(excludedReason('trading/docs'));
+    return;
+  }
   // The wrong belief was written down and is what let both the divergence and the defeated degrade hide:
   // "no rounding to a multiple is implemented — inventing a granularity the venue never stated".
   const mirror = read('trading/docs/INSTRUMENT_MIRROR.md');

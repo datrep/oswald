@@ -2,11 +2,16 @@
 //
 // Run: node trading/scripts/check-epoch-coverage.js [--json]
 //
-// It answers ONE question: **is there evidence of a behaviour change the registry does not cover?** Two evidence
-// sources, because neither is sufficient alone:
+// It answers ONE question: **is there evidence of a behaviour change the registry does not cover?** Three evidence
+// sources, because no two of them are sufficient:
 //   · `settings_write` rows on a POLICY key  — definite, precisely dated, and a BOUNDARY if unregistered;
 //   · `trading/**` file mtimes               — a proxy, and the only signal that catches a CODE-ONLY boundary
-//     such as EXE-19 (2026-10-02), which shipped with no task row and no settings write.
+//     such as EXE-19 (2026-10-02), which shipped with no task row and no settings write;
+//   · `sql/migrations/**` file mtimes       — added 2026-10-26. Migrations live OUTSIDE trading/ and are applied by
+//     the OWNER in SSMS, so neither of the first two can see one. Measured that day: 052 and 053 were applied
+//     across a declared freeze boundary and this script reported a clean window.
+//     ⚠ ADVISORY, AND FOR A REASON THAT MUST NOT BE FORGOTTEN: an mtime is when the file was WRITTEN, not when the
+//     DDL was APPLIED. It cannot be asserted as a boundary — only named so it cannot pass silently.
 // ⚠ `Tasks.completedAt` is deliberately NOT a boundary signal: 218 trading rows share 2026-09-30 because the whole
 // backlog was bulk-closed at once. It is reported as advisory, with that caveat attached to the number.
 'use strict';
@@ -20,12 +25,18 @@ const ROOT = path.join(__dirname, '..');
 const JSON_OUT = process.argv.includes('--json');
 
 // Every .js under trading/, excluding the vendored browser profile and the archive — neither is desk behaviour.
+// ⚠⚠ DOT-DIRECTORIES ARE SKIPPED AS A CLASS, NOT ONE AT A TIME. Measured 2026-10-27: the set named
+// `.chrome-profile` and the audit then reported `trading/.librewolf-profile/prefs.js` as a freeze breach — browser
+// churn from a second profile, not a change of behaviour. That is the permanently-red situation this file already
+// argues against for `kill.initialEquity`: a guard that fires on every browser launch is a guard nobody keeps, and
+// the next reader learns to ignore the whole section. `test/architecture-conformance.test.js` already walks with
+// `e.name.startsWith('.')` for the same reason, so this now matches that convention instead of naming an instance.
 function codeChanges() {
   const out = [];
-  const skip = new Set(['.chrome-profile', 'archive', 'node_modules', 'public']);
+  const skip = new Set(['archive', 'node_modules', 'public']);
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (skip.has(e.name)) continue;
+      if (e.name.startsWith('.') || skip.has(e.name)) continue;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
       else if (e.name.endsWith('.js')) out.push({ file: path.relative(ROOT, p), at: fs.statSync(p).mtime });
@@ -34,6 +45,24 @@ function codeChanges() {
   walk(ROOT);
   return out;
 }
+
+// `sql/migrations/**` — the schema substrate. Scanned non-recursively for `.sql`, which is the whole shape of that
+// directory by convention. A missing directory is NOT an error: it returns nothing, and the audit then says nothing
+// about schema rather than claiming there was none.
+function schemaChanges() {
+  const out = [];
+  const repo = path.join(ROOT, '..');
+  const dir = path.join(repo, 'sql', 'migrations');
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith('.sql')) continue;
+    const p = path.join(dir, e.name);
+    out.push({ file: path.relative(repo, p), at: fs.statSync(p).mtime });
+  }
+  return out;
+}
+
 
 (async () => {
   const pool = await getPool();
@@ -60,6 +89,7 @@ function codeChanges() {
     newestLandedAt: newest,
     settingsWrites,
     codeChanges: codeChanges(),
+    schemaChanges: schemaChanges(),
     closedTasks,
     freeze: epoch.POLICY_FREEZE || null,
   });

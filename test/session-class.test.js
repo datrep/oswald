@@ -48,8 +48,12 @@ test('★ the trade writer stamps the class at the ONE choke point', () => {
   const src = code('trading/store.js');
   assert.match(src, /sessionClassOf\(fields\.openAt \?\? new Date\(\)\)/,
     'createTrade must derive the class from the ENTRY time when the caller does not state it');
-  assert.match(src, /INSERT INTO Trades \([^)]*sessionClass\)/s, 'the column is in the INSERT');
-  assert.match(src, /@sessionClass\)/, 'and bound in the VALUES list');
+  // ⚠ THESE TWO PINS USED TO REQUIRE `sessionClass` TO BE THE LAST COLUMN (`sessionClass\)` / `@sessionClass\)`) —
+  // a fact about column ORDER, not about the class being written. Migration 055 appending `venueInstrumentId` after
+  // it broke both, which is the pin doing its job badly: the property worth keeping is that the column is INSERTed
+  // and BOUND, wherever it sits.
+  assert.match(src, /INSERT INTO Trades \([^)]*\bsessionClass\b/s, 'the column is in the INSERT');
+  assert.match(src, /VALUES \([^)]*@sessionClass\b/s, 'and bound in the VALUES list');
 });
 
 test('the stamp is entry-time only — closing must not rewrite a trade into another cohort', () => {

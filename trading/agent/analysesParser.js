@@ -59,10 +59,61 @@ function extractLevels(text, symbol) {
   return out;
 }
 
+// ⚠⚠ RANK, DO NOT TAKE THE FIRST MATCH. The first version scanned for ONE pattern and took the earliest matching
+// line, and every page of the premium hub opens with chrome:
+//
+//     1  Premium Market Analyses
+//     2  Your gateway to in-depth analysis and weekly trends.   <- contains "analysis", matched, PICKED
+//     3  Weekly Newsletter
+//     4  Instrument Analyses
+//     5  Breaking down the week ahead                           <- the actual heading
+//
+// Measured 2026-10-27 over the ledger: 80 of 163 rows carried that tagline as their title (58 instrument view, 22
+// weekly), and an instrument view put its real heading at line 7 ("Nasdaq 100 Intraday: Key Resistance Focus
+// 29787"). This is not cosmetic — `title` is the only identity an append-only analyses ledger has, and 58 rows
+// carrying 45 DIFFERENT analyses under one title is a corpus that cannot be partitioned.
+//
+// So the patterns are ranked. A strong marker (`intraday`, `outlook`, the weekly column name) always wins; the bare
+// word `analysis` is a fallback for a page whose heading uses no stronger word. ⚠ The venue's copy is NOT hardcoded:
+// a renamed tagline would simply stop matching, which is the correct failure, whereas a blacklist would rot silently.
+//
+// ⚠⚠ AND RANKING ALONE WAS NOT ENOUGH — the first version of this fix still failed its own test. When NO strong marker
+// exists there are two weak candidates, and the tagline is still first, so first-match-wins returns it again. The
+// discriminator that does not hardcode anything: **a heading is not a sentence.** The tagline ends in a full stop and
+// runs to nine words; every real heading in the captured corpus ends without sentence punctuation. Applied to the WEAK
+// tier only, and only as a preference — if every weak candidate reads as prose, the first is still returned rather than
+// nothing, because "thin page" is a fact `rawText` and `parseStatus` should carry, not one to hide behind a null.
+const TITLE_STRONG = /intraday|outlook|breaking down|week ahead/i;
+const TITLE_WEAK = /analysis/i;
+const READS_AS_PROSE = /[.!?]\s*$/;
+
+// ⚠⚠ THE STORED TITLES CANNOT BE REPAIRED BY RE-RUNNING THIS, AND THAT WAS MEASURED BEFORE ANYONE TRIED IT.
+// After the ranking fix the obvious next step is "re-derive the 80 bad titles from `rawText`" — the text is intact
+// and this function is pure. Measured 2026-10-27 over all 163 stored rows: re-deriving would change **156 of them**
+// and leave ONE unchanged. That is not a repair, it is a rewrite of the whole corpus by a heuristic, and two classes
+// come out demonstrably WRONG:
+//
+//   · 5 of 40 `weekly` rows whose `rawText` is actually an INSTRUMENT page — the capture stored the wrong view's
+//     text. Re-derivation then titles a weekly row with an instrument heading: more informative than the tagline it
+//     replaced, and still wrong. `parseAnalysis` cannot notice, because an explicit `view` DECIDES the kind (see the
+//     v1.2 note below), so the content never gets a vote.
+//   · single-line owner-screenshot text, where every "line" is the whole paragraph: the title becomes a 140-char
+//     prose slice, worse than the hand-written title that was stored.
+//
+// SO: NO BACKFILL (AGENTS.md §4 makes the ledger append-only anyway) AND NO `titleFor(row)` READ-TIME HELPER. Such a
+// helper would encode a rule that is wrong for both classes, and there is no consumer to justify it — the only reader
+// of this table is `store.countRecentAnalyses`, which returns `COUNT(*)` and never touches a title. If a consumer
+// ever needs these titles it must handle the two cases above, and that is a CAPTURE-TARGET question, not a parsing
+// one: the fix is in what the weekly sweep navigates to, not in this function.
 function extractTitle(text) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const pick = lines.find((l) => /intraday|analysis|outlook|breaking down|week ahead/i.test(l) && l.length <= 140);
-  if (pick) return pick.slice(0, 200);
+  const short = lines.filter((l) => l.length <= 140);
+  const strong = short.find((l) => TITLE_STRONG.test(l));
+  if (strong) return strong.slice(0, 200);
+  const weak = short.filter((l) => TITLE_WEAK.test(l));
+  const heading = weak.find((l) => !READS_AS_PROSE.test(l));
+  if (heading) return heading.slice(0, 200);
+  if (weak.length) return weak[0].slice(0, 200);
   return lines.length ? lines[0].slice(0, 200) : null;
 }
 

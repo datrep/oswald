@@ -32,6 +32,13 @@ trading/archive/
 trading/crash/
 trading/.concierge-state.json
 
+# Generated desk state, UNTRACKED 2026-10-27. The desk rewrites these on every wake, so tracking them dirtied the
+# tree continuously, and `desk-mirror.json` carries live equity and position data — publishing it would leak account
+# state. They are outputs, never sources; the HTML/JS beside them is tracked and unaffected.
+trading/public/bridge-state.json
+trading/public/bridge-state-graph.json
+trading/public/desk-mirror.json
+
 # Generated docs — ERD render output (SVGs + gallery page). Regenerate from
 # docs/ER_DIAGRAM.md per its "Regenerating the SVGs" section.
 docs/erd/

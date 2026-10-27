@@ -1,0 +1,21 @@
+{
+  "delivered": true,
+  "at": "2026-10-27T21:26:24.994Z",
+  "branch": "code-delivery",
+  "base": "origin/main",
+  "buildInputs": [
+    "AGENTS.md",
+    "docs/adr/ARCHITECTURE-DECISIONS.md"
+  ],
+  "excluded": [
+    "trading/docs",
+    "trading/data",
+    "trading/archive",
+    "trading/public/bridge-state.json",
+    "trading/public/bridge-state-graph.json",
+    "trading/public/desk-mirror.json",
+    "temp",
+    "legal",
+    "laptop"
+  ]
+}

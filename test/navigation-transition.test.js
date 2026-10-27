@@ -90,3 +90,31 @@ test('★ the probe response distinguishes "no contract" from "the page is blank
   assert.match(wt, /not evidence about the account/, 'a blank page must not be described as an account problem');
   assert.match(wt, /demo marker NOT found in \$\{text\.length\} chars of body text/, 'a real miss must report the length it searched');
 });
+
+// ── THE VENUE'S OWN NAME FOR COLUMN-0 ─────────────────────────────────────────────────────────────────────────
+//
+// ⚠ WHY. Migration 045 added `Instruments.unitAmountLabel` to hold THE VENUE'S OWN WORD for the stat box's
+// column-0. It was NULL on all 44 instruments for a month. The lookup matched a `listItems` entry whose VALUE
+// equalled the number — a route that cannot fire, because the venue does not repeat the number in its labelled
+// pair list. Measured live on 2026-10-27 (Gold, Soybeans, Silver): the stat box has a SIBLING with its own testid,
+// `sidebar.rates-and-values.column-0.label`, whose text is "Unit amount".
+//
+// ⚠ WHAT IT SETTLES: the desk calls this a MINIMUM TRADE SIZE, the venue calls it a UNIT AMOUNT. Different claims.
+// Recording their word is what lets a reader see that `minimum_trade_size` is OUR interpretation of their field.
+
+test('the probe reads column-0.label DIRECTLY, and only falls back to the coincidence match', () => {
+  const labelIdx = probe.indexOf('sidebar.rates-and-values.column-0.label');
+  assert.ok(labelIdx > 0, 'the label testid must be read — it was one selector away for a month');
+  // The ordered fallback: the testid is consulted BEFORE the listItems match, or the coincidence wins again.
+  const fallbackIdx = probe.indexOf('listItems.find');
+  assert.ok(fallbackIdx > 0, 'the fallback is kept for an older sidebar shape');
+  assert.ok(labelIdx < fallbackIdx, 'the direct read must come FIRST; the coincidence match is a fallback, not a peer');
+});
+
+test('the unit WORD is the venue\'s own, read from column-0.sub-value — it was never our classification', () => {
+  // ⚠ A CORRECTION TO AN EARLIER READING OF THIS CODE. `unitKind` looked like a desk-authored enum, so the ledger's
+  // `valueUnit` was reported as having no provenance. It is read straight off the page, which means "Troy Ounces" and
+  // "Bushels" ARE the venue's words. What was missing was the FIELD's name, not the unit's.
+  assert.ok(probe.includes("sPick('sidebar.rates-and-values.column-0.sub-value')"),
+    'the unit word must still be captured from the venue sub-value');
+});

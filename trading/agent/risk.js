@@ -625,7 +625,20 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
   const riskPerTrade = Number(risk.riskPerTradePct ?? 1) / 100;
   const minN = Number(risk.minStopToSpread ?? 3);
   const spread = proposal.spread != null && Number(proposal.spread) > 0 ? Number(proposal.spread) : null;
-  const stopDist = spread && minN > 0 ? Math.max(2 * atrV, minN * spread) : 2 * atrV;
+  // ★★ 2026-10-18: `risk.atrStopMultiple` WAS A DEAD DIAL — PRESENT IN SETTINGS, READ NOWHERE.
+  //
+  // It has been in `TradingSettings.risk` (value 2) since the schema, and this line hard-coded `2 * atrV`.
+  // So the one setting a reader would reach for to change stop width did nothing at all, while looking
+  // exactly like the dial that decides it. Measured 2026-10-19 across 17,868 historical breakouts: stop width
+  // is the single largest lever the desk has (mean net R improves monotonically from -0.105 at 2xATR to
+  // -0.017 at 8xATR, because cost-in-R = spread% / stop% and widening the stop is the only term that shrinks),
+  // so a dead dial on exactly that quantity is worse than no dial.
+  //
+  // ⚠ BEHAVIOUR-NEUTRAL AT ITS CURRENT VALUE. `atrStopMultiple` is 2 today, so `atrMultiple * atrV` is
+  // byte-identical to the `2 * atrV` it replaces; absent/invalid/non-positive falls back to 2 for the same
+  // reason (`minStopToSpread` above does the same). The change makes the setting REAL; it does not move a stop.
+  const atrMultiple = Number(risk.atrStopMultiple) > 0 ? Number(risk.atrStopMultiple) : 2;
+  const stopDist = spread && minN > 0 ? Math.max(atrMultiple * atrV, minN * spread) : atrMultiple * atrV;
   // TRD-102 (2026-09-19): SIZE AGAINST THE STOP THE VENUE WILL ACTUALLY USE.
   //
   // TRD-98 capped the venue stop in the entry path while sizing stayed on the declared 2xATR, so every
@@ -798,7 +811,7 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
   // ⚠ `notionalK === 1` MUST LEAVE EVERY NUMBER BELOW BYTE-IDENTICAL — the same discipline the notional sweep
   // was held to, and the reason every existing test still means what it always meant.
   let size = sizeForRisk(riskPerTrade, expectedLossDist);
-  if (spread && minN * spread > 2 * atrV) reasons.push(`stop widened to ${minN}x spread (${(minN * spread).toFixed(4)} > 2xATR ${(2 * atrV).toFixed(4)})`);
+  if (spread && minN * spread > atrMultiple * atrV) reasons.push(`stop widened to ${minN}x spread (${(minN * spread).toFixed(4)} > ${atrMultiple}xATR ${(atrMultiple * atrV).toFixed(4)})`);
   v.stopDistance = Math.round(stopDist * 10000) / 10000;
   // The risk unit the venue will actually enforce, and the cap's disposition — recorded, never inferred.
   v.effectiveStopDistance = Math.round(riskStopDist * 10000) / 10000;
@@ -972,6 +985,16 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
       minUnits: floor.resolved ? floor.resolved.minUnits : null,
       unitKind: floor.resolved ? floor.resolved.unitKind : null,
       instrumentClass: floor.resolved ? floor.resolved.instrumentClass : null,
+      // THE INSTRUMENT THIS FLOOR BELONGS TO, carried so the ENTRY can record it (migration 055). `resolve` already
+      // returned it and this block dropped it, which is why `constraintAudit` had to re-derive the id by symbol at
+      // audit time — a reconstruction, not a record.
+      venueInstrumentId: floor.resolved && floor.resolved.venueInstrumentId != null ? String(floor.resolved.venueInstrumentId) : null,
+      // PROVENANCE FOR A HUMAN READER, NOT FOR A CONTROL. This is the age of the fact the floor was derived from,
+      // and it stays because a later audit has to be able to ask "how old was that minimum when the desk sized against
+      // it" without re-reading the registry, which by then holds a newer row.
+      // NOTHING ACTS ON THIS FIELD (one write, zero reads). What acts on age is the chair prompt, via
+      // instruments.venueCostFacts -> specAgeHours -> costFactLines, which says UNVERIFIED past 168h. Before
+      // 2026-10-27 the field was written here and the prompt said nothing, so the age was computed and never judged.
       capturedAt: floor.resolved ? floor.resolved.capturedAt : null,
       // ★ L1 (rev 5, 2026-09-29) — THE VENUE'S CAPACITY, BESIDE THE VENUE'S FLOOR. DATA ONLY: no control
       // below reads these, and no size changes because of them. They are here because the desk has never
@@ -1143,6 +1166,7 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
     v.venueFloor = {
       ok: true, reason: 'floor_check_threw', detail: String(e.message || e).slice(0, 120),
       leverage: null, initialMarginPct: null, maintenanceMarginPct: null, purchasingPower: null,
+      venueInstrumentId: null,
     };
     reasons.push('venue minimum check threw — size not checked against the venue floor');
   }
@@ -1365,6 +1389,13 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
     // carry neither key, so they default to 1 and keep being audited against the formula they were sized by.
     fx: Number(fx) > 0 ? Number(fx) : 1,
     pointValue: Number(pointValue) > 0 ? Number(pointValue) : 1,
+    // ★ 2026-10-18: THE STOP MULTIPLE THE SIZE WAS BUILT FROM, WRITTEN DOWN.
+    // The self-health contract `field_risk_unit` re-derives this size from the record. Without this field it has
+    // to assume a multiple, and an assumed multiple is wrong in whichever era it is not: the check reported
+    // "sizing arithmetic drifted: baseSize 2.022 vs 4.044" on the first ticket after `atrStopMultiple` was wired
+    // and moved to 4, when the size was exactly right. Carried per-row so each decision is audited against the
+    // geometry it was actually sized by, not against whatever the setting says today.
+    atrMultiple,
     // ★ TRD-EXE-10: the measured gap between where the stop SITS and what the loss COSTS. `effectiveStopDistance`
     // is the level the venue receives; `expectedLossDistance` is that level times the measured fill factor and is
     // what the size and `resolvedRiskPct` are computed from.
@@ -1372,7 +1403,10 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
     expectedLossDistance: Math.round(expectedLossDist * 10000) / 10000,
     // ★ TRD-EXE-19: `notionalK` rides here too. This field is "what the dial wanted", and a dial that ignores
     // the contract's own scale is not the number the size above was derived from.
-    baseSize: Math.round(sizeForRisk(Number(risk.riskPerTradePct ?? 1) / 100, 2 * atrV) * 10000) / 10000,
+    // ⚠ 2026-10-18: reads the SAME `atrMultiple` the stop above was built from. Hard-coding 2 here would have
+    // made this diagnostic disagree with the decision it describes the moment `atrStopMultiple` stopped being 2,
+    // which is the "two numbers for one quantity" defect this file already documents twice.
+    baseSize: Math.round(sizeForRisk(Number(risk.riskPerTradePct ?? 1) / 100, atrMultiple * atrV) * 10000) / 10000,
     runInFactor: runInFactorFor(proposal.strategy, settings),
     strategyFactor: proposal.strategy === 'meanrev' || proposal.strategy === 'rsi2' ? 0.5 : 1,
     cappedAtPct,
@@ -1406,7 +1440,7 @@ async function evaluate(userId, settings, proposal, openTrades, closedTrades = [
 async function ratchetBaseline(userId, settings, equity) {
   const base = Number(settings.kill?.initialEquity);
   if (!Number.isFinite(base) || !Number.isFinite(equity) || equity <= base) return { ratcheted: false };
-  await store.saveSettings(userId, { kill: { initialEquity: +equity.toFixed(2) } });
+  await store.saveSettings(userId, { kill: { initialEquity: +equity.toFixed(2) } }, { by: 'machine' });
   await store.logEvent(userId, 'telemetry', { source: 'hwm_baseline', from: base, to: +equity.toFixed(2) });
   return { ratcheted: true, from: base, to: +equity.toFixed(2) };
 }

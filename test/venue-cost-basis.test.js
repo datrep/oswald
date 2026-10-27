@@ -161,8 +161,34 @@ test('the chair is told what the venue charges, per side, with the legend that m
   assert.match(text, /Gold: min size 0\.025 Troy Ounces/);
   assert.match(text, /overnight funding buy -0\.0319% \/ sell -0\.012% @ 5:00 AM/);
   assert.match(text, /leverage 1:5 \(initial margin 20%\)/);
-  // And an open-market spread that does not exist says WHY, rather than showing nothing.
-  assert.match(text, /no open-market capture — NOT usable as a cost/);
+  // ⚠ THIS ASSERTED `no open-market capture — NOT usable as a cost` UNTIL 2026-10-27, AND THAT SENTENCE BECAME
+  // FALSE: the desk has a cost basis for every watchlist symbol (a curated constant), so "no live capture" is not
+  // "no cost". The property worth keeping is that an ABSENT basis NAMES ITSELF rather than rendering as blank.
+  assert.match(text, /cost spread UNKNOWN - no cost basis resolved/);
+});
+
+test('★ with a cost model, the line quotes the number the RISK GATE uses and labels its population', () => {
+  const lines = ins.costFactLines({
+    Gold: { ...GOLD_FACTS.Gold, costModel: { spreadHalfPct: 0.0097, slippagePct: 0.05, spreadBasis: 'tick_history_p75', version: 'v3-venue' } },
+    'Natural Gas': { ...GOLD_FACTS.Gold, symbol: 'Natural Gas', costModel: { spreadHalfPct: 0.1, slippagePct: 0.05, spreadBasis: 'flat_default', version: 'v3-venue' } },
+  });
+  const text = lines.join('\n');
+  assert.match(text, /cost spread 0\.0097% per side \+ 0\.05% slippage \(p75 of the desk's own two-sided ticks\)/);
+  // A placeholder must not be able to pass for a measurement.
+  assert.match(text, /0\.1% per side \+ 0\.05% slippage \(PLACEHOLDER, not a measurement\)/);
+  assert.doesNotMatch(text, /NOT usable as a cost/);
+});
+
+test('a live capture is CORROBORATION when both exist — never the answer', () => {
+  const lines = ins.costFactLines({
+    Gold: {
+      ...GOLD_FACTS.Gold, spreadValue: 2.89, spreadHalfPct: 0.0332, spreadMid: 4347.63, spreadBasis: 'open_market_capture',
+      costModel: { spreadHalfPct: 0.0097, slippagePct: 0.05, spreadBasis: 'tick_history_p75', version: 'v3-venue' },
+    },
+  });
+  const text = lines.join('\n');
+  assert.match(text, /cost spread 0\.0097% per side/);
+  assert.match(text, /venue capture 0\.0332% half-spread of 4347\.63 \(corroboration\)/);
 });
 
 test('no facts says UNKNOWN, not zero', () => {
@@ -180,6 +206,30 @@ test('a live spread is rendered as a half-spread percentage, the unit the model 
   const text = lines.join('\n');
   assert.match(text, /spread 2\.89 \(half-spread 0\.0332% of 4347\.63\)/);
   assert.equal(/no open-market capture/.test(text), false);
+});
+
+// ⚠ THE SPEC HAD NO AGE GATE WHILE THE QUOTE HAD A 72h ONE. A quote older than `maxQuoteAgeHours` is refused and the
+// prompt says "NOT usable as a cost"; the instrument SPEC — min size, funding per side, leverage — had no equivalent
+// and no wording at all. Measured 2026-10-28: the registry's newest row was 2026-10-01, so every one of these numbers
+// was 27 days old and every one of them read as live.
+test('★ a stale spec is DISCLOSED on the line the numbers appear on', () => {
+  const lines = ins.costFactLines({ Gold: { ...GOLD_FACTS.Gold, specAgeHours: 27 * 24 } });
+  const text = lines.join('\n');
+  assert.match(text, /SPECS 648h OLD/);
+  assert.match(text, /UNVERIFIED/);
+  // The numbers stay. Hiding them would leave the chairs with nothing where they had something — a different and
+  // worse silence than the one this is fixing.
+  assert.match(text, /min size 0\.025 Troy Ounces/);
+});
+
+test('a fresh, unknown or exactly-at-threshold spec says nothing extra — the warning must not cry wolf', () => {
+  const line = (h) => ins.costFactLines({ Gold: { ...GOLD_FACTS.Gold, specAgeHours: h } }).join('\n');
+  assert.doesNotMatch(line(5), /SPECS/);
+  assert.doesNotMatch(line(null), /SPECS/);
+  // Exactly 168h is NOT stale: the rule is "older than a week", and an off-by-one here would flag a refresh that ran
+  // exactly on schedule and teach the reader to ignore the marker.
+  assert.doesNotMatch(line(ins.MAX_SPEC_AGE_HOURS), /SPECS/);
+  assert.match(line(ins.MAX_SPEC_AGE_HOURS + 1), /SPECS/);
 });
 
 // --- structural ------------------------------------------------------------------

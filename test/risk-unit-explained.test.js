@@ -219,6 +219,9 @@ test('an unmeasurable row is named as unmeasurable, never silently counted as fi
 });
 
 test('the contract no longer hardcodes the atr derivation for the gap', () => {
-  assert.match(contracts, /const got = riskUnitRealised\(s, \{ stopMultiple \}\);/);
+  // ⚠ THE RULE IS "GOES THROUGH riskUnitRealised", NOT "PASSES A VARIABLE CALLED stopMultiple". The old pattern
+  // spelled the argument out, so it failed on 2026-10-18 when the stop multiple started travelling per row
+  // (`{ stopMultiple: multiple }`) — a change that made the audit era-correct rather than less so.
+  assert.match(contracts, /const got = riskUnitRealised\(s, \{/);
   assert.doesNotMatch(contracts, /const realisedPct = pct\(Number\(s\.finalSize\) \* stopDist/);
 });

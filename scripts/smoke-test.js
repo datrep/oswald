@@ -38,6 +38,11 @@ let HTTP_PORT = 4099;
 let HTTPS_PORT = 4499;
 let BASE = `http://127.0.0.1:${HTTP_PORT}`;
 let child = null;
+// ★ 2026-10-27 — THE CHILD'S OUTPUT IS KEPT, BECAUSE `stdio: 'ignore'` MADE EVERY BOOT FAILURE CURSELESS.
+// Measured that day: `npm test` reported "test server did not become ready on http://127.0.0.1:11870" and exit 1,
+// while the actual cause — whatever the spawned server wrote on its way down — had been thrown away by the harness.
+// A failure that cannot state its reason is AGENTS.md §7 inside the tooling that checks for it.
+let childOut = '';
 
 const ADMIN_PERMS = [
   'files.admin', 'files.read', 'files.write', 'mcp.manage', 'monitoring.manage',
@@ -128,8 +133,10 @@ async function boot() {
   } catch { /* keep legacy fixed ports */ }
   child = spawn(process.execPath, ['server.js'], {
     env: { ...process.env, PORT: String(HTTP_PORT), HTTPS_PORT: String(HTTPS_PORT), SERVER_HOST: '127.0.0.1', SMOKE_TEST: '1' },
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
+  child.stdout.on('data', (c) => { childOut += c; });
+  child.stderr.on('data', (c) => { childOut += c; });
 }
 
 async function waitReady(timeoutMs = 8000) {
@@ -476,6 +483,9 @@ async function run() {
   } catch { /* ignore */ }
   if (!ready) {
     console.error('FATAL: test server did not become ready on', BASE);
+    // ⚠ THE REASON, not just the symptom. Before this, the only evidence was the port and the word "FATAL".
+    if (childOut.trim()) console.error('--- spawned server output (tail) ---\n' + childOut.slice(-1500));
+    else console.error('--- spawned server produced NO output at all (it died before writing anything) ---');
     process.exitCode = 1;
     if (child) child.kill();
     return;
